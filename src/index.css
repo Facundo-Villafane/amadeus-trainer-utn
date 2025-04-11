@@ -1,0 +1,40 @@
+@import "tailwindcss";
+
+
+@theme {
+    --color-amadeus-primary: #0070cd;
+    --color-amadeus-secondary: #003b71;
+    --color-amadeus-dark: #001e45;
+    --color-amadeus-light: #e0eeff;
+    --color-amadeus-accent: #ffb700;
+
+    --font-mono: 'Courier New', Courier, monospace;
+}
+
+@layer base {
+    body {
+      @apply bg-gray-100 text-gray-900;
+    }
+  }
+  
+  @layer components {
+    .btn {
+      @apply px-4 py-2 rounded font-medium transition duration-200;
+    }
+    
+    .btn-primary {
+      @apply bg-amadeus-primary text-white hover:bg-amadeus-secondary;
+    }
+    
+    .btn-secondary {
+      @apply bg-gray-200 text-gray-800 hover:bg-gray-300;
+    }
+  
+    .terminal {
+      @apply font-mono bg-black text-green-400 p-4 rounded-md;
+    }
+  
+    .input {
+      @apply w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amadeus-primary;
+    }
+  }
