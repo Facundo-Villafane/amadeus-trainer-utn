@@ -19,6 +19,7 @@ import Help from './pages/Help';
 // Páginas de administrador
 import AdminUsers from './pages/admin/Users';
 import AdminSettings from './pages/admin/Settings';
+import AdminFlights from './pages/admin/Flights';
 
 // Páginas de error
 import NotFound from './pages/NotFound';
@@ -125,6 +126,14 @@ export default function App() {
           element={
             <AdminRoute>
               <AdminSettings />
+            </AdminRoute>
+          } 
+        />
+        <Route 
+          path="/admin/flights" 
+          element={
+            <AdminRoute>
+              <AdminFlights />
             </AdminRoute>
           } 
         />
