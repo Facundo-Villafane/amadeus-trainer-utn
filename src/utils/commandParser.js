@@ -102,46 +102,22 @@ export async function commandParser(command) {
   return `Comando desconocido: ${cmd}. Ingrese HELP para ver los comandos disponibles.`;
 }
 
+// Función mejorada para calcular días restantes
 function calculateDaysLeft(dateStr) {
   try {
     // Si no hay fecha en el comando, devolver 0
-    if (!dateStr || dateStr.length < 5) {
-      console.log("No hay fecha en el comando");
+    if (!dateStr) {
       return 0;
     }
 
-    // Extraer información de la fecha del comando
-    console.log("Fecha del comando:", dateStr);
-    
-    // La fecha puede venir en formato DDMMM o en un formato que empiece con dígitos
-    // y luego tenga el código de origen
-    let day, monthStr;
-    
-    // Si la parte de fecha tiene 5 caracteres (DDMMM), extraer directamente
-    if (dateStr.length >= 5 && /^\d{2}[A-Z]{3}/.test(dateStr.substring(0, 5))) {
-      day = parseInt(dateStr.substring(0, 2), 10);
-      monthStr = dateStr.substring(2, 5).toUpperCase();
-    } else {
-      // Si no, intentar buscar dígitos al principio (puede ser solo 1 o 2 dígitos)
-      const dayMatch = dateStr.match(/^(\d{1,2})/);
-      if (dayMatch) {
-        day = parseInt(dayMatch[1], 10);
-        // Intentar extraer las 3 letras siguientes como mes
-        const remainingStr = dateStr.substring(dayMatch[1].length);
-        if (remainingStr.length >= 3) {
-          monthStr = remainingStr.substring(0, 3).toUpperCase();
-        } else {
-          console.log("Formato de mes no reconocido");
-          return 0;
-        }
-      } else {
-        console.log("No se pudo extraer el día");
-        return 0;
-      }
+    // Extraer día y mes con una expresión regular más flexible
+    const dateMatch = /^(\d{1,2})([A-Z]{3})/i.exec(dateStr);
+    if (!dateMatch) {
+      return 0;
     }
     
-    console.log("Día extraído:", day);
-    console.log("Mes extraído:", monthStr);
+    const day = parseInt(dateMatch[1], 10);
+    const monthStr = dateMatch[2].toUpperCase();
     
     // Mapeo de nombres de meses a números
     const monthMap = {
@@ -150,7 +126,6 @@ function calculateDaysLeft(dateStr) {
     };
     
     if (!monthMap.hasOwnProperty(monthStr)) {
-      console.log("Mes no válido:", monthStr);
       return 0; // Mes no válido
     }
     
@@ -163,27 +138,22 @@ function calculateDaysLeft(dateStr) {
     // Crear fecha objetivo (primero asumimos el año actual)
     let targetDate = new Date(currentYear, month, day);
     
-    // Log para depuración
-    console.log("Fecha actual:", currentDate);
-    console.log("Fecha objetivo calculada:", targetDate);
-    
     // Si la fecha ya pasó este año, sumar un año
     if (targetDate < currentDate) {
       targetDate = new Date(currentYear + 1, month, day);
-      console.log("Fecha ajustada al próximo año:", targetDate);
     }
     
     // Calcular la diferencia en días
     const timeDiff = targetDate.getTime() - currentDate.getTime();
     const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
     
-    console.log("Días de diferencia calculados:", daysDiff);
     return daysDiff;
   } catch (error) {
     console.error("Error al calcular días restantes:", error);
     return 0; // En caso de error, devolver 0
   }
 }
+
 
 // Función para manejar el comando "Move Down" (MD o M)
 async function handleMoveDown() {
@@ -513,7 +483,7 @@ function getDefaultDestinationInfo(destinationCode) {
   return airportInfo[destinationCode] || { city: destinationCode, countryCode: 'XX' };
 }
 
-// Función para generar la cabecera correcta del comando AN
+// Versión actualizada de generateANHeader
 async function generateANHeader(destination, origin, dateStr) {
   // Obtener la fecha actual
   const now = new Date();
@@ -522,13 +492,13 @@ async function generateANHeader(destination, origin, dateStr) {
   const weekdays = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
   const dayOfWeek = weekdays[now.getDay()];
   
-  // Formatear la fecha (DDMMM)
+  // Formatear la fecha actual (DDMMM)
   const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
   const day = String(now.getDate()).padStart(2, '0');
   const month = months[now.getMonth()];
   const formattedDate = `${day}${month}`;
   
-  // Formatear la hora (HHMM)
+  // Formatear la hora actual (HHMM)
   const hours = String(now.getHours()).padStart(2, '0');
   const minutes = String(now.getMinutes()).padStart(2, '0');
   const formattedTime = `${hours}${minutes}`;
@@ -543,42 +513,80 @@ async function generateANHeader(destination, origin, dateStr) {
   return `** AMADEUS AVAILABILITY - AN ** ${destination} ${destinationInfo.city}.${destinationInfo.countryCode} ${daysLeft} ${dayOfWeek} ${formattedDate} ${formattedTime}`;
 }
 
+// Expresión regular mejorada para los comandos AN
+// Esta versión captura correctamente todos los componentes incluso con días de un solo dígito
+function parseANCommand(cmd) {
+  // Expresión regular que captura grupos específicos para facilitar la extracción
+  // Grupo 1: Fecha completa (opcional)
+  // Grupo 2: Día (1 o 2 dígitos)
+  // Grupo 3: Mes (3 letras)
+  // Grupo 4: Origen (3 letras)
+  // Grupo 5: Destino (3 letras)
+  // Grupo 6: Opciones (opcional, como /AAR)
+  const regex = /AN((\d{1,2})([A-Z]{3}))?([A-Z]{3})([A-Z]{3})(\/.+)?/i;
+  const match = cmd.match(regex);
+  
+  if (!match) {
+    return {
+      isValid: false,
+      error: "Formato incorrecto. Ejemplo: AN15NOVBUEMAD"
+    };
+  }
+  
+  // Extraer componentes
+  let dateStr = null;
+  if (match[2] && match[3]) {
+    // Reconstruir la fecha correctamente
+    dateStr = match[2] + match[3].toUpperCase();
+  }
+  
+  const origin = match[4];
+  const destination = match[5];
+  const options = match[6] || '';
+  
+  return {
+    isValid: true,
+    dateStr,
+    origin,
+    destination,
+    options
+  };
+}
+
 // Función para manejar el comando de disponibilidad (AN)
 async function handleAvailabilityCommand(cmd) {
   try {
     // Guardar el comando actual para paginación
     paginationState.currentCommand = cmd;
     
-    // Limpiar historial de paginación
+    // Limpiar historial de paginación y reiniciar contador
     paginationState.previousPages = [];
     paginationState.currentIndex = 1;
     
-    // Extraer la información del comando
-    // Formato esperado: AN[FECHA][ORIGEN][DESTINO][/OPCIONES]
-    const regex = /AN(\d{0,2}[A-Z]{3})?([A-Z]{3})([A-Z]{3})(\/.+)?/;
-    const match = cmd.match(regex);
+    // Usar el nuevo parser para extraer componentes del comando
+    const parsedCommand = parseANCommand(cmd);
     
-    if (!match) {
-      return "Formato incorrecto. Ejemplo: AN15NOVBUEMAD";
+    if (!parsedCommand.isValid) {
+      return parsedCommand.error;
     }
     
-    const [, dateStr, origin, destination, optionsStr] = match;
+    const { dateStr, origin, destination, options } = parsedCommand;
     
     // Analizar opciones si existen
     let airline = '';
     let flightClass = '';
     
-    if (optionsStr) {
+    if (options) {
       // Opción de aerolínea: /AAR (Aerolíneas Argentinas)
-      const airlineMatch = optionsStr.match(/\/A([A-Z]{2})/);
+      const airlineMatch = options.match(/\/A([A-Z]{2})/i);
       if (airlineMatch) {
-        airline = airlineMatch[1];
+        airline = airlineMatch[1].toUpperCase();
       }
       
       // Opción de clase: /CJ (Clase J)
-      const classMatch = optionsStr.match(/\/C([A-Z])/);
+      const classMatch = options.match(/\/C([A-Z])/i);
       if (classMatch) {
-        flightClass = classMatch[1];
+        flightClass = classMatch[1].toUpperCase();
       }
     }
     
@@ -590,15 +598,6 @@ async function handleAvailabilityCommand(cmd) {
       where('departure_airport_code', '==', origin),
       where('arrival_airport_code', '==', destination)
     );
-    
-    // Si hay fecha específica en el comando, filtrar por fecha
-    if (dateStr && dateStr.length >= 5) {
-      // Extraer día y mes de dateStr (formato: DDMMM)
-      const day = dateStr.substring(0, 2);
-      const month = dateStr.substring(2, 5);
-      
-      // TODO: Convertir a formato de fecha en tu base de datos si es necesario
-    }
     
     // Si se especificó aerolínea, filtrar por aerolínea
     if (airline) {
@@ -628,8 +627,8 @@ async function handleAvailabilityCommand(cmd) {
     // Si hay exactamente `pageSize` resultados, verificar si hay más resultados
     const hasMoreResults = querySnapshot.docs.length === paginationState.pageSize;
     
-    // Generar la cabecera
-    const header = await generateANHeader(destination, origin);
+    // Generar la cabecera con la fecha extraída del comando
+    const header = await generateANHeader(destination, origin, dateStr);
     let response = `${header}\n`;
     
     // Procesar resultados
