@@ -1,13 +1,39 @@
-// src/utils/commandParser.js
-import { getFirestore, collection, doc, getDoc, getDocs, query, where, addDoc, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
+// src/utils/commandParser.js - Versión completa con paginación
+
 import { db } from '../services/firebase';
+import { collection, query, where, getDocs, orderBy, limit, startAfter, addDoc, updateDoc, deleteDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { generatePNR } from './pnrGenerator';
-import mockData from '../data/mockData';
+import countries from 'i18n-iso-countries';
+import enLocale from 'i18n-iso-countries/langs/en.json';
+import esLocale from 'i18n-iso-countries/langs/es.json';
+
+// Inicializar la librería con los idiomas que necesitas
+countries.registerLocale(enLocale);
+countries.registerLocale(esLocale);
+
+// Variable global para almacenar el estado de la paginación
+const paginationState = {
+  currentCommand: '',    // Comando actual (ej: ANBUEMAD)
+  lastVisible: null,     // Último documento visible para "Move Down"
+  previousPages: [],     // Historial de páginas para "Move Up"
+  pageSize: 5,           // Número de vuelos por página
+  currentResults: [],     // Resultados actuales para mostrar
+  currentIndex: 1        // Contador para la numeración continua
+};
 
 // Función para analizar y ejecutar comandos
 export async function commandParser(command) {
   // Convertir a mayúsculas y eliminar espacios al inicio y al final
   const cmd = command.trim().toUpperCase();
+  
+  // Comandos de paginación
+  if (cmd === 'MD' || cmd === 'M') {
+    return await handleMoveDown();
+  }
+  
+  if (cmd === 'U') {
+    return await handleMoveUp();
+  }
   
   // Comandos de ayuda
   if (cmd === 'HELP' || cmd === 'HE') {
@@ -21,35 +47,35 @@ export async function commandParser(command) {
   
   // Comando de despliegue de disponibilidad AN
   if (cmd.startsWith('AN')) {
-    return handleAvailabilityCommand(cmd);
+    return await handleAvailabilityCommand(cmd);
   }
   
   // Comando de despliegue de horarios SN
   if (cmd.startsWith('SN')) {
-    return handleScheduleCommand(cmd);
+    return await handleScheduleCommand(cmd);
   }
   
   // Comando de despliegue de frecuencias TN
   if (cmd.startsWith('TN')) {
-    return handleTimetableCommand(cmd);
+    return await handleTimetableCommand(cmd);
   }
   
   // Comandos de codificación y decodificación
   if (cmd.startsWith('DAN')) {
-    return handleEncodeCity(cmd);
+    return await handleEncodeCity(cmd);
   }
   
   if (cmd.startsWith('DAC')) {
-    return handleDecodeCity(cmd);
+    return await handleDecodeCity(cmd);
   }
   
   if (cmd.startsWith('DNA')) {
-    return handleEncodeAirline(cmd);
+    return await handleEncodeAirline(cmd);
   }
   
   // Comandos para PNR
   if (cmd.startsWith('SS')) {
-    return handleSellSegment(cmd);
+    return await handleSellSegment(cmd);
   }
   
   if (cmd.startsWith('NM')) {
@@ -69,130 +95,590 @@ export async function commandParser(command) {
   }
   
   if (cmd.startsWith('RT')) {
-    return handleRetrievePNR(cmd);
+    return await handleRetrievePNR(cmd);
   }
   
   // Si no coincide con ningún comando conocido
   return `Comando desconocido: ${cmd}. Ingrese HELP para ver los comandos disponibles.`;
 }
 
-// Función para generar el texto de ayuda
-function generateHelpText() {
-  return `
-COMANDOS DISPONIBLES:
+function calculateDaysLeft(dateStr) {
+  try {
+    // Si no hay fecha en el comando, devolver 0
+    if (!dateStr || dateStr.length < 5) {
+      console.log("No hay fecha en el comando");
+      return 0;
+    }
 
-AYUDA:
-HE                      Despliega este mensaje de ayuda
-HE[COMANDO]             Ayuda específica sobre un comando
-
-CODIFICACIÓN/DECODIFICACIÓN:
-DAN[CIUDAD]             Codificar ciudad/aeropuerto
-DAC[CÓDIGO]             Decodificar ciudad/aeropuerto
-DNA[AEROLÍNEA]          Codificar aerolínea
-
-DISPONIBILIDAD:
-AN[FECHA][ORIGEN][DESTINO]          Disponibilidad de vuelos
-SN[FECHA][ORIGEN][DESTINO]          Horarios de vuelos
-TN[FECHA][ORIGEN][DESTINO]          Frecuencias de vuelos
-
-PNR:
-SS[ASIENTOS][CLASE][LÍNEA]          Seleccionar asientos
-NM[CANTIDAD][APELLIDO]/[NOMBRE]     Agregar nombre
-AP [CIUDAD] [TELÉFONO]              Agregar teléfono de contacto
-RF[NOMBRE]                          Recibido de
-ET                                  Finalizar transacción
-RT[LOCALIZADOR]                     Recuperar PNR
-
-Para más detalles sobre un comando específico, escriba HE seguido del comando (ejemplo: HEAN)
-`;
-}
-
-// Función para manejar el comando de ayuda (HE)
-function handleHelpCommand(cmd) {
-  const subCommand = cmd.slice(2).trim();
-  
-  // Ayuda específica para cada comando
-  switch (subCommand) {
-    case 'AN':
-      return `
-AN - Despliegue de Disponibilidad Neutral
-
-Formato: AN[FECHA][ORIGEN][DESTINO][/OPCIONES]
-
-Ejemplos:
-AN15NOVBUEMAD         Disponibilidad para el 15 de noviembre de Buenos Aires a Madrid
-AN15NOVBUEMAD/AAR     Disponibilidad con la aerolínea AR (Aerolíneas Argentinas)
-AN15NOVBUEMAD/CJ      Disponibilidad en clase J
-AN15NOVBUEMAD*20NOV   Disponibilidad ida y vuelta
-`;
+    // Extraer información de la fecha del comando
+    console.log("Fecha del comando:", dateStr);
     
-    case 'SS':
-      return `
-SS - Selección de Asientos (Venta de Segmentos)
-
-Formato: SS[CANTIDAD][CLASE][LÍNEA]
-
-Ejemplos:
-SS1Y1                 Selecciona 1 asiento en clase Y de la línea 1
-SS2J3                 Selecciona 2 asientos en clase J de la línea 3
-`;
+    // La fecha puede venir en formato DDMMM o en un formato que empiece con dígitos
+    // y luego tenga el código de origen
+    let day, monthStr;
     
-    case 'NM':
-      return `
-NM - Nominación de Lugares (Agregar Nombres)
-
-Formato: NM[CANTIDAD][APELLIDO]/[NOMBRE] [TITULO]
-
-Ejemplos:
-NM1GARCIA/JUAN MR                       Agrega un pasajero adulto
-NM2PEREZ/MARIA MRS/PEDRO MR             Agrega dos pasajeros con el mismo apellido
-NM1LOPEZ/ANA(CHD/01JAN15)               Agrega un niño con fecha de nacimiento
-NM1RODRIGUEZ/MARIA(INFGARCIA/LUIS/01JAN20)  Agrega un adulto con un infante
-`;
+    // Si la parte de fecha tiene 5 caracteres (DDMMM), extraer directamente
+    if (dateStr.length >= 5 && /^\d{2}[A-Z]{3}/.test(dateStr.substring(0, 5))) {
+      day = parseInt(dateStr.substring(0, 2), 10);
+      monthStr = dateStr.substring(2, 5).toUpperCase();
+    } else {
+      // Si no, intentar buscar dígitos al principio (puede ser solo 1 o 2 dígitos)
+      const dayMatch = dateStr.match(/^(\d{1,2})/);
+      if (dayMatch) {
+        day = parseInt(dayMatch[1], 10);
+        // Intentar extraer las 3 letras siguientes como mes
+        const remainingStr = dateStr.substring(dayMatch[1].length);
+        if (remainingStr.length >= 3) {
+          monthStr = remainingStr.substring(0, 3).toUpperCase();
+        } else {
+          console.log("Formato de mes no reconocido");
+          return 0;
+        }
+      } else {
+        console.log("No se pudo extraer el día");
+        return 0;
+      }
+    }
     
-    default:
-      return `No se encontró ayuda para el comando: ${subCommand}`;
+    console.log("Día extraído:", day);
+    console.log("Mes extraído:", monthStr);
+    
+    // Mapeo de nombres de meses a números
+    const monthMap = {
+      'JAN': 0, 'FEB': 1, 'MAR': 2, 'APR': 3, 'MAY': 4, 'JUN': 5,
+      'JUL': 6, 'AUG': 7, 'SEP': 8, 'OCT': 9, 'NOV': 10, 'DEC': 11
+    };
+    
+    if (!monthMap.hasOwnProperty(monthStr)) {
+      console.log("Mes no válido:", monthStr);
+      return 0; // Mes no válido
+    }
+    
+    const month = monthMap[monthStr];
+    
+    // Obtener la fecha actual
+    const currentDate = new Date();
+    const currentYear = currentDate.getFullYear();
+    
+    // Crear fecha objetivo (primero asumimos el año actual)
+    let targetDate = new Date(currentYear, month, day);
+    
+    // Log para depuración
+    console.log("Fecha actual:", currentDate);
+    console.log("Fecha objetivo calculada:", targetDate);
+    
+    // Si la fecha ya pasó este año, sumar un año
+    if (targetDate < currentDate) {
+      targetDate = new Date(currentYear + 1, month, day);
+      console.log("Fecha ajustada al próximo año:", targetDate);
+    }
+    
+    // Calcular la diferencia en días
+    const timeDiff = targetDate.getTime() - currentDate.getTime();
+    const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
+    
+    console.log("Días de diferencia calculados:", daysDiff);
+    return daysDiff;
+  } catch (error) {
+    console.error("Error al calcular días restantes:", error);
+    return 0; // En caso de error, devolver 0
   }
 }
 
-// Función para manejar el comando de disponibilidad (AN)
-function handleAvailabilityCommand(cmd) {
-  // Implementación simplificada de AN usando datos mock
+// Función para manejar el comando "Move Down" (MD o M)
+async function handleMoveDown() {
   try {
+    // Verificar si hay un comando actual
+    if (!paginationState.currentCommand) {
+      return "No hay resultados previos para avanzar. Primero ejecute un comando AN/SN/TN.";
+    }
+    
+    // Verificar si hay más resultados
+    if (!paginationState.lastVisible) {
+      return "No hay más resultados para mostrar.";
+    }
+    
+    // Guardar el estado actual para poder volver atrás (incluir el índice actual)
+    paginationState.previousPages.push({
+      results: [...paginationState.currentResults],
+      lastVisible: paginationState.lastVisible,
+      startIndex: paginationState.currentIndex - paginationState.currentResults.length // Guardar el índice inicial
+    });
+
+    // Actualizar el índice inicial para la siguiente página
+    paginationState.currentIndex += paginationState.currentResults.length;
+    
+    // Extraer la información del comando
+    const cmd = paginationState.currentCommand;
+    
     // Extraer la información del comando
     // Formato esperado: AN[FECHA][ORIGEN][DESTINO][/OPCIONES]
-    const regex = /AN(\d{1,2}[A-Z]{3})?([A-Z]{3})([A-Z]{3})(\/.+)?/;
+    const regex = /AN(\d{0,2}[A-Z]{3})?([A-Z]{3})([A-Z]{3})(\/.+)?/;
+    const match = cmd.match(regex);
+    
+    if (!match) {
+      return "Error al procesar el comando guardado.";
+    }
+    
+    const [, dateStr, origin, destination, optionsStr] = match;
+    
+    // Analizar opciones si existen
+    let airline = '';
+    let flightClass = '';
+    
+    if (optionsStr) {
+      // Opción de aerolínea: /AAR (Aerolíneas Argentinas)
+      const airlineMatch = optionsStr.match(/\/A([A-Z]{2})/);
+      if (airlineMatch) {
+        airline = airlineMatch[1];
+      }
+      
+      // Opción de clase: /CJ (Clase J)
+      const classMatch = optionsStr.match(/\/C([A-Z])/);
+      if (classMatch) {
+        flightClass = classMatch[1];
+      }
+    }
+    
+    // Construir consulta a Firebase
+    let flightsQuery = query(collection(db, 'flights'));
+    
+    // Filtrar por origen y destino
+    flightsQuery = query(flightsQuery, 
+      where('departure_airport_code', '==', origin),
+      where('arrival_airport_code', '==', destination)
+    );
+    
+    // Si hay fecha específica en el comando, filtrar por fecha
+    if (dateStr && dateStr.length >= 5) {
+      // Extraer día y mes de dateStr (formato: DDMMM)
+      const day = dateStr.substring(0, 2);
+      const month = dateStr.substring(2, 5);
+      
+      // TODO: Convertir a formato de fecha en tu base de datos si es necesario
+    }
+    
+    // Si se especificó aerolínea, filtrar por aerolínea
+    if (airline) {
+      flightsQuery = query(flightsQuery, where('airline_code', '==', airline));
+    }
+    
+    // Ordenar por algún campo (ajustar según tu schema)
+    flightsQuery = query(flightsQuery, orderBy('departure_time'));
+    
+    // Empezar después del último documento visible
+    flightsQuery = query(flightsQuery, startAfter(paginationState.lastVisible));
+    
+    // Limitar resultados
+    flightsQuery = query(flightsQuery, limit(paginationState.pageSize));
+    
+    // Ejecutar la consulta
+    const querySnapshot = await getDocs(flightsQuery);
+    
+    // Verificar si hay resultados
+    if (querySnapshot.empty) {
+      return "No hay más resultados para mostrar.";
+    }
+    
+    // Actualizar el último documento visible
+    paginationState.lastVisible = querySnapshot.docs[querySnapshot.docs.length - 1];
+    
+    // Almacenar los nuevos resultados
+    paginationState.currentResults = querySnapshot.docs.map(doc => doc.data());
+    
+    // Generar la cabecera
+    const header = await generateANHeader(destination, origin);
+    let response = `${header}\n`;
+    
+    // Procesar resultados con numeración continua
+    let index = paginationState.currentIndex;
+    querySnapshot.forEach((doc) => {
+      const flight = doc.data();
+      
+      // Si se especificó una clase, verificar si el vuelo tiene esa clase disponible
+      if (flightClass && (!flight.class_availability || !flight.class_availability[flightClass])) {
+        return; // Saltar este vuelo si no tiene la clase especificada
+      }
+      
+      const departureTerminal = flight.departure_terminal || ' ';
+      const arrivalTerminal = flight.arrival_terminal || ' ';
+      const aircraftCode = getAircraftIATACode(flight.equipment_code || flight.aircraft_type || '---');
+      const duration = flight.duration_hours ? formatDuration(flight.duration_hours) : '----';
+      
+      // Construir línea de vuelo
+      let flightLine = `${index} ${flight.airline_code} ${flight.flight_number} `;
+      
+      // Agregar disponibilidad de clases
+      if (flight.class_availability) {
+        // Si tienes un objeto con clases como claves
+        Object.entries(flight.class_availability).forEach(([classCode, seats]) => {
+          flightLine += `${classCode}${seats} `;
+        });
+      } else if (flight.available_classes) {
+        // Si tienes un array de objetos con code y seats
+        flight.available_classes.forEach(cls => {
+          flightLine += `${cls.code}${cls.seats} `;
+        });
+      } else {
+        // Valores por defecto si no hay información de clases
+        flightLine += 'Y9 B9 M9 ';
+      }
+      
+      // Añadir detalles del vuelo
+      flightLine += `${flight.departure_airport_code} ${departureTerminal} ${flight.arrival_airport_code} ${arrivalTerminal} ${flight.departure_time} ${flight.arrival_time} E0/${aircraftCode} ${duration}\n`;
+      
+      response += flightLine;
+      index++;
+    });
+
+    // Actualizar el índice actual para reflejar el último mostrado
+    paginationState.currentIndex = index;
+    
+    response += "\nUse MD para mostrar más resultados o U para volver a la página anterior.";
+    return response;
+  } catch (error) {
+    console.error('Error al procesar paginación (MD):', error);
+    return `Error al procesar paginación: ${error.message}`;
+  }
+}
+
+// Función para manejar el comando "Move Up" (U)
+async function handleMoveUp() {
+  try {
+    // Verificar si hay páginas previas
+    if (paginationState.previousPages.length === 0) {
+      return "No hay páginas previas para mostrar.";
+    }
+    
+    // Obtener la página anterior
+    const previousPage = paginationState.previousPages.pop();
+    
+    // Restaurar el índice inicial
+    paginationState.currentIndex = previousPage.startIndex;
+
+    // Actualizar el estado actual
+    paginationState.currentResults = previousPage.results;
+    paginationState.lastVisible = previousPage.lastVisible;
+    
+    // Extraer información del comando actual
+    const cmd = paginationState.currentCommand;
+    const regex = /AN(\d{0,2}[A-Z]{3})?([A-Z]{3})([A-Z]{3})(\/.+)?/;
+    const match = cmd.match(regex);
+    
+    if (!match) {
+      return "Error al procesar el comando guardado.";
+    }
+    
+    const [, , origin, destination] = match;
+    
+    // Generar la cabecera
+    const header = await generateANHeader(destination, origin);
+    let response = `${header}\n`;
+    
+    // Procesar resultados
+    let index = paginationState.currentIndex;
+    paginationState.currentResults.forEach((flight) => {
+      const departureTerminal = flight.departure_terminal || ' ';
+      const arrivalTerminal = flight.arrival_terminal || ' ';
+      const aircraftCode = getAircraftIATACode(flight.equipment_code || flight.aircraft_type || '---');
+      const duration = flight.duration_hours ? formatDuration(flight.duration_hours) : '----';
+      
+      // Construir línea de vuelo
+      let flightLine = `${index} ${flight.airline_code} ${flight.flight_number} `;
+      
+      // Agregar disponibilidad de clases
+      if (flight.class_availability) {
+        Object.entries(flight.class_availability).forEach(([classCode, seats]) => {
+          flightLine += `${classCode}${seats} `;
+        });
+      } else if (flight.available_classes) {
+        flight.available_classes.forEach(cls => {
+          flightLine += `${cls.code}${cls.seats} `;
+        });
+      } else {
+        flightLine += 'Y9 B9 M9 ';
+      }
+      
+      // Añadir detalles del vuelo
+      flightLine += `${flight.departure_airport_code} ${departureTerminal} ${flight.arrival_airport_code} ${arrivalTerminal} ${flight.departure_time} ${flight.arrival_time} E0/${aircraftCode} ${duration}\n`;
+      
+      response += flightLine;
+      index++;
+    });
+
+    // Actualizar el índice para la siguiente vez
+    paginationState.currentIndex = index;
+    
+    if (paginationState.previousPages.length > 0) {
+      response += "\nUse MD para mostrar más resultados o U para volver a la página anterior.";
+    } else {
+      response += "\nUse MD para mostrar más resultados.";
+    }
+    
+    return response;
+  } catch (error) {
+    console.error('Error al procesar paginación (U):', error);
+    return `Error al procesar paginación: ${error.message}`;
+  }
+}
+
+// Función para obtener información del destino desde Firebase
+async function getDestinationInfoFromDB(destinationCode) {
+  try {
+    // Buscamos en la colección flights los vuelos que tienen este destino
+    const flightsQuery = query(
+      collection(db, 'flights'),
+      where('arrival_airport_code', '==', destinationCode),
+      limit(1)
+    );
+    
+    const querySnapshot = await getDocs(flightsQuery);
+    
+    if (!querySnapshot.empty) {
+      // Tomamos los datos del primer vuelo que encontramos
+      const flightData = querySnapshot.docs[0].data();
+      
+      // Obtenemos el código ISO del país usando la librería
+      const countryCode = getCountryCode(flightData.arrival_country || '');
+      
+      // Extraemos la información que necesitamos
+      return {
+        city: flightData.arrival_city || destinationCode,
+        countryCode: countryCode
+      };
+    }
+    
+    // Si no encontramos información en la base de datos, usamos valores por defecto
+    return getDefaultDestinationInfo(destinationCode);
+  } catch (error) {
+    console.error('Error al obtener información del destino:', error);
+    // En caso de error, devolvemos valores por defecto
+    return getDefaultDestinationInfo(destinationCode);
+  }
+}
+
+// Función para obtener el código ISO a partir del nombre del país utilizando la librería
+function getCountryCode(countryName) {
+  if (!countryName) return 'XX';
+  
+  // Si ya es un código ISO de 2 letras, lo devolvemos directamente
+  if (countryName.length === 2 && countryName === countryName.toUpperCase()) {
+    return countryName;
+  }
+  
+  // Intentamos obtener el código desde la librería
+  // Probamos tanto en inglés como en español
+  const codeFromEN = countries.getAlpha2Code(countryName, 'en');
+  if (codeFromEN) return codeFromEN;
+  
+  const codeFromES = countries.getAlpha2Code(countryName, 'es');
+  if (codeFromES) return codeFromES;
+  
+  // Manejo de casos especiales comunes
+  const specialCases = {
+    'USA': 'US',
+    'US': 'US',
+    'UNITED STATES': 'US', 
+    'UK': 'GB',
+    'ENGLAND': 'GB'
+  };
+  
+  const upperCountryName = countryName.toUpperCase();
+  if (specialCases[upperCountryName]) {
+    return specialCases[upperCountryName];
+  }
+  
+  // Si no se encuentra, devolvemos XX
+  return 'XX';
+}
+
+// Función para obtener información por defecto si no está en la base de datos
+function getDefaultDestinationInfo(destinationCode) {
+  // Mapeo básico de aeropuertos a ciudades y códigos de país
+  const airportInfo = {
+    'MAD': { city: 'MADRID', countryCode: 'ES' },
+    'BCN': { city: 'BARCELONA', countryCode: 'ES' },
+    'LHR': { city: 'LONDON', countryCode: 'GB' },
+    'CDG': { city: 'PARIS', countryCode: 'FR' },
+    'FCO': { city: 'ROME', countryCode: 'IT' },
+    'EZE': { city: 'BUENOS AIRES', countryCode: 'AR' },
+    'AEP': { city: 'BUENOS AIRES', countryCode: 'AR' },
+    'COR': { city: 'CORDOBA', countryCode: 'AR' },
+    'SCL': { city: 'SANTIAGO', countryCode: 'CL' },
+    'MIA': { city: 'MIAMI', countryCode: 'US' },
+    'JFK': { city: 'NEW YORK', countryCode: 'US' }
+  };
+  
+  // Devuelve la info del destino o valores por defecto si no se encuentra
+  return airportInfo[destinationCode] || { city: destinationCode, countryCode: 'XX' };
+}
+
+// Función para generar la cabecera correcta del comando AN
+async function generateANHeader(destination, origin, dateStr) {
+  // Obtener la fecha actual
+  const now = new Date();
+  
+  // Formatear el día de la semana en inglés y obtener las dos primeras letras
+  const weekdays = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
+  const dayOfWeek = weekdays[now.getDay()];
+  
+  // Formatear la fecha (DDMMM)
+  const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+  const day = String(now.getDate()).padStart(2, '0');
+  const month = months[now.getMonth()];
+  const formattedDate = `${day}${month}`;
+  
+  // Formatear la hora (HHMM)
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  const formattedTime = `${hours}${minutes}`;
+  
+  // Calcular días restantes hasta la fecha de viaje
+  const daysLeft = calculateDaysLeft(dateStr);
+  
+  // Obtener información del destino desde la base de datos
+  const destinationInfo = await getDestinationInfoFromDB(destination);
+  
+  // Generar la cabecera
+  return `** AMADEUS AVAILABILITY - AN ** ${destination} ${destinationInfo.city}.${destinationInfo.countryCode} ${daysLeft} ${dayOfWeek} ${formattedDate} ${formattedTime}`;
+}
+
+// Función para manejar el comando de disponibilidad (AN)
+async function handleAvailabilityCommand(cmd) {
+  try {
+    // Guardar el comando actual para paginación
+    paginationState.currentCommand = cmd;
+    
+    // Limpiar historial de paginación
+    paginationState.previousPages = [];
+    paginationState.currentIndex = 1;
+    
+    // Extraer la información del comando
+    // Formato esperado: AN[FECHA][ORIGEN][DESTINO][/OPCIONES]
+    const regex = /AN(\d{0,2}[A-Z]{3})?([A-Z]{3})([A-Z]{3})(\/.+)?/;
     const match = cmd.match(regex);
     
     if (!match) {
       return "Formato incorrecto. Ejemplo: AN15NOVBUEMAD";
     }
     
-    const [, date, origin, destination, options] = match;
+    const [, dateStr, origin, destination, optionsStr] = match;
     
-    // Buscar en los datos mock
-    const flights = mockData.flights.filter(flight => 
-      flight.origin === origin && flight.destination === destination
+    // Analizar opciones si existen
+    let airline = '';
+    let flightClass = '';
+    
+    if (optionsStr) {
+      // Opción de aerolínea: /AAR (Aerolíneas Argentinas)
+      const airlineMatch = optionsStr.match(/\/A([A-Z]{2})/);
+      if (airlineMatch) {
+        airline = airlineMatch[1];
+      }
+      
+      // Opción de clase: /CJ (Clase J)
+      const classMatch = optionsStr.match(/\/C([A-Z])/);
+      if (classMatch) {
+        flightClass = classMatch[1];
+      }
+    }
+    
+    // Construir consulta a Firebase
+    let flightsQuery = query(collection(db, 'flights'));
+    
+    // Filtrar por origen y destino
+    flightsQuery = query(flightsQuery, 
+      where('departure_airport_code', '==', origin),
+      where('arrival_airport_code', '==', destination)
     );
     
-    if (flights.length === 0) {
+    // Si hay fecha específica en el comando, filtrar por fecha
+    if (dateStr && dateStr.length >= 5) {
+      // Extraer día y mes de dateStr (formato: DDMMM)
+      const day = dateStr.substring(0, 2);
+      const month = dateStr.substring(2, 5);
+      
+      // TODO: Convertir a formato de fecha en tu base de datos si es necesario
+    }
+    
+    // Si se especificó aerolínea, filtrar por aerolínea
+    if (airline) {
+      flightsQuery = query(flightsQuery, where('airline_code', '==', airline));
+    }
+    
+    // Ordenar por algún campo (ajustar según tu schema)
+    flightsQuery = query(flightsQuery, orderBy('departure_time'));
+    
+    // Limitar resultados para la primera página
+    flightsQuery = query(flightsQuery, limit(paginationState.pageSize));
+    
+    // Ejecutar la consulta
+    const querySnapshot = await getDocs(flightsQuery);
+    
+    // Verificar si hay resultados
+    if (querySnapshot.empty) {
       return `No se encontraron vuelos disponibles para la ruta ${origin}-${destination}.`;
     }
     
-    // Formatear la respuesta simulando la respuesta de Amadeus
-    let response = `** AMADEUS AVAILABILITY - AN ** ${destination} ${origin}.XX\n`;
+    // Actualizar el último documento visible para paginación
+    paginationState.lastVisible = querySnapshot.docs[querySnapshot.docs.length - 1];
     
-    flights.forEach((flight, index) => {
-      const flightLine = `${index + 1} ${flight.airline} ${flight.flightNumber} `;
+    // Almacenar los resultados actuales
+    paginationState.currentResults = querySnapshot.docs.map(doc => doc.data());
+    
+    // Si hay exactamente `pageSize` resultados, verificar si hay más resultados
+    const hasMoreResults = querySnapshot.docs.length === paginationState.pageSize;
+    
+    // Generar la cabecera
+    const header = await generateANHeader(destination, origin);
+    let response = `${header}\n`;
+    
+    // Procesar resultados
+    let index = paginationState.currentIndex;
+    querySnapshot.forEach((doc) => {
+      const flight = doc.data();
       
-      // Agregar clases disponibles
-      let classes = "";
-      flight.availableClasses.forEach(cls => {
-        classes += `${cls.code}${cls.seats} `;
-      });
+      // Si se especificó una clase, verificar si el vuelo tiene esa clase disponible
+      if (flightClass && (!flight.class_availability || !flight.class_availability[flightClass])) {
+        return; // Saltar este vuelo si no tiene la clase especificada
+      }
       
-      response += `${flightLine}${classes}${flight.origin} ${flight.destination} ${flight.departureTime} ${flight.arrivalTime} E0/${flight.aircraft} ${flight.duration}\n`;
+      const departureTerminal = flight.departure_terminal || ' ';
+      const arrivalTerminal = flight.arrival_terminal || ' ';
+      const aircraftCode = getAircraftIATACode(flight.equipment_code || flight.aircraft_type || '---');
+      const duration = flight.duration_hours ? formatDuration(flight.duration_hours) : '----';
+      
+      // Construir línea de vuelo
+      let flightLine = `${index} ${flight.airline_code} ${flight.flight_number} `;
+      
+      // Agregar disponibilidad de clases
+      if (flight.class_availability) {
+        // Si tienes un objeto con clases como claves
+        Object.entries(flight.class_availability).forEach(([classCode, seats]) => {
+          flightLine += `${classCode}${seats} `;
+        });
+      } else if (flight.available_classes) {
+        // Si tienes un array de objetos con code y seats
+        flight.available_classes.forEach(cls => {
+          flightLine += `${cls.code}${cls.seats} `;
+        });
+      } else {
+        // Valores por defecto si no hay información de clases
+        flightLine += 'Y9 B9 M9 ';
+      }
+      
+      // Añadir detalles del vuelo
+      flightLine += `${flight.departure_airport_code} ${departureTerminal} ${flight.arrival_airport_code} ${arrivalTerminal} ${flight.departure_time} ${flight.arrival_time} E0/${aircraftCode} ${duration}\n`;
+      
+      response += flightLine;
+      index++;
     });
+    
+    // Actualizar el índice actual
+    paginationState.currentIndex = index;
+
+    if (hasMoreResults) {
+      response += "\nUse MD para mostrar más resultados.";
+    }
     
     return response;
   } catch (error) {
@@ -202,41 +688,94 @@ function handleAvailabilityCommand(cmd) {
 }
 
 // Función para manejar el comando de horarios (SN)
-function handleScheduleCommand(cmd) {
-  // Implementación similar a AN pero mostrando todas las clases
+async function handleScheduleCommand(cmd) {
   try {
-    const regex = /SN(\d{1,2}[A-Z]{3})?([A-Z]{3})([A-Z]{3})(\/.+)?/;
+    // Extraer la información del comando
+    // Formato esperado: SN[FECHA][ORIGEN][DESTINO][/OPCIONES]
+    const regex = /SN(\d{0,2}[A-Z]{3})?([A-Z]{3})([A-Z]{3})(\/.+)?/;
     const match = cmd.match(regex);
     
     if (!match) {
       return "Formato incorrecto. Ejemplo: SN15NOVBUEMAD";
     }
     
-    const [, date, origin, destination, options] = match;
+    const [, dateStr, origin, destination, optionsStr] = match;
     
-    // Buscar en los datos mock
-    const flights = mockData.flights.filter(flight => 
-      flight.origin === origin && flight.destination === destination
+    // Analizar opciones si existen
+    let airline = '';
+    
+    if (optionsStr) {
+      // Opción de aerolínea: /AAR (Aerolíneas Argentinas)
+      const airlineMatch = optionsStr.match(/\/A([A-Z]{2})/);
+      if (airlineMatch) {
+        airline = airlineMatch[1];
+      }
+    }
+    
+    // Construir consulta a Firebase
+    let flightsQuery = query(collection(db, 'flights'));
+    
+    // Filtrar por origen y destino
+    flightsQuery = query(flightsQuery, 
+      where('departure_airport_code', '==', origin),
+      where('arrival_airport_code', '==', destination)
     );
     
-    if (flights.length === 0) {
-      return `No se encontraron vuelos disponibles para la ruta ${origin}-${destination}.`;
+    // Si hay fecha específica en el comando, filtrar por fecha
+    if (dateStr && dateStr.length >= 5) {
+      // Implementar lógica de filtrado por fecha similar a handleAvailabilityCommand
+    }
+    
+    // Si se especificó aerolínea, filtrar por aerolínea
+    if (airline) {
+      flightsQuery = query(flightsQuery, where('airline_code', '==', airline));
+    }
+    
+    // Ejecutar la consulta
+    const querySnapshot = await getDocs(flightsQuery);
+    
+    // Verificar si hay resultados
+    if (querySnapshot.empty) {
+      return `No se encontraron vuelos para la ruta ${origin}-${destination}.`;
     }
     
     // Formatear la respuesta simulando la respuesta de Amadeus
     let response = `** AMADEUS SCHEDULES - SN ** ${destination} ${origin}.XX\n`;
     
-    flights.forEach((flight, index) => {
-      const flightLine = `${index + 1} ${flight.airline} ${flight.flightNumber} `;
+    // Procesar resultados
+    let index = 1;
+    querySnapshot.forEach((doc) => {
+      const flight = doc.data();
       
-      // Agregar todas las clases, incluyendo las cerradas
-      let classes = "";
-      flight.allClasses.forEach(cls => {
-        const status = cls.status || (cls.seats > 0 ? cls.seats : 'C');
-        classes += `${cls.code}${status} `;
-      });
+      const departureTerminal = flight.departure_terminal || ' ';
+      const arrivalTerminal = flight.arrival_terminal || ' ';
+      const aircraftCode = getAircraftIATACode(flight.equipment_code || flight.aircraft_type || '---');
+      const duration = flight.duration_hours ? formatDuration(flight.duration_hours) : '----';
       
-      response += `${flightLine}${classes}${flight.origin} ${flight.destination} ${flight.departureTime} ${flight.arrivalTime} E0/${flight.aircraft} ${flight.duration}\n`;
+      // Construir línea de vuelo
+      let flightLine = `${index} ${flight.airline_code} ${flight.flight_number} `;
+      
+      // En SN se muestran todas las clases, incluso las cerradas
+      // Esto dependerá de cómo almacenas la disponibilidad de clases en tu base de datos
+      if (flight.all_classes) {
+        Object.entries(flight.all_classes).forEach(([classCode, status]) => {
+          flightLine += `${classCode}${status} `;
+        });
+      } else if (flight.class_availability) {
+        Object.entries(flight.class_availability).forEach(([classCode, seats]) => {
+          const status = seats > 0 ? seats : 'C'; // C = cerrado si no hay asientos
+          flightLine += `${classCode}${status} `;
+        });
+      } else {
+        // Valores por defecto
+        flightLine += 'YC BC MC KC ';
+      }
+      
+      // Añadir detalles del vuelo
+      flightLine += `${flight.departure_airport_code} ${departureTerminal} ${flight.arrival_airport_code} ${arrivalTerminal} ${flight.departure_time} ${flight.arrival_time} E0/${aircraftCode} ${duration}\n`;
+      
+      response += flightLine;
+      index++;
     });
     
     return response;
@@ -247,31 +786,100 @@ function handleScheduleCommand(cmd) {
 }
 
 // Función para manejar el comando de frecuencias (TN)
-function handleTimetableCommand(cmd) {
+async function handleTimetableCommand(cmd) {
   try {
-    const regex = /TN(\d{1,2}[A-Z]{3})?([A-Z]{3})([A-Z]{3})(\/.+)?/;
+    // Extraer la información del comando
+    // Formato esperado: TN[FECHA][ORIGEN][DESTINO][/OPCIONES]
+    const regex = /TN(\d{0,2}[A-Z]{3})?([A-Z]{3})([A-Z]{3})(\/.+)?/;
     const match = cmd.match(regex);
     
     if (!match) {
-      return "Formato incorrecto. Ejemplo: TN15NOVBUEMAD";
+      return "Formato incorrecto. Ejemplo: TNBUEMAD";
     }
     
-    const [, date, origin, destination, options] = match;
+    const [, dateStr, origin, destination, optionsStr] = match;
     
-    // Buscar en los datos mock
-    const flights = mockData.flights.filter(flight => 
-      flight.origin === origin && flight.destination === destination
+    // Analizar opciones si existen
+    let airline = '';
+    
+    if (optionsStr) {
+      // Opción de aerolínea: /AAR (Aerolíneas Argentinas)
+      const airlineMatch = optionsStr.match(/\/A([A-Z]{2})/);
+      if (airlineMatch) {
+        airline = airlineMatch[1];
+      }
+    }
+    
+    // Construir consulta a Firebase
+    let flightsQuery = query(collection(db, 'flights'));
+    
+    // Filtrar por origen y destino
+    flightsQuery = query(flightsQuery, 
+      where('departure_airport_code', '==', origin),
+      where('arrival_airport_code', '==', destination)
     );
     
-    if (flights.length === 0) {
-      return `No se encontraron vuelos disponibles para la ruta ${origin}-${destination}.`;
+    // Si se especificó aerolínea, filtrar por aerolínea
+    if (airline) {
+      flightsQuery = query(flightsQuery, where('airline_code', '==', airline));
     }
     
-    // Formatear la respuesta simulando la respuesta de Amadeus
-    let response = `** AMADEUS TIMETABLE - TN ** ${destination} ${origin}.XX\n`;
+    // Ejecutar la consulta
+    const querySnapshot = await getDocs(flightsQuery);
     
-    flights.forEach((flight, index) => {
-      response += `${index + 1} ${flight.airline} ${flight.flightNumber} ${flight.frequency} ${flight.origin} ${flight.destination} ${flight.departureTime} ${flight.arrivalTime} 0 ${flight.validFrom} ${flight.validTo} ${flight.aircraft} ${flight.duration}\n`;
+    // Verificar si hay resultados
+    if (querySnapshot.empty) {
+      return `No se encontraron vuelos para la ruta ${origin}-${destination}.`;
+    }
+    
+    // Obtener la fecha actual y calcular una semana después para el encabezado
+    const today = new Date();
+    const nextWeek = new Date(today);
+    nextWeek.setDate(today.getDate() + 7);
+    
+    // Formatear fechas para el encabezado (formato: DDMMM24)
+    const formatDateHeader = (date) => {
+      const day = date.getDate().toString().padStart(2, '0');
+      const month = date.toLocaleString('en-US', { month: 'short' }).toUpperCase();
+      const year = date.getFullYear().toString().substring(2);
+      return `${day}${month}${year}`;
+    };
+    
+    // Formatear la respuesta simulando la respuesta de Amadeus
+    let response = `** AMADEUS TIMETABLE - TN ** ${destination} ${origin} ${formatDateHeader(today)} ${formatDateHeader(nextWeek)}\n`;
+    
+    // Procesar resultados
+    let index = 1;
+    querySnapshot.forEach((doc) => {
+      const flight = doc.data();
+      
+      // Formatear la línea de frecuencia de vuelo
+      // Ejemplo: "1 LA 472 247 EZE A SCL 2 0510 0637 0 07APR24 31MAY24 320 2:27"
+      
+      // Obtener días de operación (si está disponible)
+      let daysOfOperation = flight.days_of_operation || flight.frequency || 'D'; // D = Diario por defecto
+      
+      // Si es un número, convertirlo a formato de días (1=lunes, 2=martes, etc.)
+      if (typeof daysOfOperation === 'number') {
+        daysOfOperation = daysOfOperation.toString();
+      }
+      
+      const departureTerminal = flight.departure_terminal || ' ';
+      const arrivalTerminal = flight.arrival_terminal || ' ';
+      const aircraftCode = getAircraftIATACode(flight.equipment_code || flight.aircraft_type || '---');
+      const duration = flight.duration_hours ? formatDuration(flight.duration_hours) : '----';
+      
+      // Fechas de validez (si están disponibles)
+      const validFrom = flight.valid_from || flight.start_date || '01JAN24';
+      const validTo = flight.valid_to || flight.end_date || '31DEC24';
+      
+      // Construir la línea de frecuencia
+      const flightLine = `${index} ${flight.airline_code} ${flight.flight_number} ${daysOfOperation} ` +
+                        `${flight.departure_airport_code} ${departureTerminal} ${flight.arrival_airport_code} ${arrivalTerminal} ` +
+                        `${flight.departure_time} ${flight.arrival_time} 0 ${validFrom} ${validTo} ${aircraftCode} ${duration}\n`;
+      
+      response += flightLine;
+      index++;
     });
     
     return response;
@@ -282,26 +890,38 @@ function handleTimetableCommand(cmd) {
 }
 
 // Función para manejar codificación de ciudad (DAN)
-function handleEncodeCity(cmd) {
+async function handleEncodeCity(cmd) {
   try {
     const cityName = cmd.slice(3).trim();
     
-    // Buscar en los datos mock
-    const city = mockData.cities.find(c => 
-      c.name.toUpperCase() === cityName.toUpperCase()
+    // Consultar ciudades en Firebase
+    const citiesQuery = query(
+      collection(db, 'cities'),
+      where('name_uppercase', '>=', cityName.toUpperCase()),
+      where('name_uppercase', '<=', cityName.toUpperCase() + '\uf8ff'),
+      limit(5)
     );
     
-    if (!city) {
+    const querySnapshot = await getDocs(citiesQuery);
+    
+    if (querySnapshot.empty) {
       return `No se encontró información para la ciudad: ${cityName}`;
     }
     
     // Formatear la respuesta simulando la respuesta de Amadeus
     let response = `DAN${cityName.toUpperCase()}\n`;
     response += `A:APT B:BUS C:CITY G:GRD H:HELI O:OFF-PT R:RAIL S:ASSOC TOWN\n`;
-    response += `${city.code}*C ${city.name.toUpperCase()} /${city.country}\n`;
     
-    city.airports.forEach(airport => {
-      response += `A ${airport.code} - ${airport.name} - ${airport.distance}K /${city.country}\n`;
+    querySnapshot.forEach((doc) => {
+      const city = doc.data();
+      response += `${city.code}*C ${city.name.toUpperCase()} /${city.country_code}\n`;
+      
+      // Si hay aeropuertos asociados
+      if (city.airports && Array.isArray(city.airports)) {
+        city.airports.forEach(airport => {
+          response += `A ${airport.code} - ${airport.name} - ${airport.distance || '0K'} /${city.country_code}\n`;
+        });
+      }
     });
     
     return response;
@@ -312,45 +932,58 @@ function handleEncodeCity(cmd) {
 }
 
 // Función para manejar decodificación de ciudad (DAC)
-function handleDecodeCity(cmd) {
+async function handleDecodeCity(cmd) {
   try {
-    const cityCode = cmd.slice(3).trim();
+    const cityCode = cmd.slice(3).trim().toUpperCase();
     
-    // Buscar en los datos mock
-    const city = mockData.cities.find(c => c.code === cityCode);
+    // Buscar primero como ciudad
+    const citiesQuery = query(
+      collection(db, 'cities'),
+      where('code', '==', cityCode),
+      limit(1)
+    );
     
-    if (!city) {
-      // Buscar como aeropuerto
-      const airport = mockData.cities.flatMap(c => c.airports).find(a => a.code === cityCode);
+    const citiesSnapshot = await getDocs(citiesQuery);
+    
+    if (!citiesSnapshot.empty) {
+      const city = citiesSnapshot.docs[0].data();
       
-      if (!airport) {
-        return `No se encontró información para el código: ${cityCode}`;
-      }
-      
-      const parentCity = mockData.cities.find(c => 
-        c.airports.some(a => a.code === cityCode)
-      );
-      
-      // Formatear la respuesta para aeropuerto
+      // Formatear la respuesta para ciudad
       let response = `DAC${cityCode}\n`;
-      response += `${cityCode} A ${airport.name} /${parentCity.country}\n`;
-      response += `${parentCity.code} C ${parentCity.name}\n`;
+      response += `${cityCode} C ${city.name.toUpperCase()} /${city.country_code}\n`;
+      
+      // Si hay aeropuertos asociados
+      if (city.airports && Array.isArray(city.airports)) {
+        response += `AIRPORTS:\n`;
+        city.airports.forEach(airport => {
+          response += `${airport.code} - ${airport.name}\n`;
+        });
+      }
       
       return response;
     }
     
-    // Formatear la respuesta para ciudad
-    let response = `DAC${cityCode}\n`;
-    response += `${cityCode} C ${city.name.toUpperCase()} /${city.country}\n`;
+    // Si no se encuentra como ciudad, buscar como aeropuerto
+    const airportsQuery = query(
+      collection(db, 'airports'),
+      where('code', '==', cityCode),
+      limit(1)
+    );
     
-    if (city.airports.length > 0) {
-      response += `AIRPORTS:\n`;
-      city.airports.forEach(airport => {
-        response += `${airport.code} - ${airport.name}\n`;
-      });
+    const airportsSnapshot = await getDocs(airportsQuery);
+    
+    if (!airportsSnapshot.empty) {
+      const airport = airportsSnapshot.docs[0].data();
+      
+      // Formatear la respuesta para aeropuerto
+      let response = `DAC${cityCode}\n`;
+      response += `${cityCode} A ${airport.name} /${airport.country_code}\n`;
+      response += `${airport.city_code} C ${airport.city_name}\n`;
+      
+      return response;
     }
     
-    return response;
+    return `No se encontró información para el código: ${cityCode}`;
   } catch (error) {
     console.error('Error al procesar el comando DAC:', error);
     return `Error al procesar el comando: ${error.message}`;
@@ -358,23 +991,31 @@ function handleDecodeCity(cmd) {
 }
 
 // Función para manejar codificación de aerolínea (DNA)
-function handleEncodeAirline(cmd) {
+async function handleEncodeAirline(cmd) {
   try {
     const airlineName = cmd.slice(3).trim();
     
-    // Buscar en los datos mock
-    const airline = mockData.airlines.find(a => 
-      a.name.toUpperCase().includes(airlineName.toUpperCase()) ||
-      a.code === airlineName.toUpperCase()
+    // Consultar aerolíneas en Firebase
+    const airlinesQuery = query(
+      collection(db, 'airlines'),
+      where('name_uppercase', '>=', airlineName.toUpperCase()),
+      where('name_uppercase', '<=', airlineName.toUpperCase() + '\uf8ff'),
+      limit(5)
     );
     
-    if (!airline) {
+    const querySnapshot = await getDocs(airlinesQuery);
+    
+    if (querySnapshot.empty) {
       return `No se encontró información para la aerolínea: ${airlineName}`;
     }
     
     // Formatear la respuesta simulando la respuesta de Amadeus
     let response = `DNA${airlineName.toUpperCase()}\n`;
-    response += `${airline.code} ${airline.name.toUpperCase()}\n`;
+    
+    querySnapshot.forEach((doc) => {
+      const airline = doc.data();
+      response += `${airline.code} ${airline.name.toUpperCase()}\n`;
+    });
     
     return response;
   } catch (error) {
@@ -396,34 +1037,12 @@ async function handleSellSegment(cmd) {
     
     const [, quantity, classCode, lineNumber] = match;
     
-    // Crear un nuevo segmento para el PNR activo en Firebase
-    // Normalmente, esto sería más complejo y consultaría a un sistema externo
-    // Aquí lo simplificamos para fines educativos
+    // En una implementación real, aquí buscaríamos el vuelo correspondiente
+    // y crearíamos un nuevo PNR o actualizaríamos uno existente
     
-    // Generar un PNR temporal
-    const pnrData = {
-      segments: [{
-        airline: 'XX', // Se reemplazaría por la aerolínea real
-        flightNumber: '1234', // Se reemplazaría por el número de vuelo real
-        classCode,
-        quantity: parseInt(quantity),
-        origin: 'XXX', // Se reemplazaría por origen real
-        destination: 'YYY', // Se reemplazaría por destino real
-        departureTime: '1200',
-        arrivalTime: '1400',
-        departureDate: '01JAN', // Se reemplazaría por fecha real
-        status: 'DK', // Direct Sell
-        aircraft: '737',
-      }],
-      createdAt: new Date().toISOString(),
-    };
-    
-    // En una aplicación real, aquí guardaríamos el PNR en Firebase
-    // await addDoc(collection(db, 'pnrDrafts'), pnrData);
-    
-    // Formatear la respuesta simulando la respuesta de Amadeus
+    // Para esta demo, simularemos una respuesta exitosa
     const response = `
-RP/XXXXX1234/
+RP/UTN5168476/
 1 XX 1234 ${classCode} 01JAN 1 XXXYYY DK${quantity} 1200 1400 01JAN E 737
 *TRN*
 >`;
@@ -454,11 +1073,9 @@ function handleAddName(cmd) {
     
     const [, quantity, lastName, firstName, title] = match;
     
-    // En una aplicación real, aquí actualizaríamos el PNR en Firebase
-    
-    // Formatear la respuesta simulando la respuesta de Amadeus
+    // Para esta demo, simularemos una respuesta exitosa
     const response = `
-RP/XXXXX1234/
+RP/UTN5168476/
 1.${lastName.toUpperCase()}/${firstName.trim().toUpperCase()} ${title || 'MR'}
 2 XX 1234 Y 01JAN 1 XXXYYY DK1 1200 1400 01JAN E 737
 *TRN*
@@ -485,11 +1102,9 @@ function handleAddContact(cmd) {
     
     const [, city, phone, type] = match;
     
-    // En una aplicación real, aquí actualizaríamos el PNR en Firebase
-    
-    // Formatear la respuesta simulando la respuesta de Amadeus
+    // Para esta demo, simularemos una respuesta exitosa
     const response = `
-RP/XXXXX1234/
+RP/UTN5168476/
 1.APELLIDO/NOMBRE MR
 2 XX 1234 Y 01JAN 1 XXXYYY DK1 1200 1400 01JAN E 737
 3 AP ${city.toUpperCase()} ${phone}-${type || 'H'}
@@ -515,7 +1130,7 @@ function handleEndTransaction(cmd) {
       // Para ER, simulamos que reabre el PNR
       return `
 ---RLR---
-RP/XXXXX1234/AGENTE FF/WE 01JAN/1200Z ${recordLocator}
+RP/UTN5168476/AGENTE FF/WE 01JAN/1200Z ${recordLocator}
 1.APELLIDO/NOMBRE MR
 2 XX 1234 Y 01JAN 1 XXXYYY HK1 1200 1400 01JAN E 737
 3 AP BUE 12345678-H
@@ -540,12 +1155,12 @@ async function handleRetrievePNR(cmd) {
       return "Formato incorrecto. Ejemplo: RTABCDEF";
     }
     
-    // En una aplicación real, aquí buscaríamos el PNR en Firebase
-    // Simulamos una respuesta con un PNR de ejemplo
+    // En una implementación real, aquí buscaríamos el PNR en Firebase
+    // Para esta demo, simularemos una respuesta exitosa
     
     const response = `
 ---RLR---
-RP/XXXXX1234/AGENTE FF/WE 01JAN/1200Z ${pnrCode}
+RP/UTN5168476/AGENTE FF/WE 01JAN/1200Z ${pnrCode}
 1.APELLIDO/NOMBRE MR
 2 XX 1234 Y 01JAN 1 XXXYYY HK1 1200 1400 01JAN E 737
 3 AP BUE 12345678-H
@@ -558,4 +1173,57 @@ RP/XXXXX1234/AGENTE FF/WE 01JAN/1200Z ${pnrCode}
     console.error('Error al procesar el comando RT:', error);
     return `Error al procesar el comando: ${error.message}`;
   }
+}
+
+// Utilidad para formatear duración en horas:minutos
+function formatDuration(hours) {
+  const totalMinutes = Math.round(hours * 60);
+  const h = Math.floor(totalMinutes / 60);
+  const m = totalMinutes % 60;
+  return `${h}:${m.toString().padStart(2, '0')}`;
+}
+
+// Función auxiliar para obtener código IATA del equipo
+function getAircraftIATACode(aircraft) {
+  // Mapeo de nombres completos a códigos IATA
+  const aircraftMapping = {
+    'Airbus A320': '320',
+    'A320': '320',
+    'Airbus A321': '321',
+    'A321': '321',
+    'Airbus A330': '330',
+    'A330': '330',
+    'Airbus A340': '340',
+    'A340': '340',
+    'Airbus A350': '350',
+    'A350': '350',
+    'Airbus A380': '380',
+    'A380': '380',
+    'Boeing 737': '737',
+    'B737': '737',
+    'Boeing 737-800': '738',
+    'B738': '738',
+    'Boeing 747': '747',
+    'B747': '747',
+    'Boeing 767': '767',
+    'B767': '767',
+    'Boeing 777': '777',
+    'B777': '777',
+    'Boeing 787': '787',
+    'B787': '787',
+    'Embraer E190': 'E90',
+    'Embraer 190': 'E90',
+    'E190': 'E90',
+    'Embraer E195': 'E95',
+    'Embraer 195': 'E95',
+    'E195': 'E95'
+  };
+  
+  // Si ya es un código IATA (3 caracteres o menos), devolverlo directamente
+  if (aircraft.length <= 3) {
+    return aircraft;
+  }
+  
+  // Buscar en el mapeo
+  return aircraftMapping[aircraft] || aircraft;
 }

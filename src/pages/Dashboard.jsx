@@ -98,7 +98,7 @@ export default function Dashboard() {
               Ingresa comandos en formato Amadeus para practicar y aprender.
             </p>
             
-            <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
+            <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
               {/* Terminal */}
               <div className="lg:col-span-2">
                 <div className="bg-white rounded-lg shadow overflow-hidden h-[calc(100vh-200px)]">
@@ -107,8 +107,8 @@ export default function Dashboard() {
               </div>
               
               {/* Sidebar with recent activity and PNRs */}
-              <div className="space-y-4">
-                {/* Recent Commands */}
+              <div className="hidden space-y-4">
+                {/* Recent Commands 
                 <div className="bg-white rounded-lg shadow p-4">
                   <h2 className="text-lg font-medium text-gray-900 mb-2">Comandos Recientes</h2>
                   
@@ -128,9 +128,9 @@ export default function Dashboard() {
                       ))}
                     </ul>
                   )}
-                </div>
+                </div>*/}
                 
-                {/* Recent PNRs */}
+                {/* Recent PNRs 
                 <div className="bg-white rounded-lg shadow p-4">
                   <h2 className="text-lg font-medium text-gray-900 mb-2">PNRs Recientes</h2>
                   
@@ -158,9 +158,9 @@ export default function Dashboard() {
                       ))}
                     </ul>
                   )}
-                </div>
+                </div>*/}
                 
-                {/* Help / Quick Reference */}
+                {/* Help / Quick Reference 
                 <div className="bg-white rounded-lg shadow p-4">
                   <h2 className="text-lg font-medium text-gray-900 mb-2">Referencia Rápida</h2>
                   
@@ -190,7 +190,7 @@ export default function Dashboard() {
                       <span className="text-gray-600"> - Ayuda</span>
                     </li>
                   </ul>
-                </div>
+                </div>*/}
               </div>
             </div>
           </div>
