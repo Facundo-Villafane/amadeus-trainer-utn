@@ -3,7 +3,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { db } from '../../services/firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { commandParser } from '../../utils/commandParser';
+import { commandParser } from '../../utils/commandParser/index';
 import TerminalLine from './TerminalLine';
 import { FiTerminal } from 'react-icons/fi';
 
@@ -50,30 +50,31 @@ export default function Terminal() {
     }
   };
 
-  // Función para ejecutar un comando
-  const executeCommand = async (cmd) => {
-    // Agregar el comando al historial de la terminal
-    addLine(`> ${cmd}`, 'input');
+  // Modificar la función executeCommand para pasar el userId
+const executeCommand = async (cmd) => {
+  // Agregar el comando al historial de la terminal
+  addLine(`> ${cmd}`, 'input');
+  
+  // Agregar el comando al historial de comandos
+  setCommandHistory(prev => [cmd, ...prev.slice(0, 19)]);
+  setHistoryIndex(-1);
+  
+  // Procesar el comando y obtener la respuesta
+  try {
+    // Pasar el ID del usuario actual al parser de comandos
+    const response = await commandParser(cmd, currentUser.uid);
     
-    // Agregar el comando al historial de comandos
-    setCommandHistory(prev => [cmd, ...prev.slice(0, 19)]);
-    setHistoryIndex(-1);
+    // Agregar la respuesta al historial de la terminal
+    addLine(response, 'output');
     
-    // Procesar el comando y obtener la respuesta
-    try {
-      const response = await commandParser(cmd);
-      
-      // Agregar la respuesta al historial de la terminal
-      addLine(response, 'output');
-      
-      // Guardar el comando en Firestore
-      await saveCommandToHistory(cmd, response);
-    } catch (error) {
-      console.error('Error al ejecutar el comando:', error);
-      addLine(`Error: ${error.message}`, 'error');
-      await saveCommandToHistory(cmd, `Error: ${error.message}`);
-    }
-  };
+    // Guardar el comando en Firestore
+    await saveCommandToHistory(cmd, response);
+  } catch (error) {
+    console.error('Error al ejecutar el comando:', error);
+    addLine(`Error: ${error.message}`, 'error');
+    await saveCommandToHistory(cmd, `Error: ${error.message}`);
+  }
+};
 
   // Manejar el envío del formulario
   const handleSubmit = (e) => {

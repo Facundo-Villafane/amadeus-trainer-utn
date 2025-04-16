@@ -10,7 +10,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import DashboardSidebar from '../../components/dashboard/DashboardSidebar';
 import DashboardHeader from '../../components/dashboard/DashboardHeader';
 import ImportFlights from '../../components/admin/ImportFlights';
-import FlightScheduleGenerator from '../../components/admin/FlightScheduleGenerator';
+import FlightScheduleGenerator from '../../components/admin/EnhancedFlightScheduleGenerator';
 import { 
   FiPlus, FiEdit2, FiTrash2, FiSearch, FiAirplay, 
   FiFilter, FiChevronLeft, FiChevronRight, FiCalendar 
@@ -34,12 +34,16 @@ export default function AdminFlights() {
   const [firstVisible, setFirstVisible] = useState(null);
   const [pageHistory, setPageHistory] = useState([]);
   
-  // Filtros
-  const [filters, setFilters] = useState({
-    airline_code: '',
-    departure_airport_code: '',
-    arrival_airport_code: ''
-  });
+ // Filtros
+    const [filters, setFilters] = useState({
+        airline_code: '',
+        departure_airport_code: '',
+        arrival_airport_code: '',
+        departure_date: '',
+        status: '',
+        available_class: ''
+    });
+
   const [showFilters, setShowFilters] = useState(false);
   const [uniqueAirlines, setUniqueAirlines] = useState([]);
   const [uniqueOrigins, setUniqueOrigins] = useState([]);
@@ -176,89 +180,88 @@ export default function AdminFlights() {
       try {
         setLoading(true);
         
-        // Construir la consulta base
-        let flightsQuery;
+        // Construir consulta a Firebase
+      let flightsQuery = query(collection(db, 'flights'));
+
+      // Filtros básicos (origen y destino)
+      if (filters.departure_airport_code) {
+        flightsQuery = query(flightsQuery, 
+          where('departure_airport_code', '==', filters.departure_airport_code));
+      }
+      
+      if (filters.arrival_airport_code) {
+        flightsQuery = query(flightsQuery, 
+          where('arrival_airport_code', '==', filters.arrival_airport_code));
+      }
+      
+      if (filters.airline_code) {
+        flightsQuery = query(flightsQuery, 
+          where('airline_code', '==', filters.airline_code));
+      }
+      
+      if (filters.status) {
+        flightsQuery = query(flightsQuery, 
+          where('status', '==', filters.status));
+      }
+
+      // Filtrado por fecha de salida
+      if (filters.departure_date) {
+        // Convertir fecha a formato D/M/YYYY que usamos en nuestra base
+        const date = new Date(filters.departure_date);
+        const formattedDate = `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()}`;
         
-        // Si es la primera página, consultar desde el principio
-        if (currentPage === 1 || !lastVisible) {
-          flightsQuery = query(
-            collection(db, 'flights'),
-            orderBy('departure_date', 'desc'),
-            orderBy('departure_time', 'desc')
-          );
-        } else {
-          // Si no es la primera página, comenzar después del último documento visible
-          flightsQuery = query(
-            collection(db, 'flights'),
-            orderBy('departure_date', 'desc'),
-            orderBy('departure_time', 'desc'),
-            startAfter(lastVisible)
-          );
-        }
-        
-        // Aplicar filtros
-        if (filters.airline_code) {
-          flightsQuery = query(
-            collection(db, 'flights'),
-            where('airline_code', '==', filters.airline_code),
-            orderBy('departure_date', 'desc'),
-            orderBy('departure_time', 'desc')
-          );
-        }
-        
-        if (filters.departure_airport_code) {
-          flightsQuery = query(
-            collection(db, 'flights'),
-            where('departure_airport_code', '==', filters.departure_airport_code),
-            orderBy('departure_date', 'desc'),
-            orderBy('departure_time', 'desc')
-          );
-        }
-        
-        if (filters.arrival_airport_code) {
-          flightsQuery = query(
-            collection(db, 'flights'),
-            where('arrival_airport_code', '==', filters.arrival_airport_code),
-            orderBy('departure_date', 'desc'),
-            orderBy('departure_time', 'desc')
-          );
-        }
-        
-        // Aplicar límite por página
-        flightsQuery = query(flightsQuery, limit(pageSize));
-        
-        // Ejecutar la consulta
-        const querySnapshot = await getDocs(flightsQuery);
-        
-        // Si no hay resultados, mostrar mensaje
-        if (querySnapshot.empty) {
-          setFlights([]);
-          setLastVisible(null);
-          setFirstVisible(null);
-          setLoading(false);
-          return;
-        }
-        
-        // Extraer datos y actualizar estado
-        const flightsData = querySnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
-        
-        setFlights(flightsData);
+        flightsQuery = query(flightsQuery, 
+          where('departure_date', '==', formattedDate));
+      }
+      
+      // Ordenar
+      flightsQuery = query(flightsQuery, orderBy('departure_time'));
+      
+      // Aplicar paginación
+      flightsQuery = query(flightsQuery, limit(pageSize));
+      
+      // Ejecutar consulta
+      const querySnapshot = await getDocs(flightsQuery);
+      
+      // Procesar resultados
+      let flightsData = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      
+      // Filtrado por clase disponible (debe hacerse en memoria porque Firebase no puede filtrar por campos anidados)
+      if (filters.available_class) {
+        flightsData = flightsData.filter(flight => {
+          // Verificar si existe class_availability y tiene la clase buscada
+          return flight.class_availability && 
+                 flight.class_availability.hasOwnProperty(filters.available_class) &&
+                 flight.class_availability[filters.available_class] > 0;
+        });
+      }
+      
+      setFlights(flightsData);
+      
+      // Actualizar controles de paginación
+      if (querySnapshot.docs.length > 0) {
         setLastVisible(querySnapshot.docs[querySnapshot.docs.length - 1]);
         setFirstVisible(querySnapshot.docs[0]);
-        
-      } catch (error) {
-        console.error('Error al cargar vuelos:', error);
-        toast.error('Error al cargar los vuelos');
-      } finally {
-        setLoading(false);
+      } else {
+        setLastVisible(null);
+        setFirstVisible(null);
       }
+      
+    } catch (error) {
+      console.error('Error al cargar vuelos:', error);
+      toast.error('Error al cargar los vuelos');
+    } finally {
+      setLoading(false);
     }
-    
-    fetchFlights();
-  }, [currentPage, pageSize, filters]);
+  }
+  
+  fetchFlights();
+}, [currentPage, pageSize, filters]);
+        
+        
   
   // Navegar a la página siguiente
   const goToNextPage = () => {
@@ -291,12 +294,15 @@ export default function AdminFlights() {
     setFirstVisible(null);
   };
   
-  // Resetear todos los filtros
-  const clearFilters = () => {
+  // Y actualiza la función clearFilters
+const clearFilters = () => {
     setFilters({
       airline_code: '',
       departure_airport_code: '',
-      arrival_airport_code: ''
+      arrival_airport_code: '',
+      departure_date: '',
+      status: '',
+      available_class: ''
     });
     setCurrentPage(1);
     setPageHistory([]);
@@ -324,6 +330,7 @@ export default function AdminFlights() {
     try {
       if (editingFlight) {
         // Actualizar vuelo existente
+        console.log('Guardando clases disponibles:', formData.class_availability);
         await updateDoc(doc(db, 'flights', editingFlight.id), {
           ...formData,
           updated_at: serverTimestamp()
@@ -424,7 +431,8 @@ export default function AdminFlights() {
       equipment_code: flight.equipment_code || '',
       status: flight.status || 'Scheduled',
       flight_distance: flight.flight_distance || 0,
-      stops: flight.stops || 0
+      stops: flight.stops || 0,
+      class_availability: flight.class_availability || {},
     });
     setShowAddModal(true);
   };
@@ -446,6 +454,315 @@ export default function AdminFlights() {
       console.error('Error al cerrar sesión:', error);
     }
   }
+
+// Componente simplificado similar a la captura mostrada
+const ClassAvailabilityEditor = ({ value, onChange }) => {
+    // Clases de reserva comunes en Amadeus
+    const commonClasses = ['F', 'A', 'J', 'C', 'D', 'I', 'W', 'S', 'Y', 'B', 'M', 'H', 'K', 'L', 'Q', 'T', 'V', 'X'];
+    
+    // Inicializar el estado con el valor proporcionado o un objeto vacío
+    const [classAvailability, setClassAvailability] = useState(value || {});
+    const [selectedClass, setSelectedClass] = useState('');
+    
+    // Actualizar el estado SOLO cuando el valor del prop cambia
+    useEffect(() => {
+      setClassAvailability(value || {});
+    }, [value]);
+    
+    // Añadir una nueva clase
+    const addClass = () => {
+      if (!selectedClass || classAvailability[selectedClass] !== undefined) return;
+      
+      const newState = {
+        ...classAvailability,
+        [selectedClass]: 9 // Valor predeterminado
+      };
+      
+      setClassAvailability(newState);
+      onChange(newState);
+      setSelectedClass('');
+    };
+    
+    // Eliminar una clase
+    const removeClass = (classCode) => {
+      const newState = { ...classAvailability };
+      delete newState[classCode];
+      
+      setClassAvailability(newState);
+      onChange(newState);
+    };
+    
+    // Actualizar la disponibilidad de una clase
+    const updateAvailability = (classCode, seats) => {
+      const newState = {
+        ...classAvailability,
+        [classCode]: parseInt(seats, 10)
+      };
+      
+      setClassAvailability(newState);
+      onChange(newState);
+    };
+    
+    // Clasificar las clases para mostrarlas
+    const classGroups = {
+      first: ['F', 'A', 'P'], // First Class
+      business: ['J', 'C', 'D', 'I', 'Z', 'R'], // Business Class
+      premium: ['W', 'E', 'T', 'U'], // Premium Economy
+      economy: ['Y', 'B', 'M', 'H', 'K', 'L', 'Q', 'S', 'V', 'X', 'N', 'O', 'G'] // Economy
+    };
+    
+    const getClassCategory = (classCode) => {
+      if (classGroups.first.includes(classCode)) return 'Primera Clase';
+      if (classGroups.business.includes(classCode)) return 'Clase Business';
+      if (classGroups.premium.includes(classCode)) return 'Premium Economy';
+      return 'Clase Económica';
+    };
+    
+    // Organizar las clases por categoría
+    const organizedClasses = Object.entries(classAvailability).reduce((acc, [classCode, seats]) => {
+      const category = getClassCategory(classCode);
+      if (!acc[category]) acc[category] = [];
+      acc[category].push({ classCode, seats });
+      return acc;
+    }, {});
+    
+    return (
+      <div className="mt-4 col-span-2">
+        <h3 className="text-base font-medium text-gray-900 mb-4">Disponibilidad por Clase</h3>
+        
+        {/* Secciones de clases agrupadas por categoría */}
+        <div className="space-y-4">
+          {Object.entries(organizedClasses).map(([category, classes]) => (
+            <div key={category} className="bg-gray-50 p-4 rounded-md">
+              <h4 className="text-sm font-medium text-gray-700 mb-3">{category}</h4>
+              <div className="space-y-3">
+                {classes.map(({ classCode, seats }) => (
+                  <div key={classCode} className="bg-white p-4 rounded-md border border-gray-200 relative">
+                    <button
+                      type="button"
+                      onClick={() => removeClass(classCode)}
+                      className="absolute top-2 right-2 text-gray-400 hover:text-gray-600"
+                    >
+                      ×
+                    </button>
+                    <div className="flex items-center">
+                      <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center mr-3">
+                        <span className="font-mono font-bold text-blue-600">{classCode}</span>
+                      </div>
+                      <div>
+                        <div className="text-sm font-medium text-gray-700">Disponibles</div>
+                        <input
+                          type="number"
+                          min="0"
+                          max="9"
+                          value={seats}
+                          onChange={(e) => updateAvailability(classCode, e.target.value)}
+                          className="mt-1 focus:ring-blue-500 focus:border-blue-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+        
+        {/* Selector para añadir nuevas clases */}
+        <div className="mt-4 flex items-center">
+          <select
+            value={selectedClass}
+            onChange={(e) => setSelectedClass(e.target.value)}
+            className="block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+          >
+            <option value="">Seleccionar clase</option>
+            {commonClasses
+              .filter(cls => !classAvailability[cls])
+              .map(cls => (
+                <option key={cls} value={cls}>{cls}</option>
+              ))}
+          </select>
+          <button
+            type="button"
+            onClick={addClass}
+            disabled={!selectedClass}
+            className="ml-3 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          >
+            Añadir clase
+          </button>
+        </div>
+        
+        {/* Mensaje informativo */}
+        <div className="mt-4 bg-blue-50 p-3 rounded-md flex">
+          <div className="flex-shrink-0">
+            <svg className="h-5 w-5 text-blue-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+            </svg>
+          </div>
+          <p className="ml-3 text-sm text-blue-700">
+            Los valores deben estar entre 0 y 9. Valor 0 indica clase cerrada.
+          </p>
+        </div>
+      </div>
+    );
+  };
+
+  const AdvancedFilters = ({ 
+    filters, 
+    setFilters, 
+    uniqueAirlines, 
+    uniqueOrigins, 
+    uniqueDestinations,
+    clearFilters
+  }) => {
+    // Clases más comunes para filtrar
+    const commonClasses = ['F', 'J', 'Y', 'C', 'W'];
+  
+    return (
+      <div className="mt-4 bg-white p-4 shadow rounded-lg">
+        <h3 className="text-lg font-medium text-gray-900 mb-4">Filtros Avanzados</h3>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {/* Aerolínea */}
+          <div>
+            <label htmlFor="airline_code" className="block text-sm font-medium text-gray-700 mb-1">
+              Aerolínea
+            </label>
+            <select
+              id="airline_code"
+              name="airline_code"
+              value={filters.airline_code || ''}
+              onChange={(e) => setFilters(prev => ({ ...prev, airline_code: e.target.value }))}
+              className="block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-amadeus-primary focus:border-amadeus-primary sm:text-sm"
+            >
+              <option value="">Todas las aerolíneas</option>
+              {uniqueAirlines.map(airline => (
+                <option key={airline} value={airline}>
+                  {airline}
+                </option>
+              ))}
+            </select>
+          </div>
+          
+          {/* Origen */}
+          <div>
+            <label htmlFor="departure_airport_code" className="block text-sm font-medium text-gray-700 mb-1">
+              Aeropuerto de Origen
+            </label>
+            <select
+              id="departure_airport_code"
+              name="departure_airport_code"
+              value={filters.departure_airport_code || ''}
+              onChange={(e) => setFilters(prev => ({ ...prev, departure_airport_code: e.target.value }))}
+              className="block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-amadeus-primary focus:border-amadeus-primary sm:text-sm"
+            >
+              <option value="">Todos los orígenes</option>
+              {uniqueOrigins.map(origin => (
+                <option key={origin} value={origin}>
+                  {origin}
+                </option>
+              ))}
+            </select>
+          </div>
+          
+          {/* Destino */}
+          <div>
+            <label htmlFor="arrival_airport_code" className="block text-sm font-medium text-gray-700 mb-1">
+              Aeropuerto de Destino
+            </label>
+            <select
+              id="arrival_airport_code"
+              name="arrival_airport_code"
+              value={filters.arrival_airport_code || ''}
+              onChange={(e) => setFilters(prev => ({ ...prev, arrival_airport_code: e.target.value }))}
+              className="block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-amadeus-primary focus:border-amadeus-primary sm:text-sm"
+            >
+              <option value="">Todos los destinos</option>
+              {uniqueDestinations.map(destination => (
+                <option key={destination} value={destination}>
+                  {destination}
+                </option>
+              ))}
+            </select>
+          </div>
+          
+          {/* Clase disponible */}
+          <div>
+            <label htmlFor="available_class" className="block text-sm font-medium text-gray-700 mb-1">
+              Clase Disponible
+            </label>
+            <select
+              id="available_class"
+              name="available_class"
+              value={filters.available_class || ''}
+              onChange={(e) => setFilters(prev => ({ ...prev, available_class: e.target.value }))}
+              className="block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-amadeus-primary focus:border-amadeus-primary sm:text-sm"
+            >
+              <option value="">Cualquier clase</option>
+              {commonClasses.map(cls => (
+                <option key={cls} value={cls}>
+                  Clase {cls}
+                </option>
+              ))}
+            </select>
+          </div>
+          
+          {/* Fecha de salida */}
+          <div>
+            <label htmlFor="departure_date" className="block text-sm font-medium text-gray-700 mb-1">
+              Fecha de Salida
+            </label>
+            <input
+              type="date"
+              id="departure_date"
+              name="departure_date"
+              value={filters.departure_date || ''}
+              onChange={(e) => setFilters(prev => ({ ...prev, departure_date: e.target.value }))}
+              className="block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-amadeus-primary focus:border-amadeus-primary sm:text-sm"
+            />
+          </div>
+          
+          {/* Estado del vuelo */}
+          <div>
+            <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-1">
+              Estado
+            </label>
+            <select
+              id="status"
+              name="status"
+              value={filters.status || ''}
+              onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
+              className="block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-amadeus-primary focus:border-amadeus-primary sm:text-sm"
+            >
+              <option value="">Todos los estados</option>
+              <option value="Scheduled">Programado</option>
+              <option value="On Time">A tiempo</option>
+              <option value="Delayed">Retrasado</option>
+              <option value="Cancelled">Cancelado</option>
+            </select>
+          </div>
+        </div>
+        
+        {/* Botones de acción */}
+        <div className="mt-4 flex justify-end space-x-3">
+          <button
+            type="button"
+            onClick={clearFilters}
+            className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amadeus-primary"
+          >
+            Limpiar filtros
+          </button>
+          <button
+            type="button"
+            onClick={() => setFilters(prev => ({ ...prev }))} // Forzar actualización
+            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-amadeus-primary hover:bg-amadeus-secondary focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amadeus-primary"
+          >
+            Aplicar filtros
+          </button>
+        </div>
+      </div>
+    );
+  };
   
   return (
     <div className="flex h-screen bg-gray-100">
@@ -559,78 +876,15 @@ export default function AdminFlights() {
               
               {/* Filtros avanzados */}
               {showFilters && (
-                <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div>
-                    <label htmlFor="airline_code" className="block text-sm font-medium text-gray-700">
-                      Aerolínea
-                    </label>
-                    <select
-                      id="airline_code"
-                      name="airline_code"
-                      value={filters.airline_code}
-                      onChange={handleFilterChange}
-                      className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-amadeus-primary focus:border-amadeus-primary sm:text-sm rounded-md"
-                    >
-                      <option value="">Todas las aerolíneas</option>
-                      {uniqueAirlines.map(airline => (
-                        <option key={airline} value={airline}>
-                          {airline}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  
-                  <div>
-                    <label htmlFor="departure_airport_code" className="block text-sm font-medium text-gray-700">
-                      Aeropuerto de Origen
-                    </label>
-                    <select
-                      id="departure_airport_code"
-                      name="departure_airport_code"
-                      value={filters.departure_airport_code}
-                      onChange={handleFilterChange}
-                      className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-amadeus-primary focus:border-amadeus-primary sm:text-sm rounded-md"
-                    >
-                      <option value="">Todos los orígenes</option>
-                      {uniqueOrigins.map(origin => (
-                        <option key={origin} value={origin}>
-                          {origin}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  
-                  <div>
-                    <label htmlFor="arrival_airport_code" className="block text-sm font-medium text-gray-700">
-                      Aeropuerto de Destino
-                    </label>
-                    <select
-                      id="arrival_airport_code"
-                      name="arrival_airport_code"
-                      value={filters.arrival_airport_code}
-                      onChange={handleFilterChange}
-                      className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-amadeus-primary focus:border-amadeus-primary sm:text-sm rounded-md"
-                    >
-                      <option value="">Todos los destinos</option>
-                      {uniqueDestinations.map(destination => (
-                        <option key={destination} value={destination}>
-                          {destination}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  
-                  <div className="sm:col-span-3 flex justify-end">
-                    <button
-                      type="button"
-                      onClick={clearFilters}
-                      className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amadeus-primary"
-                    >
-                      Limpiar filtros
-                    </button>
-                  </div>
-                </div>
-              )}
+                <AdvancedFilters 
+                    filters={filters}
+                    setFilters={setFilters}
+                    uniqueAirlines={uniqueAirlines}
+                    uniqueOrigins={uniqueOrigins}
+                    uniqueDestinations={uniqueDestinations}
+                    clearFilters={clearFilters}
+                />
+                )}
             </div>
             
             {/* Flights Table */}
@@ -651,6 +905,9 @@ export default function AdminFlights() {
                       <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Detalles
                       </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Clases
+                        </th>
                       <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Acciones
                       </th>
@@ -724,6 +981,27 @@ export default function AdminFlights() {
                               </div>
                             </div>
                           </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex flex-wrap gap-1 max-w-xs">
+                                {flight.class_availability ? (
+                                Object.entries(flight.class_availability).map(([classCode, seats]) => (
+                                    <span 
+                                    key={classCode}
+                                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                        seats > 0 
+                                        ? 'bg-green-100 text-green-800' 
+                                        : 'bg-red-100 text-red-800'
+                                    }`}
+                                    title={`${seats} asientos disponibles`}
+                                    >
+                                    {classCode}{seats}
+                                    </span>
+                                ))
+                                ) : (
+                                <span className="text-gray-400 text-xs italic">Sin clases</span>
+                                )}
+                            </div>
+                            </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             <div className="flex items-center">
                               <button
@@ -1076,6 +1354,14 @@ export default function AdminFlights() {
                             <option value="319">319 - Airbus A319</option>
                           </select>
                         </div>
+
+                        <ClassAvailabilityEditor
+                            value={formData.class_availability}
+                            onChange={(newValue) => setFormData(prev => ({
+                                ...prev,
+                                class_availability: newValue
+                            }))}
+                            />
                       </div>
                     </div>
                   </div>

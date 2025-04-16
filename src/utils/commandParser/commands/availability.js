@@ -86,7 +86,7 @@ export async function handleAvailabilityCommand(cmd) {
       const duration = flight.duration_hours ? formatDuration(flight.duration_hours) : '----';
       
       // Construir línea de vuelo
-      let flightLine = `${index} ${flight.airline_code} ${flight.flight_number} `;
+      let flightLine = `${index} ${flight.flight_number} `;
       
       // Agregar disponibilidad de clases
       if (flight.class_availability) {
@@ -105,7 +105,7 @@ export async function handleAvailabilityCommand(cmd) {
       }
       
       // Añadir detalles del vuelo
-      flightLine += `${flight.departure_airport_code} ${departureTerminal} ${flight.arrival_airport_code} ${arrivalTerminal} ${flight.departure_time} ${flight.arrival_time} E0/${aircraftCode} ${duration}\n`;
+      flightLine += ` ${flight.departure_airport_code} ${departureTerminal} ${flight.arrival_airport_code} ${arrivalTerminal} ${flight.departure_time} ${flight.arrival_time} E0/${aircraftCode} ${duration}\n`;
       
       response += flightLine;
       index++;

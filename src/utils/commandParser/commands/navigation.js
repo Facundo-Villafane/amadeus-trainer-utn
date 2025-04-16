@@ -85,7 +85,7 @@ export async function handleMoveDown() {
     paginationState.currentResults = querySnapshot.docs.map(doc => doc.data());
     
     // Generar la cabecera con la fecha guardada
-    const header = await generateHeader(commandType, destination, origin, dateStr, 'PÁGINA SIGUIENTE');
+    const header = await generateHeader(commandType, destination, origin, dateStr);
     let response = `${header}\n`;
     
     // Procesar resultados con numeración continua
@@ -168,7 +168,7 @@ export async function handleMoveUp() {
     const { commandType, destination, origin, dateStr } = paginationState;
     
     // Formatear la respuesta simulando la respuesta de Amadeus
-    const header = await generateHeader(commandType, destination, origin, dateStr, 'PÁGINA ANTERIOR');
+    const header = await generateHeader(commandType, destination, origin, dateStr);
     let response = `${header}\n`;
     
     // Procesar resultados con numeración restaurada

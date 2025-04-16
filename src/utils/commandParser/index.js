@@ -1,4 +1,5 @@
-// src/utils/commandParser/index.js
+// En utils/commandParser/index.js
+
 import { handleAvailabilityCommand } from './commands/availability';
 import { handleScheduleCommand } from './commands/schedule';
 import { handleTimetableCommand } from './commands/timetable'; 
@@ -6,11 +7,18 @@ import { handleMoveDown, handleMoveUp } from './commands/navigation';
 import { generateHelpText, handleHelpCommand } from './commands/help';
 import { handleEncodeCity, handleDecodeCity } from './commands/city';
 import { handleEncodeAirline } from './commands/airline';
-import { handleSellSegment, handleAddName, handleAddContact, handleRetrievePNR } from './commands/pnr';
-import { handleEndTransaction } from './commands/transaction';
+import { 
+  handleSellSegment, 
+  handleAddName, 
+  handleAddContact,
+  handleReceivedFrom,
+  handleEndTransaction, 
+  handleRetrievePNR,
+  handleCancelPNR
+} from './commands/pnr';
 
 // Función principal para analizar y ejecutar comandos
-export async function commandParser(command) {
+export async function commandParser(command, userId) {
   // Convertir a mayúsculas y eliminar espacios al inicio y al final
   const cmd = command.trim().toUpperCase();
   
@@ -63,27 +71,31 @@ export async function commandParser(command) {
   
   // Comandos para PNR
   if (cmd.startsWith('SS')) {
-    return await handleSellSegment(cmd);
+    return await handleSellSegment(cmd, userId);
   }
   
   if (cmd.startsWith('NM')) {
-    return handleAddName(cmd);
+    return await handleAddName(cmd, userId);
   }
   
   if (cmd.startsWith('AP')) {
-    return handleAddContact(cmd);
+    return await handleAddContact(cmd, userId);
   }
   
   if (cmd.startsWith('RF')) {
-    return "Received From entrada guardada.";
+    return await handleReceivedFrom(cmd, userId);
   }
   
   if (cmd === 'ET' || cmd === 'ER') {
-    return handleEndTransaction(cmd);
+    return await handleEndTransaction(cmd, userId);
   }
   
   if (cmd.startsWith('RT')) {
-    return await handleRetrievePNR(cmd);
+    return await handleRetrievePNR(cmd, userId);
+  }
+  
+  if (cmd === 'XI') {
+    return await handleCancelPNR(cmd, userId);
   }
   
   // Si no coincide con ningún comando conocido
