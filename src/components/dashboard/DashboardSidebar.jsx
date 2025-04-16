@@ -1,6 +1,6 @@
 // src/components/dashboard/DashboardSidebar.jsx
 import { Link, useLocation } from 'react-router';
-import { FiMonitor, FiBook, FiUsers, FiBarChart2, FiSettings, FiHelpCircle, FiAirplay } from 'react-icons/fi';
+import { FiMonitor, FiBook, FiUsers, FiBarChart2, FiSettings, FiHelpCircle, FiAirplay, FiSliders } from 'react-icons/fi';
 import PropTypes from 'prop-types';
 
 function classNames(...classes) {
@@ -16,6 +16,7 @@ export default function DashboardSidebar({ userRole }) {
     { name: 'Mis PNRs', href: '/my-pnrs', icon: FiBook },
     { name: 'Historial de Comandos', href: '/command-history', icon: FiBarChart2 },
     { name: 'Ayuda', href: '/help', icon: FiHelpCircle },
+    { name: 'Configuración', href: '/settings', icon: FiSliders },
   ];
   
   // Agregar opciones de administrador si el usuario es admin
@@ -23,7 +24,7 @@ export default function DashboardSidebar({ userRole }) {
     navigation.push(
       { name: 'Gestión de Usuarios', href: '/admin/users', icon: FiUsers },
       { name: 'Gestión de Vuelos', href: '/admin/flights', icon: FiAirplay },
-      { name: 'Configuración', href: '/admin/settings', icon: FiSettings }
+      { name: 'Configuración Sistema', href: '/admin/settings', icon: FiSettings }
     );
   }
 

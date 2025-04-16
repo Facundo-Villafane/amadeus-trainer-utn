@@ -51,30 +51,30 @@ export default function Terminal() {
   };
 
   // Modificar la función executeCommand para pasar el userId
-const executeCommand = async (cmd) => {
-  // Agregar el comando al historial de la terminal
-  addLine(`> ${cmd}`, 'input');
-  
-  // Agregar el comando al historial de comandos
-  setCommandHistory(prev => [cmd, ...prev.slice(0, 19)]);
-  setHistoryIndex(-1);
-  
-  // Procesar el comando y obtener la respuesta
-  try {
-    // Pasar el ID del usuario actual al parser de comandos
-    const response = await commandParser(cmd, currentUser.uid);
+  const executeCommand = async (cmd) => {
+    // Agregar el comando al historial de la terminal
+    addLine(cmd, 'input');
     
-    // Agregar la respuesta al historial de la terminal
-    addLine(response, 'output');
+    // Agregar el comando al historial de comandos
+    setCommandHistory(prev => [cmd, ...prev.slice(0, 19)]);
+    setHistoryIndex(-1);
     
-    // Guardar el comando en Firestore
-    await saveCommandToHistory(cmd, response);
-  } catch (error) {
-    console.error('Error al ejecutar el comando:', error);
-    addLine(`Error: ${error.message}`, 'error');
-    await saveCommandToHistory(cmd, `Error: ${error.message}`);
-  }
-};
+    // Procesar el comando y obtener la respuesta
+    try {
+      // Pasar el ID del usuario actual al parser de comandos
+      const response = await commandParser(cmd, currentUser.uid);
+      
+      // Agregar la respuesta al historial de la terminal
+      addLine(response, 'output');
+      
+      // Guardar el comando en Firestore
+      await saveCommandToHistory(cmd, response);
+    } catch (error) {
+      console.error('Error al ejecutar el comando:', error);
+      addLine(`Error: ${error.message}`, 'error');
+      await saveCommandToHistory(cmd, `Error: ${error.message}`);
+    }
+  };
 
   // Manejar el envío del formulario
   const handleSubmit = (e) => {
@@ -108,6 +108,19 @@ const executeCommand = async (cmd) => {
     }
   };
 
+  // Obtener los colores personalizados del usuario si existen
+  const userSettings = currentUser?.terminalSettings || {};
+  
+  // Color de fondo personalizado o predeterminado
+  const backgroundColor = userSettings.backgroundColor || '#E1E6FC';
+  const terminalTextColor = userSettings.textColor || '#080286';
+  
+  // Aplicar estilos personalizados
+  const terminalStyle = {
+    backgroundColor,
+    color: terminalTextColor
+  };
+  
   return (
     <div className="flex flex-col w-full h-full">
       <div className="bg-amadeus-dark text-white p-2 flex items-center rounded-t-md">
@@ -117,7 +130,8 @@ const executeCommand = async (cmd) => {
       
       <div 
         ref={terminalRef}
-        className="terminal flex-grow overflow-auto"
+        className="flex-grow overflow-auto p-3"
+        style={terminalStyle}
       >
         {history.length === 0 ? (
           <div className="text-gray-500 italic">
@@ -131,7 +145,10 @@ const executeCommand = async (cmd) => {
       </div>
       
       <form onSubmit={handleSubmit} className="flex mt-2">
-        <div className="bg-black text-green-400 font-mono px-2 flex items-center">
+        <div 
+          className="px-2 flex items-center font-mono"
+          style={{ backgroundColor, color: terminalTextColor }}
+        >
           {'>'}
         </div>
         <input
@@ -140,7 +157,8 @@ const executeCommand = async (cmd) => {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          className="flex-grow bg-black text-green-400 font-mono px-2 outline-none"
+          className="flex-grow font-mono px-2 outline-none"
+          style={{ backgroundColor, color: userSettings.inputTextColor || terminalTextColor }}
           placeholder="Ingrese un comando..."
           autoComplete="off"
           spellCheck="false"

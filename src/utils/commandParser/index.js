@@ -1,4 +1,4 @@
-// En utils/commandParser/index.js
+// src/utils/commandParser/index.js
 
 import { handleAvailabilityCommand } from './commands/availability';
 import { handleScheduleCommand } from './commands/schedule';

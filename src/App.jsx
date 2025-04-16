@@ -15,6 +15,7 @@ import CommandHistory from './pages/CommandHistory';
 import UserProfile from './pages/UserProfile';
 import MyPNRs from './pages/MyPNRs';
 import Help from './pages/Help';
+import Settings from './pages/Settings'; // Nueva página de configuración
 
 // Páginas de administrador
 import AdminUsers from './pages/admin/Users';
@@ -108,6 +109,14 @@ export default function App() {
           element={
             <PrivateRoute>
               <Help />
+            </PrivateRoute>
+          } 
+        />
+        <Route 
+          path="/settings" 
+          element={
+            <PrivateRoute>
+              <Settings />
             </PrivateRoute>
           } 
         />

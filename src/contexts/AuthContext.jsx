@@ -11,12 +11,19 @@ import {
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, googleProvider, db } from '../services/firebase';
 
-const AuthContext = createContext();
+// Crear el contexto
+const AuthContext = createContext(null);
 
+// Hook para usar el contexto
 export function useAuth() {
-  return useContext(AuthContext);
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth debe ser usado dentro de un AuthProvider');
+  }
+  return context;
 }
 
+// Componente proveedor que envuelve a la aplicación
 export function AuthProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(null);
   const [userRole, setUserRole] = useState(null);
@@ -97,6 +104,7 @@ export function AuthProvider({ children }) {
     }
   }
 
+  // Efecto para observar el estado de autenticación
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
@@ -111,6 +119,7 @@ export function AuthProvider({ children }) {
     return unsubscribe;
   }, []);
 
+  // Crear el objeto de valor para el contexto
   const value = {
     currentUser,
     userRole,
@@ -128,3 +137,6 @@ export function AuthProvider({ children }) {
     </AuthContext.Provider>
   );
 }
+
+// Esta exportación asegura compatibilidad con HMR
+export default AuthProvider;
