@@ -1,32 +1,29 @@
 // src/components/terminal/TerminalLine.jsx
 import React from 'react';
 import PropTypes from 'prop-types';
-import classNames from 'classnames';
-import { useAuth } from '../../contexts/AuthContext';
 
-export default function TerminalLine({ line }) {
+export default function TerminalLine({ line, colors }) {
   const { content, type } = line;
-  const { currentUser } = useAuth();
   
-  // Colores predeterminados
+  // Colores predeterminados si no se proporcionan
   const defaultColors = {
     input: '#080286',    // Azul
     output: '#000000',   // Negro
     error: '#FF0000'     // Rojo
   };
   
-  // Obtener los colores personalizados del usuario si existen
-  const userSettings = currentUser?.terminalSettings || {};
+  // Combinar colores proporcionados con predeterminados
+  const finalColors = { ...defaultColors, ...colors };
   
-  // Determinar el color según el tipo de línea y las preferencias del usuario
+  // Determinar el color según el tipo de línea
   const getColor = () => {
     switch (type) {
       case 'input':
-        return userSettings.inputTextColor || defaultColors.input;
+        return finalColors.input;
       case 'output':
-        return userSettings.outputTextColor || defaultColors.output;
+        return finalColors.output;
       case 'error':
-        return userSettings.errorTextColor || defaultColors.error;
+        return finalColors.error;
       default:
         return 'white';
     }
@@ -49,5 +46,18 @@ TerminalLine.propTypes = {
     content: PropTypes.string.isRequired,
     type: PropTypes.oneOf(['input', 'output', 'error']).isRequired,
     timestamp: PropTypes.instanceOf(Date)
-  }).isRequired
+  }).isRequired,
+  colors: PropTypes.shape({
+    input: PropTypes.string,
+    output: PropTypes.string,
+    error: PropTypes.string
+  })
+};
+
+TerminalLine.defaultProps = {
+  colors: {
+    input: '#080286',    // Azul
+    output: '#000000',   // Negro
+    error: '#FF0000'     // Rojo
+  }
 };

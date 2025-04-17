@@ -74,10 +74,12 @@ export default function TerminalSettings() {
         updatedAt: new Date()
       });
       
-      toast.success('Configuración guardada correctamente');
+      // Mensaje de éxito más detallado
+      console.log('Guardando configuración:', terminalSettings);
+      toast.success('Configuración guardada correctamente. Recarga la página para ver los cambios.');
     } catch (error) {
       console.error('Error al guardar la configuración:', error);
-      toast.error('Error al guardar la configuración');
+      toast.error('Error al guardar la configuración: ' + error.message);
     } finally {
       setSaving(false);
     }

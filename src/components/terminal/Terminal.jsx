@@ -2,7 +2,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { db } from '../../services/firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
 import { commandParser } from '../../utils/commandParser/index';
 import TerminalLine from './TerminalLine';
 import { FiTerminal } from 'react-icons/fi';
@@ -12,9 +12,60 @@ export default function Terminal() {
   const [history, setHistory] = useState([]);
   const [commandHistory, setCommandHistory] = useState([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
+  const [terminalSettings, setTerminalSettings] = useState({
+    backgroundColor: '#E1E6FC',
+    textColor: '#080286',
+    inputTextColor: '#080286',
+    outputTextColor: '#000000',
+    errorTextColor: '#FF0000'
+  });
+  
   const { currentUser } = useAuth();
   const inputRef = useRef(null);
   const terminalRef = useRef(null);
+  const welcomeShownRef = useRef(false);
+
+  // Cargar configuración del usuario una vez que se autentica
+  useEffect(() => {
+    async function loadUserSettings() {
+      if (!currentUser) return;
+      
+      try {
+        const userDocRef = doc(db, 'users', currentUser.uid);
+        const userDoc = await getDoc(userDocRef);
+        
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          
+          if (userData.terminalSettings) {
+            console.log('Cargando configuración de terminal:', userData.terminalSettings);
+            // Asegurar que todos los valores requeridos estén presentes
+            const settings = {
+              backgroundColor: userData.terminalSettings.backgroundColor || '#E1E6FC',
+              textColor: userData.terminalSettings.textColor || '#080286',
+              inputTextColor: userData.terminalSettings.inputTextColor || '#080286',
+              outputTextColor: userData.terminalSettings.outputTextColor || '#000000',
+              errorTextColor: userData.terminalSettings.errorTextColor || '#FF0000'
+            };
+            setTerminalSettings(settings);
+          }
+        }
+      } catch (error) {
+        console.error('Error al cargar configuración de terminal:', error);
+        // Silenciar error - usar los valores por defecto
+      }
+    }
+    
+    loadUserSettings();
+  }, [currentUser]);
+
+  // Mostrar mensaje de bienvenida solo una vez
+  useEffect(() => {
+    if (!welcomeShownRef.current) {
+      addLine("Bienvenido a Amadeus Terminal. Ingresa 'HELP' o 'HE' para ver los comandos disponibles.", 'output');
+      welcomeShownRef.current = true;
+    }
+  }, []);
 
   // Foco automático en el input cuando el componente se monta
   useEffect(() => {
@@ -47,10 +98,11 @@ export default function Terminal() {
       });
     } catch (error) {
       console.error('Error al guardar el comando:', error);
+      // No mostramos este error al usuario, solo lo registramos en la consola
     }
   };
 
-  // Modificar la función executeCommand para pasar el userId
+  // Modificar la función executeCommand para manejar errores de permisos
   const executeCommand = async (cmd) => {
     // Agregar el comando al historial de la terminal
     addLine(cmd, 'input');
@@ -67,12 +119,31 @@ export default function Terminal() {
       // Agregar la respuesta al historial de la terminal
       addLine(response, 'output');
       
-      // Guardar el comando en Firestore
-      await saveCommandToHistory(cmd, response);
+      // Guardar el comando en Firestore (si falla, ya tenemos un try/catch)
+      try {
+        await saveCommandToHistory(cmd, response);
+      } catch (error) {
+        // Error silencioso - ya lo registramos en saveCommandToHistory
+      }
     } catch (error) {
       console.error('Error al ejecutar el comando:', error);
-      addLine(`Error: ${error.message}`, 'error');
-      await saveCommandToHistory(cmd, `Error: ${error.message}`);
+      
+      // Mensaje de error más amigable para el usuario
+      let errorMessage = `Error: ${error.message}`;
+      
+      // Detectar errores específicos
+      if (error.message && error.message.includes("Missing or insufficient permissions")) {
+        errorMessage = "Error: No tienes permisos suficientes para ejecutar este comando. Los administradores han sido notificados.";
+      } else if (error.message && error.message.includes("Failed to get document")) {
+        errorMessage = "Error: No se pudo obtener la información solicitada. Por favor, inténtalo más tarde.";
+      }
+      
+      addLine(errorMessage, 'error');
+      try {
+        await saveCommandToHistory(cmd, errorMessage);
+      } catch (historyError) {
+        // Error silencioso
+      }
     }
   };
 
@@ -107,18 +178,17 @@ export default function Terminal() {
       }
     }
   };
-
-  // Obtener los colores personalizados del usuario si existen
-  const userSettings = currentUser?.terminalSettings || {};
-  
-  // Color de fondo personalizado o predeterminado
-  const backgroundColor = userSettings.backgroundColor || '#E1E6FC';
-  const terminalTextColor = userSettings.textColor || '#080286';
   
   // Aplicar estilos personalizados
   const terminalStyle = {
-    backgroundColor,
-    color: terminalTextColor
+    backgroundColor: terminalSettings.backgroundColor,
+    color: terminalSettings.textColor
+  };
+  
+  // Estilo para el input
+  const inputStyle = {
+    backgroundColor: terminalSettings.backgroundColor,
+    color: terminalSettings.inputTextColor
   };
   
   return (
@@ -130,24 +200,26 @@ export default function Terminal() {
       
       <div 
         ref={terminalRef}
-        className="flex-grow overflow-auto p-3"
+        className="flex-grow overflow-auto p-3 font-mono"
         style={terminalStyle}
       >
-        {history.length === 0 ? (
-          <div className="text-gray-500 italic">
-            Bienvenido a Amadeus Terminal. Ingresa comandos para comenzar.
-          </div>
-        ) : (
-          history.map((line, index) => (
-            <TerminalLine key={index} line={line} />
-          ))
-        )}
+        {history.map((line, index) => (
+          <TerminalLine 
+            key={index} 
+            line={line} 
+            colors={{
+              input: terminalSettings.inputTextColor,
+              output: terminalSettings.outputTextColor,
+              error: terminalSettings.errorTextColor
+            }}
+          />
+        ))}
       </div>
       
       <form onSubmit={handleSubmit} className="flex mt-2">
         <div 
           className="px-2 flex items-center font-mono"
-          style={{ backgroundColor, color: terminalTextColor }}
+          style={inputStyle}
         >
           {'>'}
         </div>
@@ -158,7 +230,7 @@ export default function Terminal() {
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
           className="flex-grow font-mono px-2 outline-none"
-          style={{ backgroundColor, color: userSettings.inputTextColor || terminalTextColor }}
+          style={inputStyle}
           placeholder="Ingrese un comando..."
           autoComplete="off"
           spellCheck="false"
