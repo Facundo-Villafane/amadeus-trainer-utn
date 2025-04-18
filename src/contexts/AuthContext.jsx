@@ -83,10 +83,22 @@ export function AuthProvider({ children }) {
     }
   }
 
-  // Cerrar sesión
-  function logout() {
-    return signOut(auth);
+  // Función de logout modificada
+async function logout() {
+  try {
+    // Limpiar el historial almacenado
+    if (currentUser) {
+      localStorage.removeItem(`terminal_history_${currentUser.uid}`);
+      localStorage.removeItem(`command_history_${currentUser.uid}`);
+    }
+    
+    // Cerrar sesión en Firebase
+    return await signOut(auth);
+  } catch (error) {
+    console.error('Error en logout:', error);
+    throw error;
   }
+}
 
   // Obtener el rol del usuario
   async function fetchUserRole(uid) {

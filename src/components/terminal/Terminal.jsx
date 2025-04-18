@@ -25,6 +25,46 @@ export default function Terminal() {
   const terminalRef = useRef(null);
   const welcomeShownRef = useRef(false);
 
+   // Cargar historial guardado cuando el componente se monta
+   useEffect(() => {
+    if (currentUser) {
+      const savedHistory = localStorage.getItem(`terminal_history_${currentUser.uid}`);
+      const savedCommandHistory = localStorage.getItem(`command_history_${currentUser.uid}`);
+      
+      if (savedHistory) {
+        try {
+          const parsedHistory = JSON.parse(savedHistory);
+          setHistory(parsedHistory);
+        } catch (error) {
+          console.error('Error al cargar historial guardado:', error);
+        }
+      }
+      
+      if (savedCommandHistory) {
+        try {
+          const parsedCommandHistory = JSON.parse(savedCommandHistory);
+          setCommandHistory(parsedCommandHistory);
+        } catch (error) {
+          console.error('Error al cargar historial de comandos guardado:', error);
+        }
+      }
+    }
+  }, [currentUser]);
+  
+  // Guardar historial cuando cambia
+  useEffect(() => {
+    if (currentUser && history.length > 0) {
+      localStorage.setItem(`terminal_history_${currentUser.uid}`, JSON.stringify(history));
+    }
+  }, [history, currentUser]);
+  
+  // Guardar historial de comandos cuando cambia
+  useEffect(() => {
+    if (currentUser && commandHistory.length > 0) {
+      localStorage.setItem(`command_history_${currentUser.uid}`, JSON.stringify(commandHistory));
+    }
+  }, [commandHistory, currentUser]);
+  
   // Cargar configuración del usuario una vez que se autentica
   useEffect(() => {
     async function loadUserSettings() {

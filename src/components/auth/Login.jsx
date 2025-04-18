@@ -1,6 +1,6 @@
 // src/components/auth/Login.jsx
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { Link, useNavigate, useLocation } from 'react-router';
 import { useAuth } from '../../contexts/AuthContext';
 import { FcGoogle } from 'react-icons/fc';
 import toast from 'react-hot-toast';
@@ -11,6 +11,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const { login, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -49,6 +50,13 @@ export default function Login() {
       setLoading(false);
     }
   }
+
+  useEffect(() => {
+    // Mostrar mensaje si existe
+    if (location.state?.message) {
+      toast.info(location.state.message);
+    }
+  }, [location]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100">

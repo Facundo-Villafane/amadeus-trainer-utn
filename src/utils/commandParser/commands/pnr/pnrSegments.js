@@ -3,7 +3,7 @@ import { collection, addDoc, updateDoc, doc, serverTimestamp } from 'firebase/fi
 import { db } from '../../../../services/firebase';
 import paginationState from '../../paginationState';
 import { getCurrentPNR, setCurrentPNR, getUserEmail } from './pnrState';
-import { getDayOfWeek } from './dateUtils';
+import { getDayOfWeek, convertToAmadeusDate } from './dateUtils';
 import { formatPNRResponse } from './pnrUtils';
 
 /**
@@ -75,8 +75,11 @@ export async function handleSellSegment(cmd, userId) {
     // Usar la fecha del comando original si está disponible
     const departureDate = paginationState.dateStr || selectedFlight.departure_date;
     
+    // Asegurarse de que la fecha esté en formato Amadeus
+    const amadeusDate = convertToAmadeusDate(departureDate);
+    
     // Obtener el día de la semana
-    const dayOfWeek = getDayOfWeek(departureDate);
+    const dayOfWeek = getDayOfWeek(amadeusDate);
     
     // Crear el nuevo segmento
     const newSegment = {
@@ -85,7 +88,7 @@ export async function handleSellSegment(cmd, userId) {
       class: classCode,
       origin: selectedFlight.departure_airport_code,
       destination: selectedFlight.arrival_airport_code,
-      departureDate: departureDate,
+      departureDate: amadeusDate,
       dayOfWeek: dayOfWeek,
       departureTime: selectedFlight.departure_time,
       arrivalTime: selectedFlight.arrival_time,
@@ -117,14 +120,8 @@ export async function handleSellSegment(cmd, userId) {
             }
           });
         } else {
-          // Si no existe, crear uno nuevo
-          const historyEntry = {
-            command: cmd,
-            result: `Created PNR with segment ${selectedFlight.airline_code} ${selectedFlight.flight_number} in class ${classCode}`,
-            timestamp: new Date().toISOString()
-          };
-          
-          const newPNRRef = await addDoc(collection(db, 'pnrs'), {
+          // Si no existe, crear uno nuevo con una entrada de historial
+          const newPNRData = {
             recordLocator: currentPNR.recordLocator,
             userId: userId,
             userEmail: await getUserEmail(userId),
@@ -132,9 +129,17 @@ export async function handleSellSegment(cmd, userId) {
             segments: currentPNR.segments,
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
-            // Usar un objeto para el historial en lugar de un array
-            history: { [Date.now()]: historyEntry }
-          });
+            // Inicializar el historial como un objeto con la primera entrada
+            history: {
+              [Date.now()]: {
+                command: cmd,
+                result: `Created PNR with segment ${selectedFlight.airline_code} ${selectedFlight.flight_number} in class ${classCode}`,
+                timestamp: new Date().toISOString()
+              }
+            }
+          };
+          
+          const newPNRRef = await addDoc(collection(db, 'pnrs'), newPNRData);
           
           // Guardar el ID en el PNR actual
           currentPNR.id = newPNRRef.id;

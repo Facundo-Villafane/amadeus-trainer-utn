@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import AutoLogout from './components/AutoLogout';
 
 // Páginas públicas
 import Home from './pages/Home';
@@ -64,92 +65,94 @@ function AdminRoute({ children }) {
 export default function App() {
   return (
     <AuthProvider>
-      <Toaster position="top-right" />
-      <Routes>
-        {/* Rutas públicas */}
-        <Route path="/" element={<Home />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/signup" element={<Signup />} />
-        
-        {/* Rutas protegidas */}
-        <Route 
-          path="/dashboard" 
-          element={
-            <PrivateRoute>
-              <Dashboard />
-            </PrivateRoute>
-          } 
-        />
-        <Route 
-          path="/command-history" 
-          element={
-            <PrivateRoute>
-              <CommandHistory />
-            </PrivateRoute>
-          } 
-        />
-        <Route 
-          path="/profile" 
-          element={
-            <PrivateRoute>
-              <UserProfile />
-            </PrivateRoute>
-          } 
-        />
-        <Route 
-          path="/my-pnrs" 
-          element={
-            <PrivateRoute>
-              <MyPNRs />
-            </PrivateRoute>
-          } 
-        />
-        <Route 
-          path="/help" 
-          element={
-            <PrivateRoute>
-              <Help />
-            </PrivateRoute>
-          } 
-        />
-        <Route 
-          path="/settings" 
-          element={
-            <PrivateRoute>
-              <Settings />
-            </PrivateRoute>
-          } 
-        />
-        
-        {/* Rutas de administrador */}
-        <Route 
-          path="/admin/users" 
-          element={
-            <AdminRoute>
-              <AdminUsers />
-            </AdminRoute>
-          } 
-        />
-        <Route 
-          path="/admin/settings" 
-          element={
-            <AdminRoute>
-              <AdminSettings />
-            </AdminRoute>
-          } 
-        />
-        <Route 
-          path="/admin/flights" 
-          element={
-            <AdminRoute>
-              <AdminFlights />
-            </AdminRoute>
-          } 
-        />
-        
-        {/* Ruta 404 */}
-        <Route path="*" element={<NotFound />} />
-      </Routes>
+      <AutoLogout>
+        <Toaster position="top-right" />
+        <Routes>
+          {/* Rutas públicas */}
+          <Route path="/" element={<Home />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<Signup />} />
+          
+          {/* Rutas protegidas */}
+          <Route 
+            path="/dashboard" 
+            element={
+              <PrivateRoute>
+                <Dashboard />
+              </PrivateRoute>
+            } 
+          />
+          <Route 
+            path="/command-history" 
+            element={
+              <PrivateRoute>
+                <CommandHistory />
+              </PrivateRoute>
+            } 
+          />
+          <Route 
+            path="/profile" 
+            element={
+              <PrivateRoute>
+                <UserProfile />
+              </PrivateRoute>
+            } 
+          />
+          <Route 
+            path="/my-pnrs" 
+            element={
+              <PrivateRoute>
+                <MyPNRs />
+              </PrivateRoute>
+            } 
+          />
+          <Route 
+            path="/help" 
+            element={
+              <PrivateRoute>
+                <Help />
+              </PrivateRoute>
+            } 
+          />
+          <Route 
+            path="/settings" 
+            element={
+              <PrivateRoute>
+                <Settings />
+              </PrivateRoute>
+            } 
+          />
+          
+          {/* Rutas de administrador */}
+          <Route 
+            path="/admin/users" 
+            element={
+              <AdminRoute>
+                <AdminUsers />
+              </AdminRoute>
+            } 
+          />
+          <Route 
+            path="/admin/settings" 
+            element={
+              <AdminRoute>
+                <AdminSettings />
+              </AdminRoute>
+            } 
+          />
+          <Route 
+            path="/admin/flights" 
+            element={
+              <AdminRoute>
+                <AdminFlights />
+              </AdminRoute>
+            } 
+          />
+          
+          {/* Ruta 404 */}
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </AutoLogout>
     </AuthProvider>
   );
 }

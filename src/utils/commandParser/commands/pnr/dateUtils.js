@@ -65,6 +65,40 @@ export function getDayOfWeek(dateStr) {
   }
   
   /**
+   * Convierte una fecha en cualquier formato a formato Amadeus (DDMMM)
+   * @param {string} dateStr - Fecha en formato "D/M/YYYY" o "DDMMM"
+   * @returns {string} Fecha en formato Amadeus (DDMMM)
+   */
+  export function convertToAmadeusDate(dateStr) {
+    try {
+      // Si ya está en formato Amadeus (DDMMM), devolverlo tal cual
+      if (/^\d{1,2}[A-Z]{3}$/i.test(dateStr)) {
+        // Asegurar que el día tenga dos dígitos y el mes esté en mayúsculas
+        const day = dateStr.substring(0, dateStr.length - 3).padStart(2, '0');
+        const month = dateStr.substring(dateStr.length - 3).toUpperCase();
+        return `${day}${month}`;
+      }
+      
+      // Si está en formato D/M/YYYY
+      if (dateStr.includes('/')) {
+        const [day, month, year] = dateStr.split('/').map(num => parseInt(num, 10));
+        
+        // Convertir a objeto Date
+        const date = new Date(year, month - 1, day);
+        
+        // Formatear al estilo Amadeus
+        return formatAmadeusDate(date);
+      }
+      
+      // Si no se pudo reconocer el formato, devolver el original
+      return dateStr;
+    } catch (error) {
+      console.error('Error al convertir fecha a formato Amadeus:', error);
+      return dateStr; // Devolver la fecha original en caso de error
+    }
+  }
+  
+  /**
    * Calcula la fecha de llegada basada en fecha/hora de salida y duración
    * @param {string} departureDate - Fecha de salida
    * @param {string} departureTime - Hora de salida
@@ -114,8 +148,8 @@ export function getDayOfWeek(dateStr) {
         const durationMs = durationHours * 60 * 60 * 1000;
         const arrivalDateTime = new Date(departureDateTime.getTime() + durationMs);
         
-        // Formatear fecha de llegada: D/M/YYYY
-        return `${arrivalDateTime.getDate()}/${arrivalDateTime.getMonth() + 1}/${arrivalDateTime.getFullYear()}`;
+        // Formatear fecha de llegada al formato Amadeus
+        return formatAmadeusDate(arrivalDateTime);
       }
       
       // Si no se pudo procesar la fecha, devolver la misma
