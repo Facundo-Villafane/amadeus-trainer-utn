@@ -3,14 +3,44 @@ import { collection, query, where, getDocs, limit } from 'firebase/firestore';
 import { db } from '../../../services/firebase';
 import paginationState from '../paginationState';
 import { mockCities, mockAirports } from '../../../data/mockData';
+import openFlightsDataService from '../../../services/openFlightsDataService';
+
+// Data initialization flag
+let dataInitialized = false;
+
+/**
+ * Initialize the OpenFlights data if not already done
+ */
+async function initializeOpenFlightsData() {
+  if (!dataInitialized) {
+    try {
+      const response = await fetch('/data/airports-extended.dat');
+      const data = await response.text();
+      openFlightsDataService.initializeService(data);
+      dataInitialized = true;
+      console.log('OpenFlights data initialized successfully');
+    } catch (error) {
+      console.error('Error initializing OpenFlights data:', error);
+      // Continue with manual data if initialization fails
+      dataInitialized = true; // Mark as initialized to avoid repeated attempts
+    }
+  }
+}
 
 // Función para manejar codificación de ciudad (DAN)
 export async function handleEncodeCity(cmd) {
   try {
+    // Ensure OpenFlights data is initialized
+    await initializeOpenFlightsData();
+    
     const cityName = cmd.slice(3).trim();
     
+    // Formatear la respuesta simulando la respuesta de Amadeus
+    let response = `DAN${cityName.toUpperCase()}\n`;
+    response += `A:APT B:BUS C:CITY G:GRD H:HELI O:OFF-PT R:RAIL S:ASSOC TOWN\n`;
+    
+    // Try Firebase first
     try {
-      // Intentar con Firebase primero
       const citiesQuery = query(
         collection(db, 'cities'),
         where('name_uppercase', '>=', cityName.toUpperCase()),
@@ -21,10 +51,6 @@ export async function handleEncodeCity(cmd) {
       const querySnapshot = await getDocs(citiesQuery);
       
       if (!querySnapshot.empty) {
-        // Formatear la respuesta simulando la respuesta de Amadeus
-        let response = `DAN${cityName.toUpperCase()}\n`;
-        response += `A:APT B:BUS C:CITY G:GRD H:HELI O:OFF-PT R:RAIL S:ASSOC TOWN\n`;
-        
         querySnapshot.forEach((doc) => {
           const city = doc.data();
           response += `${city.code}*C ${city.name.toUpperCase()} /${city.country_code}\n`;
@@ -40,11 +66,28 @@ export async function handleEncodeCity(cmd) {
         return response;
       }
     } catch (error) {
-      console.warn('Firebase query failed, using mock data:', error);
-      // Si falla Firebase, continuamos con datos mockeados
+      console.warn('Firebase query failed:', error);
     }
     
-    // Usar datos mockeados
+    // Try OpenFlights data
+    const matchedCities = openFlightsDataService.searchCitiesByName(cityName);
+    
+    if (matchedCities && matchedCities.length > 0) {
+      matchedCities.forEach(city => {
+        response += `${city.code}*C ${city.name.toUpperCase()} /${city.countryCode}\n`;
+        
+        // Si hay aeropuertos asociados
+        if (city.airports && Array.isArray(city.airports)) {
+          city.airports.forEach(airport => {
+            response += `A ${airport.code} - ${airport.name} - ${airport.distance || '0K'} /${city.countryCode}\n`;
+          });
+        }
+      });
+      
+      return response;
+    }
+    
+    // Fallback to mock data if neither Firebase nor OpenFlights worked
     const matchedCities = mockCities.filter(city => 
       city.name_uppercase.includes(cityName.toUpperCase())
     );
@@ -52,10 +95,6 @@ export async function handleEncodeCity(cmd) {
     if (matchedCities.length === 0) {
       return `No se encontró información para la ciudad: ${cityName}`;
     }
-    
-    // Formatear la respuesta
-    let response = `DAN${cityName.toUpperCase()}\n`;
-    response += `A:APT B:BUS C:CITY G:GRD H:HELI O:OFF-PT R:RAIL S:ASSOC TOWN\n`;
     
     matchedCities.forEach(city => {
       response += `${city.code}*C ${city.name.toUpperCase()} /${city.country_code}\n`;
@@ -78,10 +117,13 @@ export async function handleEncodeCity(cmd) {
 // Función para manejar decodificación de ciudad (DAC)
 export async function handleDecodeCity(cmd) {
   try {
+    // Ensure OpenFlights data is initialized
+    await initializeOpenFlightsData();
+    
     const cityCode = cmd.slice(3).trim().toUpperCase();
     
+    // Try Firebase first
     try {
-      // Intentar primero con Firebase
       // Buscar primero como ciudad
       const citiesQuery = query(
         collection(db, 'cities'),
@@ -129,11 +171,42 @@ export async function handleDecodeCity(cmd) {
         return response;
       }
     } catch (error) {
-      console.warn('Firebase query failed, using mock data:', error);
-      // Si falla Firebase, continuamos con datos mockeados
+      console.warn('Firebase query failed:', error);
     }
     
-    // Usar datos mockeados
+    // Try OpenFlights data
+    const city = openFlightsDataService.getCityByCode(cityCode);
+    if (city) {
+      // Formatear la respuesta para ciudad
+      let response = `DAC${cityCode}\n`;
+      response += `${cityCode} C ${city.name.toUpperCase()} /${city.countryCode}\n`;
+      
+      // Si hay aeropuertos asociados
+      if (city.airports && city.airports.length > 0) {
+        response += `AIRPORTS:\n`;
+        city.airports.forEach(airport => {
+          response += `${airport.code} - ${airport.name}\n`;
+        });
+      }
+      
+      return response;
+    }
+    
+    // Check if it's an airport code
+    const airport = openFlightsDataService.getAirportByCode(cityCode);
+    if (airport) {
+      // Formatear la respuesta para aeropuerto
+      let response = `DAC${cityCode}\n`;
+      response += `${cityCode} A ${airport.name} /${airport.country_code || 'XX'}\n`;
+      
+      if (airport.city_code) {
+        response += `${airport.city_code} C ${airport.city_name}\n`;
+      }
+      
+      return response;
+    }
+    
+    // Fallback to mock data if neither Firebase nor OpenFlights worked
     // Buscar primero como ciudad
     const matchedCity = mockCities.find(city => city.code === cityCode);
     
