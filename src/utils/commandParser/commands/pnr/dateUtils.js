@@ -271,3 +271,58 @@ export function calculateArrivalDate(departureDate, departureTime, durationHours
     return departureDate; // En caso de error, devolver la misma fecha de salida
   }
 }
+
+/**
+ * Convierte una fecha a formato Amadeus
+ * @param {string} dateStr - Cadena de fecha en cualquier formato
+ * @returns {string} Fecha formateada en formato Amadeus (DDMMM)
+ */
+export function convertToAmadeusDate(dateStr) {
+  try {
+    // Si no hay fecha, devolver valor por defecto
+    if (!dateStr) {
+      return '01JAN';
+    }
+    
+    // Si ya está en formato Amadeus (DDMMM), devolverlo tal cual
+    if (/^\d{1,2}[A-Z]{3}$/i.test(dateStr)) {
+      // Asegurarnos de que el día tenga 2 dígitos
+      const day = dateStr.substring(0, dateStr.length - 3).padStart(2, '0');
+      const month = dateStr.substring(dateStr.length - 3).toUpperCase();
+      return `${day}${month}`;
+    }
+    
+    // Si es formato D/M/YYYY
+    if (dateStr.includes('/')) {
+      const parts = dateStr.split('/');
+      if (parts.length < 2) {
+        return '01JAN'; // Formato inválido
+      }
+      
+      const day = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10) - 1; // 0-11
+      
+      if (isNaN(day) || day < 1 || day > 31 || isNaN(month) || month < 0 || month > 11) {
+        return '01JAN'; // Valores inválidos
+      }
+      
+      const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+      return `${String(day).padStart(2, '0')}${months[month]}`;
+    }
+    
+    // Intentar como objeto Date
+    try {
+      const date = new Date(dateStr);
+      if (isNaN(date.getTime())) {
+        throw new Error('Invalid date');
+      }
+      return formatAmadeusDate(date);
+    } catch (error) {
+      console.error(`Error converting date: ${dateStr}`, error);
+      return '01JAN'; // Valor por defecto
+    }
+  } catch (error) {
+    console.error('Error al convertir fecha a formato Amadeus:', error);
+    return '01JAN'; // Valor por defecto
+  }
+}

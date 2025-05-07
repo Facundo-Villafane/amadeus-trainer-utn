@@ -70,10 +70,10 @@ export async function handleEncodeCity(cmd) {
     }
     
     // Try OpenFlights data
-    const matchedCities = openFlightsDataService.searchCitiesByName(cityName);
+    const openFlightsCities = openFlightsDataService.searchCitiesByName(cityName);
     
-    if (matchedCities && matchedCities.length > 0) {
-      matchedCities.forEach(city => {
+    if (openFlightsCities && openFlightsCities.length > 0) {
+      openFlightsCities.forEach(city => {
         response += `${city.code}*C ${city.name.toUpperCase()} /${city.countryCode}\n`;
         
         // Si hay aeropuertos asociados
@@ -88,15 +88,15 @@ export async function handleEncodeCity(cmd) {
     }
     
     // Fallback to mock data if neither Firebase nor OpenFlights worked
-    const matchedCities = mockCities.filter(city => 
+    const mockMatchedCities = mockCities.filter(city => 
       city.name_uppercase.includes(cityName.toUpperCase())
     );
     
-    if (matchedCities.length === 0) {
+    if (mockMatchedCities.length === 0) {
       return `No se encontró información para la ciudad: ${cityName}`;
     }
     
-    matchedCities.forEach(city => {
+    mockMatchedCities.forEach(city => {
       response += `${city.code}*C ${city.name.toUpperCase()} /${city.country_code}\n`;
       
       // Si hay aeropuertos asociados

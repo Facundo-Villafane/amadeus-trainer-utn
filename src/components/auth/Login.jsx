@@ -54,7 +54,10 @@ export default function Login() {
   useEffect(() => {
     // Mostrar mensaje si existe
     if (location.state?.message) {
-      toast.info(location.state.message);
+      // Change toast.info to toast.success or toast.custom
+      toast.success(location.state.message);
+      // Alternatively, you could use:
+      // toast(location.state.message); // Default toast
     }
   }, [location]);
 
