@@ -1,7 +1,8 @@
 // src/components/dashboard/DashboardSidebar.jsx
 import { Link, useLocation } from 'react-router';
-import { FiMonitor, FiBook, FiUsers, FiBarChart2, FiSettings, FiHelpCircle, FiAirplay, FiSliders } from 'react-icons/fi';
+import { FiMonitor, FiBook, FiUsers, FiBarChart2, FiSettings, FiHelpCircle, FiAirplay, FiSliders, FiGrid, FiEye, FiAward } from 'react-icons/fi';
 import PropTypes from 'prop-types';
+import { useAuth } from '../../hooks/useAuth';
 
 function classNames(...classes) {
   return classes.filter(Boolean).join(' ');
@@ -9,23 +10,38 @@ function classNames(...classes) {
 
 export default function DashboardSidebar({ userRole }) {
   const location = useLocation();
+  const { isSpectator } = useAuth();
   const isAdmin = userRole === 'admin';
   
-  const navigation = [
+  // Navegación para espectadores
+  const spectatorNavigation = [
+    { name: 'Terminal', href: '/dashboard', icon: FiMonitor },
+    { name: 'Leaderboard', href: '/leaderboard', icon: FiAward },
+    { name: 'Ayuda', href: '/help', icon: FiHelpCircle },
+  ];
+  
+  // Navegación para usuarios autenticados
+  const userNavigation = [
     { name: 'Terminal', href: '/dashboard', icon: FiMonitor },
     { name: 'Mis PNRs', href: '/my-pnrs', icon: FiBook },
     { name: 'Historial de Comandos', href: '/command-history', icon: FiBarChart2 },
+    { name: 'Leaderboard', href: '/leaderboard', icon: FiAward },
     { name: 'Ayuda', href: '/help', icon: FiHelpCircle },
     { name: 'Configuración', href: '/settings', icon: FiSliders },
   ];
   
-  // Agregar opciones de administrador si el usuario es admin
-  if (isAdmin) {
-    navigation.push(
+  // Usar navegación de espectador si está en modo espectador
+  let navigation = isSpectator ? spectatorNavigation : userNavigation;
+  
+  // Agregar opciones de administrador si el usuario es admin y no es espectador
+  if (isAdmin && !isSpectator) {
+    navigation = [
+      ...navigation,
+      { name: 'Gestión de Comisiones', href: '/admin/commissions', icon: FiGrid },
       { name: 'Gestión de Usuarios', href: '/admin/users', icon: FiUsers },
       { name: 'Gestión de Vuelos', href: '/admin/flights', icon: FiAirplay },
       { name: 'Configuración Sistema', href: '/admin/settings', icon: FiSettings }
-    );
+    ];
   }
 
   return (
@@ -67,10 +83,18 @@ export default function DashboardSidebar({ userRole }) {
               <div className="flex items-center">
                 <div>
                   <div className="text-sm font-medium text-white">
-                    Rol: {userRole === 'admin' ? 'Administrador' : 'Estudiante'}
+                    {isSpectator ? (
+                      <>
+                        <FiEye className="inline mr-2" />
+                        Modo Espectador
+                      </>
+                    ) : (
+                      <>Rol: {userRole === 'admin' ? 'Administrador' : 'Estudiante'}</>
+                    )}
                   </div>
                   <div className="text-xs font-medium text-gray-300">
-                    {userRole === 'admin' ? 'Acceso completo al sistema' : 'Acceso limitado'}
+                    {isSpectator ? 'Solo lectura' : 
+                     userRole === 'admin' ? 'Acceso completo al sistema' : 'Acceso limitado'}
                   </div>
                 </div>
               </div>

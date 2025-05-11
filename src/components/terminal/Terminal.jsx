@@ -1,6 +1,6 @@
 // src/components/terminal/Terminal.jsx
 import { useState, useRef, useEffect } from 'react';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../../hooks/useAuth';
 import { db } from '../../services/firebase';
 import { collection, addDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
 import { commandParser } from '../../utils/commandParser/index';

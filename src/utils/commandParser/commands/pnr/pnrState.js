@@ -51,6 +51,7 @@ export async function getUserEmail(userId) {
  * @param {Object} pnr - El PNR a validar
  * @returns {Array} Lista de errores encontrados
  */
+// En pnrState.js, actualizar la función validatePNR:
 export function validatePNR(pnr) {
   const errors = [];
   
@@ -72,6 +73,11 @@ export function validatePNR(pnr) {
   // 4. Debe tener Received From (RF)
   if (!pnr.receivedFrom) {
     errors.push("Falta la información de 'Received From'. Use RF para añadirla.");
+  }
+  
+  // 5. Debe tener información de ticketing (TK)
+  if (!pnr.ticketing) {
+    errors.push("Falta la información de ticketing. Use TK para añadirla (TKOK, TKTL o TKXL).");
   }
   
   return errors;

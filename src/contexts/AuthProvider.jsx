@@ -1,5 +1,5 @@
-// src/contexts/AuthContext.jsx
-import { createContext, useContext, useEffect, useState } from 'react';
+// src/contexts/AuthProvider.jsx
+import { useEffect, useState } from 'react';
 import { 
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword, 
@@ -10,24 +10,15 @@ import {
 } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, googleProvider, db } from '../services/firebase';
-
-// Crear el contexto
-const AuthContext = createContext(null);
-
-// Hook para usar el contexto
-export function useAuth() {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth debe ser usado dentro de un AuthProvider');
-  }
-  return context;
-}
+import { AuthContext } from './authContext';
 
 // Componente proveedor que envuelve a la aplicación
 export function AuthProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(null);
   const [userRole, setUserRole] = useState(null);
+  const [userCommission, setUserCommission] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isSpectator, setIsSpectator] = useState(false);
 
   // Registro con email y contraseña
   async function signup(email, password, displayName) {
@@ -84,46 +75,68 @@ export function AuthProvider({ children }) {
   }
 
   // Función de logout modificada
-async function logout() {
-  try {
-    // Limpiar el historial almacenado
-    if (currentUser) {
-      localStorage.removeItem(`terminal_history_${currentUser.uid}`);
-      localStorage.removeItem(`command_history_${currentUser.uid}`);
+  async function logout() {
+    try {
+      // Limpiar el historial almacenado
+      if (currentUser) {
+        localStorage.removeItem(`terminal_history_${currentUser.uid}`);
+        localStorage.removeItem(`command_history_${currentUser.uid}`);
+      }
+      
+      // Limpiar modo espectador
+      localStorage.removeItem('spectatorMode');
+      setIsSpectator(false);
+      
+      // Cerrar sesión en Firebase
+      return await signOut(auth);
+    } catch (error) {
+      console.error('Error en logout:', error);
+      throw error;
     }
-    
-    // Cerrar sesión en Firebase
-    return await signOut(auth);
-  } catch (error) {
-    console.error('Error en logout:', error);
-    throw error;
   }
-}
 
-  // Obtener el rol del usuario
-  async function fetchUserRole(uid) {
+  // Obtener información completa del usuario
+  async function fetchUserInfo(uid) {
     try {
       const userDoc = await getDoc(doc(db, 'users', uid));
       if (userDoc.exists()) {
         const userData = userDoc.data();
         setUserRole(userData.role);
+        
+        // Si el usuario tiene una comisión asignada, establecerla
+        if (userData.commissionId) {
+          setUserCommission({
+            id: userData.commissionId,
+            name: userData.commissionName,
+            code: userData.commissionCode
+          });
+        }
+        
         return userData.role;
       }
       return null;
     } catch (error) {
-      console.error('Error al obtener el rol del usuario:', error);
+      console.error('Error al obtener información del usuario:', error);
       return null;
     }
   }
 
+  // Alias para compatibilidad
+  const fetchUserRole = fetchUserInfo;
+
   // Efecto para observar el estado de autenticación
   useEffect(() => {
+    // Verificar si está en modo espectador
+    const spectatorMode = localStorage.getItem('spectatorMode') === 'true';
+    setIsSpectator(spectatorMode);
+    
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
       if (user) {
-        await fetchUserRole(user.uid);
+        await fetchUserInfo(user.uid);
       } else {
         setUserRole(null);
+        setUserCommission(null);
       }
       setLoading(false);
     });
@@ -135,12 +148,15 @@ async function logout() {
   const value = {
     currentUser,
     userRole,
+    userCommission,
     signup,
     login,
     loginWithGoogle,
     logout,
     fetchUserRole,
-    isAdmin: userRole === 'admin'
+    fetchUserInfo,
+    isAdmin: userRole === 'admin',
+    isSpectator
   };
 
   return (
@@ -150,5 +166,5 @@ async function logout() {
   );
 }
 
-// Esta exportación asegura compatibilidad con HMR
+// Exportación por defecto del componente
 export default AuthProvider;

@@ -1,7 +1,7 @@
 // src/pages/Help.jsx
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../hooks/useAuth';
 import DashboardSidebar from '../components/dashboard/DashboardSidebar';
 import DashboardHeader from '../components/dashboard/DashboardHeader';
 import { FiTerminal, FiSearch, FiChevronDown, FiChevronUp } from 'react-icons/fi';

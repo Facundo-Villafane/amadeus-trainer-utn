@@ -1,7 +1,8 @@
 // src/App.jsx
 import { Routes, Route, Navigate, useLocation } from 'react-router';
 import { Toaster } from 'react-hot-toast';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
+import AuthProvider from './contexts/AuthProvider';
+import { useAuth } from './hooks/useAuth';
 import AutoLogout from './components/AutoLogout';
 
 
@@ -15,6 +16,7 @@ import Dashboard from './pages/Dashboard';
 import CommandHistory from './pages/CommandHistory';
 import UserProfile from './pages/UserProfile';
 import MyPNRs from './pages/MyPNRs';
+import Leaderboard from './pages/Leaderboard';
 import Help from './pages/Help';
 import Settings from './pages/Settings'; // Nueva página de configuración
 
@@ -22,20 +24,22 @@ import Settings from './pages/Settings'; // Nueva página de configuración
 import AdminUsers from './pages/admin/Users';
 import AdminSettings from './pages/admin/Settings';
 import AdminFlights from './pages/admin/Flights';
+import AdminCommissions from './pages/admin/Commissions';
 
 // Páginas de error
 import NotFound from './pages/NotFound';
 
 // Componente para rutas protegidas
 function PrivateRoute({ children }) {
-  const { currentUser, loading } = useAuth();
+  const { currentUser, loading, isSpectator } = useAuth();
   const location = useLocation();
   
   if (loading) {
     return <div className="flex h-screen items-center justify-center">Cargando...</div>;
   }
   
-  if (!currentUser) {
+  // Permitir acceso si está autenticado o es espectador
+  if (!currentUser && !isSpectator) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
   
@@ -44,11 +48,16 @@ function PrivateRoute({ children }) {
 
 // Componente para rutas de administrador
 function AdminRoute({ children }) {
-  const { currentUser, userRole, loading } = useAuth();
+  const { currentUser, userRole, loading, isSpectator } = useAuth();
   const location = useLocation();
   
   if (loading) {
     return <div className="flex h-screen items-center justify-center">Cargando...</div>;
+  }
+  
+  // No permitir acceso a espectadores
+  if (isSpectator) {
+    return <Navigate to="/dashboard" replace />;
   }
   
   if (!currentUser) {
@@ -57,6 +66,22 @@ function AdminRoute({ children }) {
   
   if (userRole !== 'admin') {
     return <Navigate to="/dashboard" replace />;
+  }
+  
+  return children;
+}
+
+// Componente para rutas que no deben ser accesibles a espectadores
+function AuthenticatedOnlyRoute({ children }) {
+  const { currentUser, loading, isSpectator } = useAuth();
+  const location = useLocation();
+  
+  if (loading) {
+    return <div className="flex h-screen items-center justify-center">Cargando...</div>;
+  }
+  
+  if (!currentUser || isSpectator) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
   
   return children;
@@ -73,36 +98,12 @@ export default function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
           
-          {/* Rutas protegidas */}
+          {/* Rutas protegidas - accesibles por usuarios y espectadores */}
           <Route 
             path="/dashboard" 
             element={
               <PrivateRoute>
                 <Dashboard />
-              </PrivateRoute>
-            } 
-          />
-          <Route 
-            path="/command-history" 
-            element={
-              <PrivateRoute>
-                <CommandHistory />
-              </PrivateRoute>
-            } 
-          />
-          <Route 
-            path="/profile" 
-            element={
-              <PrivateRoute>
-                <UserProfile />
-              </PrivateRoute>
-            } 
-          />
-          <Route 
-            path="/my-pnrs" 
-            element={
-              <PrivateRoute>
-                <MyPNRs />
               </PrivateRoute>
             } 
           />
@@ -115,15 +116,57 @@ export default function App() {
             } 
           />
           <Route 
-            path="/settings" 
+            path="/leaderboard" 
             element={
               <PrivateRoute>
-                <Settings />
+                <Leaderboard />
               </PrivateRoute>
             } 
           />
           
+          {/* Rutas solo para usuarios autenticados (no espectadores) */}
+          <Route 
+            path="/command-history" 
+            element={
+              <AuthenticatedOnlyRoute>
+                <CommandHistory />
+              </AuthenticatedOnlyRoute>
+            } 
+          />
+          <Route 
+            path="/profile" 
+            element={
+              <AuthenticatedOnlyRoute>
+                <UserProfile />
+              </AuthenticatedOnlyRoute>
+            } 
+          />
+          <Route 
+            path="/my-pnrs" 
+            element={
+              <AuthenticatedOnlyRoute>
+                <MyPNRs />
+              </AuthenticatedOnlyRoute>
+            } 
+          />
+          <Route 
+            path="/settings" 
+            element={
+              <AuthenticatedOnlyRoute>
+                <Settings />
+              </AuthenticatedOnlyRoute>
+            } 
+          />
+          
           {/* Rutas de administrador */}
+          <Route 
+            path="/admin/commissions" 
+            element={
+              <AdminRoute>
+                <AdminCommissions />
+              </AdminRoute>
+            } 
+          />
           <Route 
             path="/admin/users" 
             element={

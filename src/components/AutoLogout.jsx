@@ -1,7 +1,7 @@
 // src/components/AutoLogout.jsx
 
-import { useEffect, useState } from 'react';
-import { useAuth } from '../contexts/AuthContext';
+import { useEffect, useState, useCallback } from 'react';
+import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router';
 
 export default function AutoLogout({ children }) {
@@ -13,22 +13,12 @@ export default function AutoLogout({ children }) {
   const INACTIVITY_TIMEOUT = 30 * 60 * 1000;
   
   // Registrar actividad del usuario
-  const resetTimer = () => {
+  const resetTimer = useCallback(() => {
     setLastActivity(new Date());
-  };
-  
-  // Verificar si el usuario está inactivo
-  const checkInactivity = () => {
-    const now = new Date();
-    const elapsed = now - lastActivity;
-    
-    if (elapsed > INACTIVITY_TIMEOUT) {
-      handleInactiveLogout();
-    }
-  };
+  }, []);
   
   // Manejar el cierre de sesión por inactividad
-  const handleInactiveLogout = async () => {
+  const handleInactiveLogout = useCallback(async () => {
     try {
       await logout();
       navigate('/login', { 
@@ -37,7 +27,17 @@ export default function AutoLogout({ children }) {
     } catch (error) {
       console.error('Error al cerrar sesión automáticamente:', error);
     }
-  };
+  }, [logout, navigate]);
+  
+  // Verificar si el usuario está inactivo
+  const checkInactivity = useCallback(() => {
+    const now = new Date();
+    const elapsed = now - lastActivity;
+    
+    if (elapsed > INACTIVITY_TIMEOUT) {
+      handleInactiveLogout();
+    }
+  }, [lastActivity, handleInactiveLogout, INACTIVITY_TIMEOUT]);
   
   // Configurar los listeners de actividad
   useEffect(() => {
@@ -59,7 +59,7 @@ export default function AutoLogout({ children }) {
       });
       clearInterval(interval);
     };
-  }, [lastActivity]);
+  }, [checkInactivity, resetTimer]);
   
   return children;
 }

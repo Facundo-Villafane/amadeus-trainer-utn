@@ -6,7 +6,7 @@ import {
   query, orderBy, limit, startAfter, where, serverTimestamp 
 } from 'firebase/firestore';
 import { db } from '../../services/firebase';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../../hooks/useAuth';
 import DashboardSidebar from '../../components/dashboard/DashboardSidebar';
 import DashboardHeader from '../../components/dashboard/DashboardHeader';
 import ImportFlights from '../../components/admin/ImportFlights';

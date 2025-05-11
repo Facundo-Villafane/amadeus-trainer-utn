@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { doc, updateDoc, getDoc } from 'firebase/firestore';
 import { db } from '../../services/firebase';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../../hooks/useAuth';
 import { FiTerminal, FiSave, FiRefreshCw } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 

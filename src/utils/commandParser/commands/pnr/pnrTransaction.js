@@ -3,8 +3,8 @@ import { collection, addDoc, updateDoc, doc, serverTimestamp } from 'firebase/fi
 import { db } from '../../../../services/firebase';
 import { generatePNR } from '../../../../utils/pnrGenerator';
 import { getCurrentPNR, clearCurrentPNR, setCurrentPNR, validatePNR, getUserEmail } from './pnrState';
-import { formatERResponse, formatPNRResponse } from './pnrUtils';
-import { formatAmadeusDate } from './dateUtils';
+import { formatERResponse } from './pnrUtils';
+import experienceService from '../../../../services/experienceService';
 
 /**
  * Maneja el fin de transacción (ET/ER)
@@ -23,6 +23,8 @@ export async function handleEndTransaction(cmd, userId) {
     // Verificar que el PNR tenga todos los elementos obligatorios
     const validationErrors = validatePNR(currentPNR);
     if (validationErrors.length > 0) {
+      // Registrar error en experiencia
+      await experienceService.recordPNRError(userId);
       return `No se puede finalizar el PNR: ${validationErrors.join(" ")}`;
     }
     
@@ -43,15 +45,6 @@ export async function handleEndTransaction(cmd, userId) {
           status: 'HK' // Cambiar a confirmado
         }));
         
-        // Añadir fecha de emisión de billete (TK)
-        const today = new Date();
-        const timeLimit = formatAmadeusDate(today) + '/1200'; // Caducidad al mediodía
-        
-        currentPNR.ticketing = {
-          date: formatAmadeusDate(today),
-          timeLimit: timeLimit
-        };
-        
         // Actualizar la referencia global 
         setCurrentPNR(currentPNR);
         
@@ -61,7 +54,6 @@ export async function handleEndTransaction(cmd, userId) {
             recordLocator: currentPNR.recordLocator,
             status: currentPNR.status,
             segments: currentPNR.segments,
-            ticketing: currentPNR.ticketing,
             updatedAt: serverTimestamp(),
             [`history.${Date.now()}`]: {
               command: cmd,
@@ -96,6 +88,25 @@ export async function handleEndTransaction(cmd, userId) {
         // Guardar una copia del PNR antes de limpiarlo
         const finalizedPNR = { ...currentPNR };
         
+        // Completar PNR y registrar experiencia
+        if (finalizedPNR && finalizedPNR.id) {
+          const result = await experienceService.completePNR(
+            userId, 
+            finalizedPNR.id, 
+            finalizedPNR.recordLocator
+          );
+          
+          // Opcional: Mostrar notificación de XP ganado
+          console.log(`XP ganado: ${result.xpGained}`);
+          if (result.levelUp) {
+            console.log(`¡Subiste al nivel ${result.levelUp}!`);
+          }
+          
+          if (result.achievements && result.achievements.length > 0) {
+            console.log(`Logros desbloqueados: ${result.achievements.map(a => a.name).join(', ')}`);
+          }
+        }
+        
         // Limpiar el PNR actual para comenzar uno nuevo
         clearCurrentPNR();
         
@@ -121,15 +132,6 @@ export async function handleEndTransaction(cmd, userId) {
           status: 'HK' // Cambiar a confirmado
         }));
         
-        // Añadir fecha de emisión de billete (TK)
-        const today = new Date();
-        const timeLimit = formatAmadeusDate(today) + '/1200'; // Caducidad al mediodía
-        
-        currentPNR.ticketing = {
-          date: formatAmadeusDate(today),
-          timeLimit: timeLimit
-        };
-        
         // Actualizar la referencia global
         setCurrentPNR(currentPNR);
         
@@ -139,7 +141,6 @@ export async function handleEndTransaction(cmd, userId) {
             recordLocator: currentPNR.recordLocator,
             status: currentPNR.status,
             segments: currentPNR.segments,
-            ticketing: currentPNR.ticketing,
             updatedAt: serverTimestamp(),
             [`history.${Date.now()}`]: {
               command: cmd,
@@ -171,6 +172,28 @@ export async function handleEndTransaction(cmd, userId) {
           setCurrentPNR(currentPNR);
         }
         
+        // Guardar una copia del PNR antes de limpiarlo (para experiencia)
+        const finalizedPNR = { ...currentPNR };
+        
+        // Completar PNR y registrar experiencia
+        if (finalizedPNR && finalizedPNR.id) {
+          const result = await experienceService.completePNR(
+            userId, 
+            finalizedPNR.id, 
+            finalizedPNR.recordLocator
+          );
+          
+          // Opcional: Mostrar notificación de XP ganado
+          console.log(`XP ganado: ${result.xpGained}`);
+          if (result.levelUp) {
+            console.log(`¡Subiste al nivel ${result.levelUp}!`);
+          }
+          
+          if (result.achievements && result.achievements.length > 0) {
+            console.log(`Logros desbloqueados: ${result.achievements.map(a => a.name).join(', ')}`);
+          }
+        }
+        
         // Formatear y devolver la respuesta completa
         return formatERResponse(currentPNR);
       } catch (error) {
@@ -192,7 +215,7 @@ export async function handleEndTransaction(cmd, userId) {
  * @param {string} userId - ID del usuario
  * @returns {string} Respuesta del comando
  */
-export async function handleCancelPNR(cmd, userId) {
+export async function handleCancelPNR(cmd) {
   try {
     // Verificar si hay un PNR en progreso
     const currentPNR = getCurrentPNR();

@@ -2,14 +2,17 @@
 import { Fragment } from 'react';
 import { Menu, Transition } from '@headlessui/react';
 import { Link } from 'react-router';
-import { FiChevronDown, FiUser, FiSettings, FiLogOut } from 'react-icons/fi';
+import { FiChevronDown, FiUser, FiSettings, FiLogOut, FiEye } from 'react-icons/fi';
 import PropTypes from 'prop-types';
+import { useAuth } from '../../hooks/useAuth';
 
 function classNames(...classes) {
   return classes.filter(Boolean).join(' ');
 }
 
 export default function DashboardHeader({ user, onLogout }) {
+  const { isSpectator } = useAuth();
+  
   return (
     <header className="bg-white shadow">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center py-3">
@@ -24,7 +27,14 @@ export default function DashboardHeader({ user, onLogout }) {
           <Menu as="div" className="relative inline-block text-left">
             <div>
               <Menu.Button className="inline-flex justify-center w-full rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amadeus-primary">
-                <span className="truncate max-w-[150px]">{user?.displayName || user?.email}</span>
+                {isSpectator ? (
+                  <>
+                    <FiEye className="mr-2 h-5 w-5" />
+                    <span>Espectador</span>
+                  </>
+                ) : (
+                  <span className="truncate max-w-[150px]">{user?.displayName || user?.email}</span>
+                )}
                 <FiChevronDown className="-mr-1 ml-2 h-5 w-5" aria-hidden="true" />
               </Menu.Button>
             </div>
@@ -40,45 +50,57 @@ export default function DashboardHeader({ user, onLogout }) {
             >
               <Menu.Items className="origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-10">
                 <div className="py-1">
-                  <Menu.Item>
-                    {({ active }) => (
-                      <Link
-                        to="/profile"
-                        className={classNames(
-                          active ? 'bg-gray-100 text-gray-900' : 'text-gray-700',
-                          'flex px-4 py-2 text-sm items-center'
+                  {!isSpectator && (
+                    <>
+                      <Menu.Item>
+                        {({ active }) => (
+                          <Link
+                            to="/profile"
+                            className={classNames(
+                              active ? 'bg-gray-100 text-gray-900' : 'text-gray-700',
+                              'flex px-4 py-2 text-sm items-center'
+                            )}
+                          >
+                            <FiUser className="mr-3 h-5 w-5 text-gray-400" />
+                            Perfil
+                          </Link>
                         )}
-                      >
-                        <FiUser className="mr-3 h-5 w-5 text-gray-400" />
-                        Perfil
-                      </Link>
-                    )}
-                  </Menu.Item>
-                  <Menu.Item>
-                    {({ active }) => (
-                      <Link
-                        to="/settings"
-                        className={classNames(
-                          active ? 'bg-gray-100 text-gray-900' : 'text-gray-700',
-                          'flex px-4 py-2 text-sm items-center'
+                      </Menu.Item>
+                      <Menu.Item>
+                        {({ active }) => (
+                          <Link
+                            to="/settings"
+                            className={classNames(
+                              active ? 'bg-gray-100 text-gray-900' : 'text-gray-700',
+                              'flex px-4 py-2 text-sm items-center'
+                            )}
+                          >
+                            <FiSettings className="mr-3 h-5 w-5 text-gray-400" />
+                            Configuración
+                          </Link>
                         )}
-                      >
-                        <FiSettings className="mr-3 h-5 w-5 text-gray-400" />
-                        Configuración
-                      </Link>
-                    )}
-                  </Menu.Item>
+                      </Menu.Item>
+                    </>
+                  )}
                   <Menu.Item>
                     {({ active }) => (
                       <button
-                        onClick={onLogout}
+                        onClick={() => {
+                          if (isSpectator) {
+                            // Para espectadores, simplemente redirigir al login
+                            localStorage.removeItem('spectatorMode');
+                            window.location.href = '/login';
+                          } else {
+                            onLogout();
+                          }
+                        }}
                         className={classNames(
                           active ? 'bg-gray-100 text-gray-900' : 'text-gray-700',
                           'flex w-full px-4 py-2 text-sm items-center'
                         )}
                       >
                         <FiLogOut className="mr-3 h-5 w-5 text-gray-400" />
-                        Cerrar sesión
+                        {isSpectator ? 'Salir del modo espectador' : 'Cerrar sesión'}
                       </button>
                     )}
                   </Menu.Item>
@@ -96,6 +118,6 @@ DashboardHeader.propTypes = {
   user: PropTypes.shape({
     displayName: PropTypes.string,
     email: PropTypes.string
-  }).isRequired,
+  }),
   onLogout: PropTypes.func.isRequired
 };

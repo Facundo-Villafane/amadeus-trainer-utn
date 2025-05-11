@@ -1,7 +1,7 @@
 // src/pages/Home.jsx
 import { Link } from 'react-router';
 import { FaPlay, FaUserGraduate, FaChalkboardTeacher } from 'react-icons/fa';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../hooks/useAuth';
 
 export default function Home() {
   const { currentUser } = useAuth();

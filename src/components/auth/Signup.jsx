@@ -1,7 +1,7 @@
 // src/components/auth/Signup.jsx
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../../hooks/useAuth';
 import { FcGoogle } from 'react-icons/fc';
 import toast from 'react-hot-toast';
 

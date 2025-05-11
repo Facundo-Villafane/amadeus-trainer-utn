@@ -20,7 +20,7 @@ export async function handleAddContact(cmd, userId) {
     
     // Analizar el comando AP
     // Formato: AP CIUDAD TELEFONO-TIPO
-    const contactPattern = /AP\s+([A-Z]{3})\s+([0-9\-]+)(?:-([A-Z]))?/i;
+    const contactPattern = /AP\s+([A-Z]{3})\s+([0-9-]+)(?:-([A-Z]))?/i;
     const match = cmd.match(contactPattern);
     
     if (!match) {
@@ -159,7 +159,8 @@ export async function handleReceivedFrom(cmd, userId) {
       console.error('Error al guardar PNR:', error);
     }
     
-    return "Received From entrada guardada.";
+    // CAMBIO: Devolver el PNR formateado en lugar de solo un mensaje
+    return formatPNRResponse(currentPNR);
   } catch (error) {
     console.error('Error al procesar el comando RF:', error);
     return `Error al procesar el comando: ${error.message}`;

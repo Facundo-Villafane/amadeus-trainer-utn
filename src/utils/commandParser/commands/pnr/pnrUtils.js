@@ -7,8 +7,15 @@ import { convertToAmadeusDate } from './dateUtils';
  * @returns {string} - Respuesta formateada para el terminal
  */
 export function formatPNRResponse(pnr) {
-  // Formatear la respuesta
-  let response = `\nRP/UTN5168476/\n`;
+  // Formatear la respuesta con receivedFrom si existe
+  let response = `\nRP/UTN5168476/`;
+  
+  // Añadir receivedFrom si existe
+  if (pnr.receivedFrom) {
+    response += pnr.receivedFrom;
+  }
+  
+  response += '\n';
   
   // Mostrar pasajeros
   if (pnr.passengers && pnr.passengers.length > 0) {
@@ -23,48 +30,54 @@ export function formatPNRResponse(pnr) {
     });
   }
   
-  // Mostrar segmentos
+  // Mostrar segmentos con numeración continua después de los pasajeros
+  let elementNumber = (pnr.passengers?.length || 0) + 1;
+  
   if (pnr.segments && pnr.segments.length > 0) {
-    pnr.segments.forEach((segment, index) => {
-      response += `${pnr.passengers?.length + index + 1 || index + 1} ${segment.airline_code} ${segment.flight_number} ${segment.class} `;
+    pnr.segments.forEach((segment) => {
+      response += `${elementNumber} ${segment.airline_code} ${segment.flight_number} ${segment.class} `;
       
       // Convertir la fecha al formato Amadeus
       const formattedDate = convertToAmadeusDate(segment.departureDate);
       
       response += `${formattedDate} ${segment.dayOfWeek} ${segment.origin}${segment.destination} `;
       response += `${segment.status}${segment.quantity} ${segment.departureTime} ${segment.arrivalTime} `;
-      // También convertir la fecha en la parte final si es necesario
       response += `${formattedDate} E ${segment.equipment}\n`;
+      
+      elementNumber++;
     });
   }
   
   // Mostrar contactos
   if (pnr.contacts && pnr.contacts.length > 0) {
-    pnr.contacts.forEach((contact, index) => {
-      const elementNumber = (pnr.passengers?.length || 0) + (pnr.segments?.length || 0) + index + 1;
+    pnr.contacts.forEach((contact) => {
       response += `${elementNumber} AP ${contact.city} ${contact.phone}-${contact.type}\n`;
+      elementNumber++;
     });
   }
   
   // Mostrar contactos de correo electrónico
   if (pnr.emailContacts && pnr.emailContacts.length > 0) {
-    pnr.emailContacts.forEach((contact, index) => {
-      const elementNumber = (pnr.passengers?.length || 0) + (pnr.segments?.length || 0) + (pnr.contacts?.length || 0) + index + 1;
+    pnr.emailContacts.forEach((contact) => {
       response += `${elementNumber} APE ${contact.email}\n`;
+      elementNumber++;
     });
   }
-  
-  // Mostrar Received From
-  if (pnr.receivedFrom) {
-    const rfNumber = (pnr.passengers?.length || 0) + (pnr.segments?.length || 0) + (pnr.contacts?.length || 0) + 1;
-    response += `${rfNumber} RF ${pnr.receivedFrom}\n`;
-  }
-  
-  // Mostrar límite de tiempo para emisión de billete
+
+  // Mostrar límite de tiempo si existe
   if (pnr.ticketing) {
-    const tkNumber = (pnr.passengers?.length || 0) + (pnr.segments?.length || 0) + 
-                     (pnr.contacts?.length || 0) + (pnr.receivedFrom ? 1 : 0) + 1;
-    response += `${tkNumber} TK TL${pnr.ticketing.timeLimit}\n`;
+    let tkDisplay = '';
+    
+    if (pnr.ticketing.type === 'OK') {
+      tkDisplay = `${elementNumber} TK OK/${pnr.ticketing.officeId}\n`;
+    } else if (pnr.ticketing.type === 'TL') {
+      tkDisplay = `${elementNumber} TK TL${pnr.ticketing.date}/${pnr.ticketing.time}/${pnr.ticketing.officeId}\n`;
+    } else if (pnr.ticketing.type === 'XL') {
+      tkDisplay = `${elementNumber} TK XL${pnr.ticketing.date}/${pnr.ticketing.time}/${pnr.ticketing.officeId}\n`;
+    }
+    
+    response += tkDisplay;
+    elementNumber++;
   }
   
   response += `*TRN*\n>`;
@@ -79,56 +92,122 @@ export function formatPNRResponse(pnr) {
  */
 export function formatERResponse(pnr) {
   let response = `\n---RLR---\n`;
-  response += `RP/UTN5168476/AGENTE FF/WE ${pnr.ticketing?.date || '01JAN'}/1200Z ${pnr.recordLocator}\n`;
+  
+  // Manejar fecha de creación con fallback a fecha actual si no existe
+  let createdDate;
+  if (pnr.createdAt) {
+    // Si createdAt es un timestamp de Firestore
+    if (pnr.createdAt.toDate) {
+      createdDate = pnr.createdAt.toDate();
+    } else if (pnr.createdAt instanceof Date) {
+      createdDate = pnr.createdAt;
+    } else {
+      createdDate = new Date(pnr.createdAt);
+    }
+  } else {
+    // Fallback a fecha actual si no existe createdAt
+    createdDate = new Date();
+  }
+  
+  // Validar que la fecha sea válida
+  if (isNaN(createdDate.getTime())) {
+    createdDate = new Date();
+  }
+  
+  // Obtener día de la semana en formato de 2 letras
+  const weekdays = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
+  const dayOfWeek = weekdays[createdDate.getDay()];
+  
+  // Formatear fecha como DDMMM
+  const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+  const day = String(createdDate.getDate()).padStart(2, '0');
+  const month = months[createdDate.getMonth()];
+  const dateStr = `${day}${month}`;
+  
+  // Formatear hora UTC
+  const utcHours = String(createdDate.getUTCHours()).padStart(2, '0');
+  const utcMinutes = String(createdDate.getUTCMinutes()).padStart(2, '0');
+  const utcTime = `${utcHours}${utcMinutes}Z`;
+  
+  // Usar receivedFrom en lugar de "AGENTE"
+  const agent = pnr.receivedFrom || 'AGENTE';
+  
+  response += `RP/UTN5168476/${agent} FF/${dayOfWeek} ${dateStr}/${utcTime} ${pnr.recordLocator}\n`;
   
   // Mostrar pasajeros
+  let lastElementNumber = 0;
   if (pnr.passengers && pnr.passengers.length > 0) {
     pnr.passengers.forEach((passenger, index) => {
-      response += `${index + 1}.${passenger.lastName}/${passenger.firstName} ${passenger.title}`;
+      const passengerNumber = index + 1;
+      response += `${passengerNumber}.${passenger.lastName}/${passenger.firstName} ${passenger.title}`;
       if (passenger.type === 'CHD') {
         response += `(CHD/${passenger.dateOfBirth || ''})`;
       } else if (passenger.type === 'INF' && passenger.infant) {
         response += `(INF${passenger.infant.lastName}/${passenger.infant.firstName}/${passenger.infant.dateOfBirth || ''})`;
       }
       response += `\n`;
+      lastElementNumber = passengerNumber;
     });
   }
   
+  // Comenzar la numeración de segmentos después del último pasajero
+  let segmentIndex = lastElementNumber + 1;
+  
   // Mostrar segmentos
   if (pnr.segments && pnr.segments.length > 0) {
-    pnr.segments.forEach((segment, index) => {
-      response += `${index + 1} ${segment.airline_code} ${segment.flight_number} ${segment.class} `;
+    pnr.segments.forEach((segment) => {
+      response += `${segmentIndex} ${segment.airline_code} ${segment.flight_number} ${segment.class} `;
       
       // Convertir la fecha al formato Amadeus
       const formattedDate = convertToAmadeusDate(segment.departureDate);
       
       response += `${formattedDate} ${segment.dayOfWeek} ${segment.origin}${segment.destination} `;
       response += `${segment.status}${segment.quantity} ${segment.departureTime} ${segment.arrivalTime} `;
-      // También convertir la fecha en la parte final
       response += `${formattedDate} E ${segment.equipment}\n`;
+      
+      segmentIndex++;
     });
   }
+  
+  // Continuar con la numeración para los demás elementos
+  let elementNumber = segmentIndex;
   
   // Mostrar contactos
   if (pnr.contacts && pnr.contacts.length > 0) {
-    pnr.contacts.forEach((contact, index) => {
-      const elementNumber = (pnr.passengers?.length || 0) + (pnr.segments?.length || 0) + index + 1;
+    pnr.contacts.forEach((contact) => {
       response += `${elementNumber} AP ${contact.city} ${contact.phone}-${contact.type}\n`;
+      elementNumber++;
     });
   }
   
-  // Mostrar límite de tiempo para emisión de billete
-  if (pnr.ticketing) {
-    const tkNumber = (pnr.passengers?.length || 0) + (pnr.segments?.length || 0) + 
-                     (pnr.contacts?.length || 0) + 1;
-    response += `${tkNumber} TK TL${pnr.ticketing.timeLimit}\n`;
+  // Mostrar contactos de correo electrónico
+  if (pnr.emailContacts && pnr.emailContacts.length > 0) {
+    pnr.emailContacts.forEach((contact) => {
+      response += `${elementNumber} APE ${contact.email}\n`;
+      elementNumber++;
+    });
   }
+  
+  // Mostrar límite de tiempo SOLO si existe y ha sido agregado por el sistema
+  if (pnr.ticketing && pnr.ticketing.timeLimit) {
+    response += `${elementNumber} TK TL${pnr.ticketing.timeLimit}\n`;
+    elementNumber++;
+  }
+
+  // Mostrar límite de tiempo si existe
+  if (pnr.ticketing) {
+    let tkDisplay = '';
     
-  // Mostrar Received From
-  if (pnr.receivedFrom) {
-    const rfNumber = (pnr.passengers?.length || 0) + (pnr.segments?.length || 0) + 
-                    (pnr.contacts?.length || 0) + (pnr.ticketing ? 1 : 0) + 1;
-    response += `${rfNumber} RF ${pnr.receivedFrom}\n`;
+    if (pnr.ticketing.type === 'OK') {
+      tkDisplay = `${elementNumber} TK OK/${pnr.ticketing.officeId}\n`;
+    } else if (pnr.ticketing.type === 'TL') {
+      tkDisplay = `${elementNumber} TK TL${pnr.ticketing.date}/${pnr.ticketing.time}/${pnr.ticketing.officeId}\n`;
+    } else if (pnr.ticketing.type === 'XL') {
+      tkDisplay = `${elementNumber} TK XL${pnr.ticketing.date}/${pnr.ticketing.time}/${pnr.ticketing.officeId}\n`;
+    }
+    
+    response += tkDisplay;
+    elementNumber++;
   }
   
   response += `*TRN*\n>`;
