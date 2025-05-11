@@ -1,5 +1,5 @@
 // src/pages/admin/Flights.jsx
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { 
   collection, getDocs, addDoc, updateDoc, deleteDoc, doc, 
@@ -13,7 +13,7 @@ import ImportFlights from '../../components/admin/ImportFlights';
 import FlightScheduleGenerator from '../../components/admin/EnhancedFlightScheduleGenerator';
 import { 
   FiPlus, FiEdit2, FiTrash2, FiSearch, FiAirplay, 
-  FiFilter, FiChevronLeft, FiChevronRight, FiCalendar 
+  FiFilter, FiChevronLeft, FiChevronRight, FiCalendar, FiLayers 
 } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 
@@ -180,88 +180,92 @@ export default function AdminFlights() {
       try {
         setLoading(true);
         
-        // Construir consulta a Firebase
-      let flightsQuery = query(collection(db, 'flights'));
+        // Construir consulta base
+        let baseQuery = query(collection(db, 'flights'));
 
-      // Filtros básicos (origen y destino)
-      if (filters.departure_airport_code) {
-        flightsQuery = query(flightsQuery, 
-          where('departure_airport_code', '==', filters.departure_airport_code));
-      }
-      
-      if (filters.arrival_airport_code) {
-        flightsQuery = query(flightsQuery, 
-          where('arrival_airport_code', '==', filters.arrival_airport_code));
-      }
-      
-      if (filters.airline_code) {
-        flightsQuery = query(flightsQuery, 
-          where('airline_code', '==', filters.airline_code));
-      }
-      
-      if (filters.status) {
-        flightsQuery = query(flightsQuery, 
-          where('status', '==', filters.status));
-      }
-
-      // Filtrado por fecha de salida
-      if (filters.departure_date) {
-        // Convertir fecha a formato D/M/YYYY que usamos en nuestra base
-        const date = new Date(filters.departure_date);
-        const formattedDate = `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()}`;
+        // Aplicar filtros
+        if (filters.departure_airport_code) {
+          baseQuery = query(baseQuery, 
+            where('departure_airport_code', '==', filters.departure_airport_code));
+        }
         
-        flightsQuery = query(flightsQuery, 
-          where('departure_date', '==', formattedDate));
+        if (filters.arrival_airport_code) {
+          baseQuery = query(baseQuery, 
+            where('arrival_airport_code', '==', filters.arrival_airport_code));
+        }
+        
+        if (filters.airline_code) {
+          baseQuery = query(baseQuery, 
+            where('airline_code', '==', filters.airline_code));
+        }
+        
+        if (filters.status) {
+          baseQuery = query(baseQuery, 
+            where('status', '==', filters.status));
+        }
+
+        // Ordenar
+        baseQuery = query(baseQuery, orderBy('departure_time'));
+        
+        // Aplicar paginación
+        baseQuery = query(baseQuery, limit(pageSize));
+        
+        // Ejecutar consulta
+        const querySnapshot = await getDocs(baseQuery);
+        
+        // Procesar resultados
+        let flightsData = querySnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        
+        // Agrupar vuelos por número de vuelo
+        const grouped = flightsData.reduce((acc, flight) => {
+          const key = `${flight.airline_code}-${flight.flight_number}`;
+          if (!acc[key]) {
+            acc[key] = {
+              airline_code: flight.airline_code,
+              airline_name: flight.airline_name,
+              flight_number: flight.flight_number,
+              departure_airport_code: flight.departure_airport_code,
+              departure_airport: flight.departure_airport,
+              departure_city: flight.departure_city,
+              arrival_airport_code: flight.arrival_airport_code,
+              arrival_airport: flight.arrival_airport,
+              arrival_city: flight.arrival_city,
+              duration_hours: flight.duration_hours,
+              aircraft_type: flight.aircraft_type,
+              equipment_code: flight.equipment_code,
+              class_availability: flight.class_availability,
+              instances: []
+            };
+          }
+          acc[key].instances.push(flight);
+          return acc;
+        }, {});
+        
+        setGroupedFlights(grouped);
+        setFlights(flightsData);
+        
+        // Actualizar controles de paginación
+        if (querySnapshot.docs.length > 0) {
+          setLastVisible(querySnapshot.docs[querySnapshot.docs.length - 1]);
+          setFirstVisible(querySnapshot.docs[0]);
+        } else {
+          setLastVisible(null);
+          setFirstVisible(null);
+        }
+        
+      } catch (error) {
+        console.error('Error al cargar vuelos:', error);
+        toast.error('Error al cargar los vuelos');
+      } finally {
+        setLoading(false);
       }
-      
-      // Ordenar
-      flightsQuery = query(flightsQuery, orderBy('departure_time'));
-      
-      // Aplicar paginación
-      flightsQuery = query(flightsQuery, limit(pageSize));
-      
-      // Ejecutar consulta
-      const querySnapshot = await getDocs(flightsQuery);
-      
-      // Procesar resultados
-      let flightsData = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      
-      // Filtrado por clase disponible (debe hacerse en memoria porque Firebase no puede filtrar por campos anidados)
-      if (filters.available_class) {
-        flightsData = flightsData.filter(flight => {
-          // Verificar si existe class_availability y tiene la clase buscada
-          return flight.class_availability && 
-                 flight.class_availability.hasOwnProperty(filters.available_class) &&
-                 flight.class_availability[filters.available_class] > 0;
-        });
-      }
-      
-      setFlights(flightsData);
-      
-      // Actualizar controles de paginación
-      if (querySnapshot.docs.length > 0) {
-        setLastVisible(querySnapshot.docs[querySnapshot.docs.length - 1]);
-        setFirstVisible(querySnapshot.docs[0]);
-      } else {
-        setLastVisible(null);
-        setFirstVisible(null);
-      }
-      
-    } catch (error) {
-      console.error('Error al cargar vuelos:', error);
-      toast.error('Error al cargar los vuelos');
-    } finally {
-      setLoading(false);
     }
-  }
-  
-  fetchFlights();
-}, [currentPage, pageSize, filters]);
-        
-        
+    
+    fetchFlights();
+  }, [currentPage, pageSize, filters]);
   
   // Navegar a la página siguiente
   const goToNextPage = () => {
@@ -764,6 +768,17 @@ const ClassAvailabilityEditor = ({ value, onChange }) => {
     );
   };
   
+  const [groupedFlights, setGroupedFlights] = useState({});
+  const [expandedFlights, setExpandedFlights] = useState({});
+
+  // Función para alternar la expansión de un vuelo
+  const toggleFlightExpansion = (flightKey) => {
+    setExpandedFlights(prev => ({
+      ...prev,
+      [flightKey]: !prev[flightKey]
+    }));
+  };
+  
   return (
     <div className="flex h-screen bg-gray-100">
       {/* Sidebar */}
@@ -900,14 +915,11 @@ const ClassAvailabilityEditor = ({ value, onChange }) => {
                         Ruta
                       </th>
                       <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Fecha/Hora
-                      </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Detalles
                       </th>
                       <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Clases
-                        </th>
+                      </th>
                       <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Acciones
                       </th>
@@ -920,117 +932,148 @@ const ClassAvailabilityEditor = ({ value, onChange }) => {
                           Cargando vuelos...
                         </td>
                       </tr>
-                    ) : filteredFlights.length === 0 ? (
+                    ) : Object.keys(groupedFlights).length === 0 ? (
                       <tr>
                         <td colSpan={5} className="px-6 py-4 text-center text-sm text-gray-500">
                           No se encontraron vuelos
                         </td>
                       </tr>
                     ) : (
-                      filteredFlights.map((flight, index) => (
-                        <tr key={`flight-${flight.id}-${index}`}>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex items-center">
-                              <div className="flex-shrink-0 h-10 w-10 flex items-center justify-center rounded-full bg-amadeus-light text-amadeus-primary">
-                                <FiAirplay className="h-5 w-5" />
-                              </div>
-                              <div className="ml-4">
-                                <div className="text-sm font-medium text-gray-900">
-                                  {flight.airline_code} {flight.flight_number}
+                      Object.entries(groupedFlights).map(([key, flightGroup]) => (
+                        <React.Fragment key={key}>
+                          <tr className="bg-gray-50">
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="flex items-center">
+                                <div className="flex-shrink-0 h-10 w-10 flex items-center justify-center rounded-full bg-amadeus-light text-amadeus-primary">
+                                  <FiAirplay className="h-5 w-5" />
                                 </div>
-                                <div className="text-sm text-gray-500">
-                                  {flight.airline_name}
+                                <div className="ml-4">
+                                  <div className="text-sm font-medium text-gray-900">
+                                    {flightGroup.airline_code} {flightGroup.flight_number}
+                                  </div>
+                                  <div className="text-sm text-gray-500">
+                                    {flightGroup.airline_name}
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">
-                              {flight.departure_city} ({flight.departure_airport_code}) → {flight.arrival_city} ({flight.arrival_airport_code})
-                            </div>
-                            <div className="text-xs text-gray-500">
-                              {flight.stops === 0 ? 'Directo' : `${flight.stops} escala(s)`}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">
-                              {flight.departure_date} {flight.departure_time}
-                            </div>
-                            <div className="text-xs text-gray-500">
-                              Duración: {flight.duration_hours}h
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="space-y-1">
-                              <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                                flight.status === 'Scheduled' ? 'bg-blue-100 text-blue-800' :
-                                flight.status === 'On Time' ? 'bg-green-100 text-green-800' :
-                                flight.status === 'Delayed' ? 'bg-yellow-100 text-yellow-800' :
-                                flight.status === 'Cancelled' ? 'bg-red-100 text-red-800' :
-                                'bg-gray-100 text-gray-800'
-                              }`}>
-                                {flight.status}
-                              </span>
-                              <div className="text-xs text-gray-500">
-                                {flight.equipment_code && (
-                                  <div>Equipo: {flight.equipment_code}</div>
-                                )}
-                                {flight.aircraft_type && (
-                                  <div>Aeronave: {flight.aircraft_type}</div>
-                                )}
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex flex-wrap gap-1 max-w-xs">
-                                {flight.class_availability ? (
-                                Object.entries(flight.class_availability).map(([classCode, seats]) => (
-                                    <span 
-                                    key={classCode}
-                                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                        seats > 0 
-                                        ? 'bg-green-100 text-green-800' 
-                                        : 'bg-red-100 text-red-800'
-                                    }`}
-                                    title={`${seats} asientos disponibles`}
-                                    >
-                                    {classCode}{seats}
-                                    </span>
-                                ))
-                                ) : (
-                                <span className="text-gray-400 text-xs italic">Sin clases</span>
-                                )}
-                            </div>
                             </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            <div className="flex items-center">
-                              <button
-                                onClick={() => handleEdit(flight)}
-                                className="text-amadeus-primary hover:text-amadeus-secondary mr-3"
-                                title="Editar vuelo"
-                              >
-                                <FiEdit2 className="h-5 w-5" />
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setSelectedFlight(flight);
-                                  setShowScheduleModal(true);
-                                }}
-                                className="text-amber-500 hover:text-amber-600 mr-3"
-                                title="Generar programación"
-                              >
-                                <FiCalendar className="h-5 w-5" />
-                              </button>
-                              <button
-                                onClick={() => handleDelete(flight.id)}
-                                className="text-red-600 hover:text-red-800"
-                                title="Eliminar vuelo"
-                              >
-                                <FiTrash2 className="h-5 w-5" />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-sm text-gray-900">
+                                {flightGroup.departure_city} ({flightGroup.departure_airport_code}) → {flightGroup.arrival_city} ({flightGroup.arrival_airport_code})
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                {flightGroup.instances.length} instancias
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-sm text-gray-900">
+                                {flightGroup.aircraft_type}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                {flightGroup.equipment_code}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="flex flex-wrap gap-1 max-w-xs">
+                                {flightGroup.class_availability ? (
+                                  Object.entries(flightGroup.class_availability).map(([classCode, seats]) => (
+                                    <span 
+                                      key={classCode}
+                                      className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${
+                                        seats > 0 
+                                          ? 'bg-green-100 text-green-800' 
+                                          : 'bg-red-100 text-red-800'
+                                      }`}
+                                      title={`${seats} asientos disponibles`}
+                                    >
+                                      {classCode}{seats}
+                                    </span>
+                                  ))
+                                ) : (
+                                  <span className="text-gray-400 text-xs italic">Sin clases</span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              <div className="flex items-center">
+                                <button
+                                  onClick={() => toggleFlightExpansion(key)}
+                                  className="text-amadeus-primary hover:text-amadeus-secondary mr-3"
+                                  title="Ver programación"
+                                >
+                                  <FiCalendar className="h-5 w-5" />
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setSelectedFlight(flightGroup);
+                                    setShowScheduleModal(true);
+                                  }}
+                                  className="text-amber-500 hover:text-amber-600 mr-3"
+                                  title="Generar programación"
+                                >
+                                  <FiLayers className="h-5 w-5" />
+                                </button>
+                                <button
+                                  onClick={() => handleEdit(flightGroup.instances[0])}
+                                  className="text-blue-500 hover:text-blue-600 mr-3"
+                                  title="Editar vuelo"
+                                >
+                                  <FiEdit2 className="h-5 w-5" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                          {expandedFlights[key] && (
+                            <tr>
+                              <td colSpan={5} className="px-6 py-4 bg-gray-50">
+                                <div className="pl-16">
+                                  <h4 className="text-sm font-medium text-gray-900 mb-2">Programación</h4>
+                                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    {flightGroup.instances.map((instance) => (
+                                      <div key={instance.id} className="bg-white p-4 rounded-lg shadow">
+                                        <div className="flex justify-between items-start">
+                                          <div>
+                                            <div className="text-sm font-medium text-gray-900">
+                                              {instance.departure_date} {instance.departure_time}
+                                            </div>
+                                            <div className="text-xs text-gray-500">
+                                              Duración: {instance.duration_hours}h
+                                            </div>
+                                          </div>
+                                          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                            instance.status === 'Scheduled' ? 'bg-blue-100 text-blue-800' :
+                                            instance.status === 'On Time' ? 'bg-green-100 text-green-800' :
+                                            instance.status === 'Delayed' ? 'bg-yellow-100 text-yellow-800' :
+                                            instance.status === 'Cancelled' ? 'bg-red-100 text-red-800' :
+                                            'bg-gray-100 text-gray-800'
+                                          }`}>
+                                            {instance.status}
+                                          </span>
+                                        </div>
+                                        <div className="mt-2 flex justify-end space-x-2">
+                                          <button
+                                            onClick={() => handleEdit(instance)}
+                                            className="text-blue-500 hover:text-blue-600"
+                                            title="Editar instancia"
+                                          >
+                                            <FiEdit2 className="h-4 w-4" />
+                                          </button>
+                                          <button
+                                            onClick={() => handleDelete(instance.id)}
+                                            className="text-red-500 hover:text-red-600"
+                                            title="Eliminar instancia"
+                                          >
+                                            <FiTrash2 className="h-4 w-4" />
+                                          </button>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
                       ))
                     )}
                   </tbody>

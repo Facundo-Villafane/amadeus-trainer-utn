@@ -8,6 +8,7 @@ import DashboardSidebar from '../../components/dashboard/DashboardSidebar';
 import DashboardHeader from '../../components/dashboard/DashboardHeader';
 import { FiSave, FiSettings } from 'react-icons/fi';
 import toast from 'react-hot-toast';
+import { DatToJsonConversionTool } from '../../utils/airportDataTools';
 
 export default function AdminSettings() {
   const [systemSettings, setSystemSettings] = useState({
@@ -223,6 +224,18 @@ export default function AdminSettings() {
                         <FiSave className="mr-2 -ml-1 h-5 w-5" aria-hidden="true" />
                         {saving ? 'Guardando...' : 'Guardar Configuración'}
                       </button>
+                    </div>
+                  </div>
+
+                  {/* Add the new Airport Data Management section */}
+                  <div className="mt-8">
+                    <h2 className="text-lg font-medium text-gray-900">Gestión de Datos de Aeropuertos</h2>
+                    <p className="mt-1 text-sm text-gray-500">
+                      Convierte y gestiona los datos de aeropuertos utilizados por el sistema.
+                    </p>
+                    
+                    <div className="mt-4">
+                      <DatToJsonConversionTool />
                     </div>
                   </div>
                 </div>

@@ -3,7 +3,7 @@ import { collection, query, where, getDocs, orderBy, limit } from 'firebase/fire
 import { db } from '../../../services/firebase';
 import { parseANCommand, parseOptions } from '../parserUtils';
 import { generateHeader } from '../formatters';
-import { formatDuration, getAircraftIATACode } from '../helpers';
+import { formatDuration, getAircraftIATACode, calculateDaysLeft } from '../helpers';
 import paginationState from '../paginationState';
 
 // Función para manejar el comando de disponibilidad (AN)
@@ -29,13 +29,17 @@ export async function handleAvailabilityCommand(cmd) {
     // Extraer opciones adicionales
     const { airline, flightClass } = parseOptions(options);
     
+    // Convertir dateStr a formato DD/MM/AAAA para el filtro
+    const departureDateStr = toDDMMYYYY(dateStr);
+    
     // Construir consulta a Firebase
     let flightsQuery = query(collection(db, 'flights'));
     
-    // Filtrar por origen y destino
+    // Filtrar por origen, destino y fecha
     flightsQuery = query(flightsQuery, 
       where('departure_airport_code', '==', origin),
-      where('arrival_airport_code', '==', destination)
+      where('arrival_airport_code', '==', destination),
+      where('departure_date', '==', departureDateStr)
     );
     
     // Si se especificó aerolínea, filtrar por aerolínea
@@ -63,18 +67,24 @@ export async function handleAvailabilityCommand(cmd) {
     // Almacenar los resultados actuales
     paginationState.currentResults = querySnapshot.docs.map(doc => doc.data());
     
+    // Deduplicar vuelos por flight_number, departure_date y departure_time
+    const uniqueFlightsMap = new Map();
+    querySnapshot.forEach((doc) => {
+      const flight = doc.data();
+      const key = `${flight.flight_number}_${flight.departure_date}_${flight.departure_time}`;
+      if (!uniqueFlightsMap.has(key)) {
+        uniqueFlightsMap.set(key, flight);
+      }
+    });
+    const uniqueFlights = Array.from(uniqueFlightsMap.values());
+    
     // Si hay exactamente `pageSize` resultados, verificar si hay más resultados
     const hasMoreResults = querySnapshot.docs.length === paginationState.pageSize;
     
-    // Generar la cabecera con la fecha extraída del comando
-    const header = await generateHeader('AN', destination, origin, dateStr);
-    let response = `${header}\n`;
-    
     // Procesar resultados
     let index = paginationState.currentIndex;
-    querySnapshot.forEach((doc) => {
-      const flight = doc.data();
-      
+    const flightLines = [];
+    uniqueFlights.forEach((flight) => {
       // Si se especificó una clase, verificar si el vuelo tiene esa clase disponible
       if (flightClass && (!flight.class_availability || !flight.class_availability[flightClass])) {
         return; // Saltar este vuelo si no tiene la clase especificada
@@ -105,11 +115,26 @@ export async function handleAvailabilityCommand(cmd) {
       }
       
       // Añadir detalles del vuelo
-      flightLine += ` ${flight.departure_airport_code} ${departureTerminal} ${flight.arrival_airport_code} ${arrivalTerminal} ${flight.departure_time} ${flight.arrival_time} E0/${aircraftCode} ${duration}\n`;
+      flightLine += ` ${flight.departure_airport_code} ${departureTerminal} ${flight.arrival_airport_code} ${arrivalTerminal} ${flight.departure_time} ${flight.arrival_time} E0/${aircraftCode} ${duration}`;
       
-      response += flightLine;
+      flightLines.push(flightLine);
       index++;
     });
+    // Calcular la longitud máxima de las líneas de vuelo
+    const maxLineLength = flightLines.reduce((max, line) => Math.max(max, line.length), 0);
+    
+    // === Generar línea de info alineada a la derecha ===
+    const infoLine = `${calculateDaysLeft(dateStr)} ${new Date().toLocaleDateString('en-US', { weekday: 'short' })} ${new Date().toLocaleDateString('en-US', { month: 'short' })} ${new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`;
+    const paddedInfoLine = infoLine.padStart(maxLineLength);
+    // === FIN NUEVO ===
+
+    const header = await generateHeader('AN', destination, origin, dateStr);
+    // Header e info alineada a la derecha en una sola línea
+    // Calcula el espacio disponible para la info
+    const headerWithInfo = (header + ' ').padEnd(maxLineLength - infoLine.length, ' ') + infoLine;
+    let response = `${headerWithInfo}\n`;
+    // Agregar las líneas de vuelo
+    response += flightLines.map(l => l + '\n').join("");
     
     // Actualizar el índice actual
     paginationState.currentIndex = index;
@@ -123,4 +148,25 @@ export async function handleAvailabilityCommand(cmd) {
     console.error('Error al procesar el comando AN:', error);
     return `Error al procesar el comando: ${error.message}`;
   }
+}
+
+// Utilidad para convertir dateStr tipo 10OCT o 10OCT24 a DD/MM/AAAA
+function toDDMMYYYY(dateStr) {
+  if (!dateStr) return null;
+  const months = {
+    'JAN': '01', 'FEB': '02', 'MAR': '03', 'APR': '04', 'MAY': '05', 'JUN': '06',
+    'JUL': '07', 'AUG': '08', 'SEP': '09', 'OCT': '10', 'NOV': '11', 'DEC': '12'
+  };
+  const match = dateStr.match(/^(\d{1,2})([A-Z]{3})(\d{2,4})?$/i);
+  if (!match) return null;
+  const day = match[1].padStart(2, '0');
+  const month = months[match[2].toUpperCase()];
+  let year = match[3];
+  if (!year) {
+    year = new Date().getFullYear();
+  } else if (year.length === 2) {
+    // Asumir 20xx para años de dos dígitos
+    year = '20' + year;
+  }
+  return `${day}/${month}/${year}`;
 }

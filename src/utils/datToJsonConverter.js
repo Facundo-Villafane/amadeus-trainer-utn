@@ -1,16 +1,17 @@
-// src/utils/datToJsonConverter.js
+// Improved DAT to JSON Converter
+// This utility converts airports.dat file to a usable JSON structure
 
 /**
  * Converts airports.dat file to JSON format
- * This function can be run once to create a JSON file from your .dat file
- * 
  * @param {string} datFileContent - Content of the .dat file
- * @returns {string} JSON string representation of the data
+ * @returns {Object} JavaScript object containing the processed airport data
  */
 function convertDatToJson(datFileContent) {
     // Split the content into lines
     const lines = datFileContent.split('\n');
     const airports = [];
+    
+    console.log(`Processing ${lines.length} lines from DAT file...`);
     
     // Process each line
     lines.forEach((line, index) => {
@@ -83,41 +84,114 @@ function convertDatToJson(datFileContent) {
       }
     });
     
-    // Create a more structured output format
-    const output = {
+    console.log(`Successfully processed ${airports.length} valid airports`);
+    
+    // Group airports by city
+    const cities = {};
+    airports.forEach(airport => {
+      // Create a unique key for each city using city and country
+      const cityKey = `${airport.city}-${airport.country}`.toUpperCase();
+      
+      if (!cities[cityKey]) {
+        // Use country code or XX if unknown
+        const countryCode = getCountryCode(airport.country);
+        
+        cities[cityKey] = {
+          name: airport.city,
+          country: airport.country,
+          countryCode: countryCode,
+          code: airport.iata, // Initially use first airport's code
+          name_uppercase: airport.city.toUpperCase(),
+          airports: []
+        };
+      }
+      
+      // Add this airport to the city
+      cities[cityKey].airports.push({
+        code: airport.iata,
+        name: airport.name,
+        distance: '0K' // Default distance
+      });
+    });
+    
+    // Post-process cities: set the shortest code (usually main airport) as city code
+    Object.values(cities).forEach(city => {
+      if (city.airports.length > 1) {
+        // Sort airports by code length and alphabetically
+        city.airports.sort((a, b) => {
+          if (a.code.length !== b.code.length) {
+            return a.code.length - b.code.length;
+          }
+          return a.code.localeCompare(b.code);
+        });
+        
+        // Use the first (shortest) code as city code
+        city.code = city.airports[0].code;
+      }
+    });
+    
+    return {
       airports: airports,
+      cities: Object.values(cities),
       metadata: {
         count: airports.length,
+        citiesCount: Object.keys(cities).length,
         generated: new Date().toISOString(),
         version: "1.0"
       }
     };
-    
-    return JSON.stringify(output, null, 2);
   }
   
   /**
-   * Loads the airports JSON data into the global scope
-   * Call this function once your JSON data is loaded
-   * 
-   * @param {string} jsonContent - JSON string with airport data
+   * Get a 2-letter country code for a country name
+   * @param {string} country - Country name
+   * @returns {string} 2-letter country code or "XX" if unknown
    */
-  function loadAirportsData(jsonContent) {
-    try {
-      // Parse the JSON data
-      const data = JSON.parse(jsonContent);
-      
-      // Make it available globally
-      window._airportsData = data.airports || [];
-      
-      console.log(`Successfully loaded ${window._airportsData.length} airports`);
-      
-      // Return the data for immediate use if needed
-      return window._airportsData;
-    } catch (error) {
-      console.error('Error loading airports data:', error);
-      return [];
-    }
+  function getCountryCode(country) {
+    const countryCodes = {
+      'United States': 'US',
+      'United Kingdom': 'GB',
+      'Spain': 'ES',
+      'France': 'FR',
+      'Germany': 'DE',
+      'Italy': 'IT',
+      'Japan': 'JP',
+      'China': 'CN',
+      'Russia': 'RU',
+      'Brazil': 'BR',
+      'Argentina': 'AR',
+      'Australia': 'AU',
+      'Canada': 'CA',
+      'Mexico': 'MX',
+      'India': 'IN',
+      'Papua New Guinea': 'PG',
+      'Chile': 'CL',
+      'Peru': 'PE',
+      'Colombia': 'CO',
+      'Uruguay': 'UY',
+      'Paraguay': 'PY',
+      'Bolivia': 'BO',
+      'Ecuador': 'EC',
+      'Venezuela': 'VE',
+    };
+    
+    return countryCodes[country] || 'XX';
   }
   
-  export { convertDatToJson, loadAirportsData };
+  /**
+   * Example usage:
+   * 
+   * // To convert DAT to JSON:
+   * const datContent = "..."; // Your DAT file content
+   * const airportsData = convertDatToJson(datContent);
+   * const jsonString = JSON.stringify(airportsData, null, 2);
+   * 
+   * // To save to a file: (in Node.js)
+   * // require('fs').writeFileSync('airports-data.json', jsonString);
+   * 
+   * // To use in browser:
+   * // localStorage.setItem('airportsData', jsonString);
+   */
+  
+  // Export for use in other modules
+  export { convertDatToJson, getCountryCode };

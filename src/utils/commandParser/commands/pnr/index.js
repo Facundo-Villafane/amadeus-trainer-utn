@@ -1,7 +1,7 @@
 // src/utils/commandParser/commands/pnr/index.js
 import { handleSellSegment } from './pnrSegments';
 import { handleAddName } from './pnrPassengers';
-import { handleAddContact, handleReceivedFrom } from './pnrContacts';
+import { handleAddContact, handleReceivedFrom, handleAddEmailContact } from './pnrContacts';
 import { handleEndTransaction, handleCancelPNR } from './pnrTransaction';
 import { handleRetrievePNR } from './pnrRetrieval';
 import { getCurrentPNR, clearCurrentPNR, setCurrentPNR } from './pnrState';
@@ -16,6 +16,7 @@ export {
   
   // Contactos
   handleAddContact,
+  handleAddEmailContact,
   handleReceivedFrom,
   
   // Transacciones

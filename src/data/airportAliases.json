@@ -1,0 +1,66 @@
+{
+  "BUENOS AIRES": {
+    "EZEIZA": "EZE",
+    "AEROPARQUE": "AEP",
+    "PISTARINI": "EZE",
+    "NEWBERY": "AEP"
+  },
+  "CORDOBA": {
+    "PAMPAYASTA": "COR",
+    "TARAVELLA": "COR"
+  },
+  "MENDOZA": {
+    "PLUMERILLO": "MDZ"
+  },
+  "SANTIAGO DEL ESTERO": {
+    "SANTIAGO": "SDE"
+  },
+  "SAN JUAN": {
+    "MARIANO MORENO": "UAQ"
+  },
+  "SAN LUIS": {
+    "BRIGADIER MAYOR": "LUQ"
+  },
+  "TUCUMAN": {
+    "BENJAMIN MATIENZO": "TUC"
+  },
+  "SALTA": {
+    "MARTIN MIGUEL DE GUEMES": "SLA"
+  },
+  "JUJUY": {
+    "HORACIO GUZMAN": "JUJ"
+  },
+  "FORMOSA": {
+    "INTERNACIONAL": "FMA"
+  },
+  "POSADAS": {
+    "LIBERTADOR": "PSS"
+  },
+  "RESISTENCIA": {
+    "INTERNACIONAL": "RES"
+  },
+  "CORRIENTES": {
+    "CAMBA PUNTA": "CNQ"
+  },
+  "IGUAZU": {
+    "CATARATAS": "IGR"
+  },
+  "COMODORO RIVADAVIA": {
+    "GENERAL MOSCONI": "CRD"
+  },
+  "TRELEW": {
+    "ALMIRANTE ZAR": "REL"
+  },
+  "PUERTO MADRYN": {
+    "EL TEHUELCHE": "PMY"
+  },
+  "VIEDMA": {
+    "GOBERNADOR CASTELLO": "VDM"
+  },
+  "ESQUEL": {
+    "BRIGADIER PARODI": "EQS"
+  },
+  "EL BOLSON": {
+    "EL BOLSON": "EHL"
+  }
+} 

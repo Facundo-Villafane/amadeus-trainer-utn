@@ -46,6 +46,14 @@ export function formatPNRResponse(pnr) {
     });
   }
   
+  // Mostrar contactos de correo electrónico
+  if (pnr.emailContacts && pnr.emailContacts.length > 0) {
+    pnr.emailContacts.forEach((contact, index) => {
+      const elementNumber = (pnr.passengers?.length || 0) + (pnr.segments?.length || 0) + (pnr.contacts?.length || 0) + index + 1;
+      response += `${elementNumber} APE ${contact.email}\n`;
+    });
+  }
+  
   // Mostrar Received From
   if (pnr.receivedFrom) {
     const rfNumber = (pnr.passengers?.length || 0) + (pnr.segments?.length || 0) + (pnr.contacts?.length || 0) + 1;

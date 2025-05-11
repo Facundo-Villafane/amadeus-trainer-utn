@@ -3,32 +3,10 @@ import { calculateDaysLeft, getDestinationInfoFromDB } from './helpers';
 
 // Función para generar la cabecera correcta del comando AN
 export async function generateANHeader(destination, origin, dateStr) {
-  // Obtener la fecha actual
-  const now = new Date();
-  
-  // Formatear el día de la semana en inglés y obtener las dos primeras letras
-  const weekdays = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
-  const dayOfWeek = weekdays[now.getDay()];
-  
-  // Formatear la fecha actual (DDMMM)
-  const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
-  const day = String(now.getDate()).padStart(2, '0');
-  const month = months[now.getMonth()];
-  const formattedDate = `${day}${month}`;
-  
-  // Formatear la hora actual (HHMM)
-  const hours = String(now.getHours()).padStart(2, '0');
-  const minutes = String(now.getMinutes()).padStart(2, '0');
-  const formattedTime = `${hours}${minutes}`;
-  
-  // Calcular días restantes hasta la fecha de viaje
-  const daysLeft = calculateDaysLeft(dateStr);
-  
   // Obtener información del destino desde la base de datos
   const destinationInfo = await getDestinationInfoFromDB(destination);
-  
-  // Generar la cabecera
-  return `** AMADEUS AVAILABILITY - AN ** ${destination} ${destinationInfo.city}.${destinationInfo.countryCode} ${daysLeft} ${dayOfWeek} ${formattedDate} ${formattedTime}`;
+  // Generar la cabecera SOLO con el título y ciudad/país
+  return `** AMADEUS AVAILABILITY - AN ** ${destination} ${destinationInfo.city}.${destinationInfo.countryCode}`;
 }
 
 // Función para generar la cabecera del comando SN

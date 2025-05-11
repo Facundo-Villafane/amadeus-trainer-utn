@@ -26,6 +26,7 @@ export function generateHelpText() {
   SS[ASIENTOS][CLASE][LÍNEA]          Seleccionar asientos
   NM[CANTIDAD][APELLIDO]/[NOMBRE]     Agregar nombre
   AP [CIUDAD] [TELÉFONO]              Agregar teléfono de contacto
+  APE-[CORREO]                        Agregar correo electrónico de contacto
   RF[NOMBRE]                          Recibido de
   ET                                  Finalizar transacción
   RT[LOCALIZADOR]                     Recuperar PNR

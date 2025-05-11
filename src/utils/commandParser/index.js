@@ -14,7 +14,8 @@ import {
   handleReceivedFrom,
   handleEndTransaction, 
   handleRetrievePNR,
-  handleCancelPNR
+  handleCancelPNR,
+  handleAddEmailContact
 } from './commands/pnr';
 
 // Función principal para analizar y ejecutar comandos
@@ -82,6 +83,10 @@ export async function commandParser(command, userId) {
     
     if (cmd.startsWith('AP')) {
       return await handleAddContact(cmd, userId);
+    }
+    
+    if (cmd.startsWith('APE')) {
+      return await handleAddEmailContact(cmd, userId);
     }
     
     if (cmd.startsWith('RF')) {

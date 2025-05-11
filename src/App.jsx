@@ -1,9 +1,9 @@
 // src/App.jsx
-import { useEffect } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import AutoLogout from './components/AutoLogout';
+
 
 // Páginas públicas
 import Home from './pages/Home';
