@@ -1,4 +1,4 @@
-// src/components/auth/Login.jsx
+// src/components/auth/Login.jsx (modificado)
 import { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router';
 import { FaGoogle } from 'react-icons/fa';
@@ -26,7 +26,7 @@ export default function Login() {
   const [commissionData, setCommissionData] = useState(null);
   const [registrationMethod, setRegistrationMethod] = useState(null); // 'email' or 'google'
   
-  const { login, loginWithGoogle, signup } = useAuth();
+  const { login, loginWithGoogle, signup, enterSpectatorMode } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const from = location.state?.from?.pathname || '/dashboard';
@@ -251,10 +251,13 @@ export default function Login() {
       setError('');
       setLoading(true);
       
-      // Almacenar en localStorage que es un espectador
-      localStorage.setItem('spectatorMode', 'true');
+      // Usar la función del AuthContext para activar el modo espectador
+      enterSpectatorMode();
       
-      // Navegar al dashboard sin autenticación
+      // Mostrar mensaje de éxito
+      toast.success('Accediendo en modo espectador');
+      
+      // Navegar al dashboard
       navigate('/dashboard');
     } catch (error) {
       console.error('Error al acceder como espectador:', error);

@@ -74,6 +74,18 @@ export function AuthProvider({ children }) {
     }
   }
 
+  // Función para activar el modo espectador
+  function enterSpectatorMode() {
+    localStorage.setItem('spectatorMode', 'true');
+    setIsSpectator(true);
+  }
+
+  // Función para salir del modo espectador
+  function exitSpectatorMode() {
+    localStorage.removeItem('spectatorMode');
+    setIsSpectator(false);
+  }
+
   // Función de logout modificada
   async function logout() {
     try {
@@ -84,8 +96,7 @@ export function AuthProvider({ children }) {
       }
       
       // Limpiar modo espectador
-      localStorage.removeItem('spectatorMode');
-      setIsSpectator(false);
+      exitSpectatorMode();
       
       // Cerrar sesión en Firebase
       return await signOut(auth);
@@ -124,11 +135,21 @@ export function AuthProvider({ children }) {
   // Alias para compatibilidad
   const fetchUserRole = fetchUserInfo;
 
+  // Función auxiliar para manejar cambios en localStorage
+  const handleStorageChange = (event) => {
+    if (event.key === 'spectatorMode') {
+      setIsSpectator(event.newValue === 'true');
+    }
+  };
+
   // Efecto para observar el estado de autenticación
   useEffect(() => {
-    // Verificar si está en modo espectador
+    // Verificar si está en modo espectador cuando se monta el componente
     const spectatorMode = localStorage.getItem('spectatorMode') === 'true';
     setIsSpectator(spectatorMode);
+    
+    // Suscribirse a cambios en localStorage
+    window.addEventListener('storage', handleStorageChange);
     
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
@@ -141,7 +162,10 @@ export function AuthProvider({ children }) {
       setLoading(false);
     });
 
-    return unsubscribe;
+    return () => {
+      unsubscribe();
+      window.removeEventListener('storage', handleStorageChange);
+    };
   }, []);
 
   // Crear el objeto de valor para el contexto
@@ -156,7 +180,9 @@ export function AuthProvider({ children }) {
     fetchUserRole,
     fetchUserInfo,
     isAdmin: userRole === 'admin',
-    isSpectator
+    isSpectator,
+    enterSpectatorMode,
+    exitSpectatorMode
   };
 
   return (

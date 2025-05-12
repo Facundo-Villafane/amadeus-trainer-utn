@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router';
 import { useAuth } from '../hooks/useAuth';
 import DashboardSidebar from '../components/dashboard/DashboardSidebar';
 import DashboardHeader from '../components/dashboard/DashboardHeader';
-import { FiTerminal, FiSearch, FiChevronDown, FiChevronUp } from 'react-icons/fi';
+import { FiTerminal, FiSearch, FiChevronDown, FiChevronUp, FiAward, FiTarget } from 'react-icons/fi';
 
 // Componente de Acordeón para preguntas frecuentes
 function FAQItem({ question, answer }) {
@@ -86,6 +86,57 @@ export default function Help() {
     {
       question: "¿Cómo puedo cambiar mi contraseña?",
       answer: "Puedes cambiar tu contraseña desde la sección de Perfil, accesible desde el menú desplegable en la esquina superior derecha de la pantalla."
+    },
+    {
+      question: "¿Cómo funcionan los logros en Mozart Trainer?",
+      answer: (
+        <div>
+          <p>Los logros son reconocimientos que se otorgan cuando alcanzas ciertas metas o dominas diferentes aspectos del sistema. Estos se dividen en categorías según su rareza:</p>
+          <ul className="list-disc pl-5 mt-2 space-y-1">
+            <li><span className="font-semibold">Común:</span> Logros básicos que se consiguen con acciones regulares.</li>
+            <li><span className="font-semibold">Poco Común:</span> Requieren más práctica y habilidad para obtenerlos.</li>
+            <li><span className="font-semibold">Raro:</span> Representan un dominio considerable de ciertas funcionalidades.</li>
+            <li><span className="font-semibold">Épico:</span> Logros difíciles que demuestran experiencia avanzada.</li>
+            <li><span className="font-semibold">Legendario:</span> Los más difíciles de conseguir, representan maestría en el sistema.</li>
+          </ul>
+          <p className="mt-2">Cada logro otorga puntos de experiencia (XP) que contribuyen a tu nivel general en la plataforma. Algunos logros son secretos y solo se revelan cuando los desbloqueas. Puedes ver tus logros en la sección de "Configuración" bajo la pestaña "Cuenta".</p>
+        </div>
+      )
+    },
+    {
+      question: "¿Qué son los desafíos diarios y cómo funcionan?",
+      answer: (
+        <div>
+          <p>Los desafíos diarios son tareas especiales que se actualizan cada 24 horas y te permiten ganar experiencia extra al completarlos. Estos desafíos están diseñados para:</p>
+          <ul className="list-disc pl-5 mt-2 space-y-1">
+            <li>Fomentar la práctica regular de diferentes funcionalidades del sistema</li>
+            <li>Enseñar comandos y técnicas que quizás no usarías normalmente</li>
+            <li>Proporcionar objetivos concretos para mejorar tus habilidades</li>
+          </ul>
+          <p className="mt-2">Ejemplos de desafíos incluyen:</p>
+          <ul className="list-disc pl-5 mt-1 space-y-1">
+            <li>Crear 3 PNRs completos en un día</li>
+            <li>Utilizar 5 comandos diferentes de elementos suplementarios (OSI, SSR)</li>
+            <li>Realizar búsquedas de disponibilidad para 10 rutas diferentes</li>
+          </ul>
+          <p className="mt-2">Al completar un desafío, recibirás una bonificación de XP que se sumará automáticamente a tu perfil. Los desafíos se renuevan diariamente y puedes ver tus desafíos activos en la sección "Desafíos" del Dashboard.</p>
+        </div>
+      )
+    },
+    {
+      question: "¿Cómo puedo subir de nivel y qué beneficios obtengo?",
+      answer: (
+        <div>
+          <p>En Mozart Trainer, subes de nivel acumulando puntos de experiencia (XP) mediante:</p>
+          <ul className="list-disc pl-5 mt-2 space-y-1">
+            <li>Completar PNRs correctamente</li>
+            <li>Desbloquear logros</li>
+            <li>Realizar desafíos diarios</li>
+            <li>Usar diferentes comandos y funcionalidades del sistema</li>
+          </ul>
+          <p className="mt-2">Cada nivel requiere más XP que el anterior. Subir de nivel te proporciona reconocimiento en la tabla de clasificación y desbloquea desafíos y logros más avanzados. Tu nivel actual se muestra en tu perfil y en la tabla de clasificación.</p>
+        </div>
+      )
     }
   ];
   
@@ -189,7 +240,7 @@ export default function Help() {
             </p>
             
             {/* Categorías */}
-            <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <div className="bg-white overflow-hidden shadow rounded-lg">
                 <div className="px-4 py-5 sm:p-6">
                   <div className="flex items-center">
@@ -216,6 +267,38 @@ export default function Help() {
                       <h3 className="text-lg font-medium text-gray-900">Preguntas Frecuentes</h3>
                       <p className="text-sm text-gray-500">
                         Respuestas a las preguntas más comunes sobre la plataforma.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="bg-white overflow-hidden shadow rounded-lg">
+                <div className="px-4 py-5 sm:p-6">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0 bg-amber-500 rounded-md p-3">
+                      <FiAward className="h-6 w-6 text-white" />
+                    </div>
+                    <div className="ml-5 w-0 flex-1">
+                      <h3 className="text-lg font-medium text-gray-900">Logros</h3>
+                      <p className="text-sm text-gray-500">
+                        Cómo funcionan los logros y recompensas en el sistema.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="bg-white overflow-hidden shadow rounded-lg">
+                <div className="px-4 py-5 sm:p-6">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0 bg-green-500 rounded-md p-3">
+                      <FiTarget className="h-6 w-6 text-white" />
+                    </div>
+                    <div className="ml-5 w-0 flex-1">
+                      <h3 className="text-lg font-medium text-gray-900">Desafíos Diarios</h3>
+                      <p className="text-sm text-gray-500">
+                        Completa desafíos para ganar experiencia extra y mejorar tus habilidades.
                       </p>
                     </div>
                   </div>
