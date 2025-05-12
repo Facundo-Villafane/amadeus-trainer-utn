@@ -25,6 +25,8 @@ import AdminUsers from './pages/admin/Users';
 import AdminSettings from './pages/admin/Settings';
 import AdminFlights from './pages/admin/Flights';
 import AdminCommissions from './pages/admin/Commissions';
+import UserCommandHistoryPage from './pages/admin/UserCommandHistory';
+import UserPNRsPage from './pages/admin/UserPNRsPage';
 
 // Páginas de error
 import NotFound from './pages/NotFound';
@@ -172,6 +174,24 @@ export default function App() {
             element={
               <AdminRoute>
                 <AdminUsers />
+              </AdminRoute>
+            } 
+          />
+          {/* Nueva ruta para historial de comandos de usuario */}
+          <Route 
+            path="/admin/users/:userId/commands" 
+            element={
+              <AdminRoute>
+                <UserCommandHistoryPage />
+              </AdminRoute>
+            } 
+          />
+          {/* Ruta para PNRs de usuario */}
+          <Route 
+            path="/admin/users/:userId/pnrs" 
+            element={
+              <AdminRoute>
+                <UserPNRsPage />
               </AdminRoute>
             } 
           />

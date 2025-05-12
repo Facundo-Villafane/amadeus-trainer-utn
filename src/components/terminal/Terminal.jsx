@@ -102,7 +102,7 @@ export default function Terminal() {
   // Mostrar mensaje de bienvenida solo una vez
   useEffect(() => {
     if (!welcomeShownRef.current) {
-      addLine("Bienvenido a Amadeus Terminal. Ingresa 'HELP' o 'HE' para ver los comandos disponibles.", 'output');
+      addLine("Bienvenido a Mozart Terminal. Ingresa 'HELP' o 'HE' para ver los comandos disponibles.", 'output');
       welcomeShownRef.current = true;
     }
   }, []);
@@ -162,7 +162,7 @@ export default function Terminal() {
       // Guardar el comando en Firestore (si falla, ya tenemos un try/catch)
       try {
         await saveCommandToHistory(cmd, response);
-      } catch (error) {
+      } catch {
         // Error silencioso - ya lo registramos en saveCommandToHistory
       }
     } catch (error) {
@@ -181,7 +181,7 @@ export default function Terminal() {
       addLine(errorMessage, 'error');
       try {
         await saveCommandToHistory(cmd, errorMessage);
-      } catch (historyError) {
+      } catch {
         // Error silencioso
       }
     }
@@ -235,7 +235,7 @@ export default function Terminal() {
     <div className="flex flex-col w-full h-full">
       <div className="bg-amadeus-dark text-white p-2 flex items-center rounded-t-md">
         <FiTerminal className="mr-2" />
-        <span>Terminal Amadeus</span>
+        <span>Terminal Mozart</span>
       </div>
       
       <div 

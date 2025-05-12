@@ -1,7 +1,7 @@
 // src/pages/MyPNRs.jsx
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
-import { collection, getDocs, query, where, orderBy, limit, doc, updateDoc, arrayUnion, serverTimestamp } from 'firebase/firestore';
+import { collection, getDocs, query, where, orderBy, limit, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import { useAuth } from '../hooks/useAuth';
 import DashboardSidebar from '../components/dashboard/DashboardSidebar';
@@ -83,34 +83,38 @@ export default function MyPNRs() {
     setShowDetailModal(true);
   };
   
-  // Cancelar un PNR
-  const cancelPNR = async (pnrId) => {
-    try {
-      await updateDoc(doc(db, 'pnrs', pnrId), {
-        status: 'CANCELLED',
-        updatedAt: serverTimestamp(),
-        history: arrayUnion({
-          command: 'XI',
-          result: 'PNR cancelled from UI',
-          timestamp: serverTimestamp()
-        })
-      });
-      
-      // Actualizar la lista de PNRs
-      setPnrs(prev => 
-        prev.map(pnr => 
-          pnr.id === pnrId 
-            ? { ...pnr, status: 'CANCELLED', updatedAt: new Date() } 
-            : pnr
-        )
-      );
-      
-      toast.success('PNR cancelado correctamente');
-    } catch (error) {
-      console.error('Error al cancelar PNR:', error);
-      toast.error('Error al cancelar el PNR');
-    }
-  };
+  // Función corregida para cancelar un PNR
+const cancelPNR = async (pnrId) => {
+  try {
+    // Crear un objeto con la marca de tiempo actual que sea serializable
+    const timestamp = new Date().toISOString();
+    
+    await updateDoc(doc(db, 'pnrs', pnrId), {
+      status: 'CANCELLED',
+      updatedAt: serverTimestamp(),
+      // Ahora usamos un objeto normal para el historial en lugar de serverTimestamp()
+      [`history.${Date.now()}`]: {
+        command: 'XI',
+        result: 'PNR cancelled from UI',
+        timestamp: timestamp
+      }
+    });
+    
+    // Actualizar la lista de PNRs
+    setPnrs(prev => 
+      prev.map(pnr => 
+        pnr.id === pnrId 
+          ? { ...pnr, status: 'CANCELLED', updatedAt: new Date() } 
+          : pnr
+      )
+    );
+    
+    toast.success('PNR cancelado correctamente');
+  } catch (error) {
+    console.error('Error al cancelar PNR:', error);
+    toast.error('Error al cancelar el PNR');
+  }
+};
   
   // Manejar cierre de sesión
   async function handleLogout() {

@@ -64,6 +64,54 @@ export function formatPNRResponse(pnr) {
     });
   }
 
+  // Mostrar elementos OSI
+  if (pnr.osiElements && pnr.osiElements.length > 0) {
+    pnr.osiElements.forEach((osiElement) => {
+      let osiLine = `${elementNumber} OSI ${osiElement.airlineCode} ${osiElement.message}`;
+      
+      // Añadir referencia al pasajero si existe
+      if (osiElement.passengerNumber) {
+        osiLine += `/P${osiElement.passengerNumber}`;
+      }
+      
+      response += `${osiLine}\n`;
+      elementNumber++;
+    });
+  }
+  
+  // Mostrar elementos SSR
+  if (pnr.ssrElements && pnr.ssrElements.length > 0) {
+    pnr.ssrElements.forEach((ssrElement) => {
+      // Formato: SSR VGML YY HK1 /S3/P2
+      // O para infantes: SSR INFT YY HK1 APELLIDO/NOMBRE/S3/P2
+      // O para FOID: SSR FOID YY HK1 PP12345678/P2
+      let ssrLine = `${elementNumber} SSR ${ssrElement.code} ${ssrElement.airlineCode} ${ssrElement.status}`;
+      
+      // Si es un SSR de infante, añadir el nombre
+      if (ssrElement.code === 'INFT' && ssrElement.infantName) {
+        ssrLine += ` ${ssrElement.infantName}`;
+      }
+      
+      // Si es un FOID, mostrar tipo y número de documento
+      if (ssrElement.code === 'FOID' && ssrElement.docType && ssrElement.docNumber) {
+        ssrLine += ` ${ssrElement.docType}${ssrElement.docNumber}`;
+      }
+      
+      // Añadir referencia al segmento, excepto para FOID que no está asociado a segmentos
+      if (ssrElement.code !== 'FOID' && ssrElement.segmentNumber) {
+        ssrLine += ` /S${ssrElement.segmentNumber}`;
+      }
+      
+      // Añadir referencia al pasajero
+      if (ssrElement.passengerNumber) {
+        ssrLine += `/P${ssrElement.passengerNumber}`;
+      }
+      
+      response += `${ssrLine}\n`;
+      elementNumber++;
+    });
+  }
+
   // Mostrar límite de tiempo si existe
   if (pnr.ticketing) {
     let tkDisplay = '';
@@ -184,6 +232,54 @@ export function formatERResponse(pnr) {
   if (pnr.emailContacts && pnr.emailContacts.length > 0) {
     pnr.emailContacts.forEach((contact) => {
       response += `${elementNumber} APE ${contact.email}\n`;
+      elementNumber++;
+    });
+  }
+  
+  // Mostrar elementos OSI
+  if (pnr.osiElements && pnr.osiElements.length > 0) {
+    pnr.osiElements.forEach((osiElement) => {
+      let osiLine = `${elementNumber} OSI ${osiElement.airlineCode} ${osiElement.message}`;
+      
+      // Añadir referencia al pasajero si existe
+      if (osiElement.passengerNumber) {
+        osiLine += `/P${osiElement.passengerNumber}`;
+      }
+      
+      response += `${osiLine}\n`;
+      elementNumber++;
+    });
+  }
+  
+  // Mostrar elementos SSR
+  if (pnr.ssrElements && pnr.ssrElements.length > 0) {
+    pnr.ssrElements.forEach((ssrElement) => {
+      // Formato: SSR VGML YY HK1 /S3/P2
+      // O para infantes: SSR INFT YY HK1 APELLIDO/NOMBRE/S3/P2
+      // O para FOID: SSR FOID YY HK1 PP12345678/P2
+      let ssrLine = `${elementNumber} SSR ${ssrElement.code} ${ssrElement.airlineCode} ${ssrElement.status}`;
+      
+      // Si es un SSR de infante, añadir el nombre
+      if (ssrElement.code === 'INFT' && ssrElement.infantName) {
+        ssrLine += ` ${ssrElement.infantName}`;
+      }
+      
+      // Si es un FOID, mostrar tipo y número de documento
+      if (ssrElement.code === 'FOID' && ssrElement.docType && ssrElement.docNumber) {
+        ssrLine += ` ${ssrElement.docType}${ssrElement.docNumber}`;
+      }
+      
+      // Añadir referencia al segmento, excepto para FOID que no está asociado a segmentos
+      if (ssrElement.code !== 'FOID' && ssrElement.segmentNumber) {
+        ssrLine += ` /S${ssrElement.segmentNumber}`;
+      }
+      
+      // Añadir referencia al pasajero
+      if (ssrElement.passengerNumber) {
+        ssrLine += `/P${ssrElement.passengerNumber}`;
+      }
+      
+      response += `${ssrLine}\n`;
       elementNumber++;
     });
   }

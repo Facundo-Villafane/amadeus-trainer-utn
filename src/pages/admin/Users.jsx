@@ -1,9 +1,9 @@
 // src/pages/admin/Users.jsx
 import React, { useState, useEffect } from 'react';
 import { FiList, FiFileText, FiEdit2, FiUserCheck, FiUserX, FiSearch, FiFilter } from 'react-icons/fi';
+import { useNavigate } from 'react-router';
 import DashboardSidebar from '../../components/dashboard/DashboardSidebar';
 import DashboardHeader from '../../components/dashboard/DashboardHeader';
-import AuthProvider from '../../contexts/AuthProvider';
 import { useAuth } from '../../hooks/useAuth';
 import { db } from '../../services/firebase';
 import { collection, getDocs, updateDoc, doc } from 'firebase/firestore';
@@ -15,6 +15,7 @@ const Users = () => {
   const [commissions, setCommissions] = useState([]);
   const [selectedCommission, setSelectedCommission] = useState('all');
   const { userRole, currentUser, logout } = useAuth();
+  const navigate = useNavigate();
 
   // Leer usuarios y comisiones de Firestore al montar
   useEffect(() => {
@@ -89,13 +90,13 @@ const Users = () => {
   };
 
   const handleViewHistory = (id) => {
-    // TODO: Implementar navegación a historial de comandos del usuario
-    alert(`Ver historial de comandos del usuario ${id}`);
+    // Navegar a la página de historial de comandos de usuario
+    navigate(`/admin/users/${id}/commands`);
   };
 
-  const handleViewPNRs = (id) => {
-    // TODO: Implementar navegación a PNRs del usuario
-    alert(`Ver PNRs del usuario ${id}`);
+  const handleViewPNRs = (userId) => {
+    // Navegar a la página de PNRs del usuario
+    navigate(`/admin/users/${userId}/pnrs`);
   };
 
   const handleLogout = async () => {
@@ -204,7 +205,7 @@ const Users = () => {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                      {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A'}
+                      {user.createdAt ? new Date(user.createdAt.toDate()).toLocaleDateString() : 'N/A'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
                       <div className="flex flex-wrap gap-2">
@@ -253,6 +254,7 @@ const Users = () => {
           )}
         </main>
       </div>
+
     </div>
   );
 };

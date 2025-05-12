@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { 
   collection, getDocs, addDoc, updateDoc, deleteDoc, doc, 
-  query, orderBy, limit, startAfter, where, serverTimestamp 
+  query, orderBy, limit, where, serverTimestamp 
 } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { useAuth } from '../../hooks/useAuth';
@@ -289,14 +289,14 @@ export default function AdminFlights() {
   };
   
   // Resetear la paginación al cambiar filtros
-  const handleFilterChange = (e) => {
-    const { name, value } = e.target;
-    setFilters(prev => ({ ...prev, [name]: value }));
-    setCurrentPage(1);
-    setPageHistory([]);
-    setLastVisible(null);
-    setFirstVisible(null);
-  };
+  //const handleFilterChange = (e) => {
+  //  const { name, value } = e.target;
+   // setFilters(prev => ({ ...prev, [name]: value }));
+  //  setCurrentPage(1);
+  //  setPageHistory([]);
+  //  setLastVisible(null);
+  //  setFirstVisible(null);
+  //};
   
   // Y actualiza la función clearFilters
 const clearFilters = () => {
@@ -442,12 +442,12 @@ const clearFilters = () => {
   };
   
   // Filtrar vuelos según el término de búsqueda
-  const filteredFlights = flights.filter(flight => 
-    flight.flight_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    flight.airline_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    flight.departure_city?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    flight.arrival_city?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  //const filteredFlights = flights.filter(flight => 
+  //  flight.flight_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  //  flight.airline_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  //  flight.departure_city?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  //  flight.arrival_city?.toLowerCase().includes(searchTerm.toLowerCase())
+  //);
   
   // Manejar cierre de sesión
   async function handleLogout() {

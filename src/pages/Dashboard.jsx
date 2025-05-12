@@ -1,74 +1,14 @@
 // src/pages/Dashboard.jsx
-import { useState, useEffect } from 'react';
+
 import { useNavigate } from 'react-router';
 import { useAuth } from '../hooks/useAuth';
 import Terminal from '../components/terminal/Terminal';
 import DashboardSidebar from '../components/dashboard/DashboardSidebar';
 import DashboardHeader from '../components/dashboard/DashboardHeader';
-import { collection, getDocs, query, where, orderBy, limit } from 'firebase/firestore';
-import { db } from '../services/firebase';
 
 export default function Dashboard() {
   const { currentUser, userRole, logout } = useAuth();
-  const [commandHistory, setCommandHistory] = useState([]);
-  const [recentPNRs, setRecentPNRs] = useState([]);
-  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
-
-  // Obtener historial de comandos del usuario
-  useEffect(() => {
-    async function fetchCommandHistory() {
-      if (!currentUser) return;
-      
-      try {
-        const q = query(
-          collection(db, 'commandHistory'),
-          where('userId', '==', currentUser.uid),
-          orderBy('timestamp', 'desc'),
-          limit(20)
-        );
-        
-        const querySnapshot = await getDocs(q);
-        const commands = querySnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-          timestamp: doc.data().timestamp?.toDate()
-        }));
-        
-        setCommandHistory(commands);
-      } catch (error) {
-        console.error('Error al obtener el historial de comandos:', error);
-      }
-    }
-    
-    async function fetchRecentPNRs() {
-      if (!currentUser) return;
-      
-      try {
-        const q = query(
-          collection(db, 'pnrs'),
-          where('userId', '==', currentUser.uid),
-          orderBy('createdAt', 'desc'),
-          limit(5)
-        );
-        
-        const querySnapshot = await getDocs(q);
-        const pnrs = querySnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
-        
-        setRecentPNRs(pnrs);
-      } catch (error) {
-        console.error('Error al obtener los PNRs recientes:', error);
-      } finally {
-        setLoading(false);
-      }
-    }
-    
-    fetchCommandHistory();
-    fetchRecentPNRs();
-  }, [currentUser]);
 
   async function handleLogout() {
     try {
@@ -93,9 +33,9 @@ export default function Dashboard() {
         
         <main className="flex-1 overflow-y-auto bg-gray-100 p-4">
           <div className="max-w-7xl mx-auto">
-            <h1 className="text-2xl font-semibold text-gray-900">Terminal Amadeus</h1>
+            <h1 className="text-2xl font-semibold text-gray-900">Terminal Mozart</h1>
             <p className="mt-1 text-sm text-gray-500">
-              Ingresa comandos en formato Amadeus para practicar y aprender.
+              Ingresa comandos en formato Mozart para practicar y aprender.
             </p>
             
             <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">

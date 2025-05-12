@@ -15,11 +15,19 @@ import {
   handleReceivedFrom,
   handleEndTransaction, 
   handleRetrievePNR,
-  handleCancelPNR,
+  getCurrentPNR,
   handleAddEmailContact,
-  getCurrentPNR  // Añadir esta línea
+  handleDeleteElements,
+  handleCancelPNRWithConfirmation,
+  confirmCancelPNR,
+  handleAddOSI,
+  handleAddSSR,
+  handleAddFOID
 } from './commands/pnr';
 import experienceService from '../../services/experienceService';
+
+// Variable para rastrear si el comando anterior fue XI (para confirmación con RF)
+let previousCommandWasXI = false;
 
 // Función principal para analizar y ejecutar comandos
 export async function commandParser(command, userId) {
@@ -41,7 +49,12 @@ export async function commandParser(command, userId) {
     else if (cmd.startsWith('RF')) commandType = 'RF';
     else if (cmd.startsWith('TK')) commandType = 'TK';
     else if (cmd === 'ET' || cmd === 'ER') commandType = 'ET_ER';
-
+    else if (cmd.startsWith('XE')) commandType = 'XE';
+    else if (cmd === 'XI') commandType = 'XI';
+    else if (cmd.startsWith('OS')) commandType = 'OS';
+    else if (cmd.startsWith('SR') && !cmd.startsWith('SRFOID')) commandType = 'SR';
+    else if (cmd.startsWith('SRFOID')) commandType = 'FOID';
+    
     // Si es el primer comando de creación de PNR, iniciar timer
     if (cmd.startsWith('SS') && !getCurrentPNR()) {
       await experienceService.startPNRCreation(userId);
@@ -49,91 +62,160 @@ export async function commandParser(command, userId) {
     
     // Comandos de paginación
     if (cmd === 'MD' || cmd === 'M') {
-      return await handleMoveDown();
+      result = await handleMoveDown();
+      return result;
     }
     
     if (cmd === 'U') {
-      return await handleMoveUp();
+      result = await handleMoveUp();
+      return result;
     }
     
     // Comandos de ayuda
     if (cmd === 'HELP' || cmd === 'HE') {
-      return generateHelpText();
+      result = generateHelpText();
+      return result;
     }
     
     // Comandos de formato HE
     if (cmd.startsWith('HE')) {
-      return handleHelpCommand(cmd);
+      result = handleHelpCommand(cmd);
+      return result;
     }
     
     // Comando de despliegue de disponibilidad AN
     if (cmd.startsWith('AN')) {
-      return await handleAvailabilityCommand(cmd);
+      result = await handleAvailabilityCommand(cmd);
+      return result;
     }
     
     // Comando de despliegue de horarios SN
     if (cmd.startsWith('SN')) {
-      return await handleScheduleCommand(cmd);
+      result = await handleScheduleCommand(cmd);
+      return result;
     }
     
     // Comando de despliegue de frecuencias TN
     if (cmd.startsWith('TN')) {
-      return await handleTimetableCommand(cmd);
+      result = await handleTimetableCommand(cmd);
+      return result;
     }
     
     // Comandos de codificación y decodificación
     if (cmd.startsWith('DAN')) {
-      return await handleEncodeCity(cmd);
+      result = await handleEncodeCity(cmd);
+      return result;
     }
     
     if (cmd.startsWith('DAC')) {
-      return await handleDecodeCity(cmd);
+      result = await handleDecodeCity(cmd);
+      return result;
     }
     
     if (cmd.startsWith('DNA')) {
-      return await handleEncodeAirline(cmd);
+      result = await handleEncodeAirline(cmd);
+      return result;
     }
     
     // Comandos para PNR
     if (cmd.startsWith('SS')) {
-      return await handleSellSegment(cmd, userId);
+      result = await handleSellSegment(cmd, userId);
+      previousCommandWasXI = false;
+      return result;
     }
     
     if (cmd.startsWith('NM')) {
-      return await handleAddName(cmd, userId);
+      result = await handleAddName(cmd, userId);
+      previousCommandWasXI = false;
+      return result;
     }
     
     if (cmd.startsWith('AP') && !cmd.startsWith('APE')) {
-      return await handleAddContact(cmd, userId);
+      result = await handleAddContact(cmd, userId);
+      previousCommandWasXI = false;
+      return result;
     }
 
     if (cmd.startsWith('APE')) {
-      return await handleAddEmailContact(cmd, userId);
+      result = await handleAddEmailContact(cmd, userId);
+      previousCommandWasXI = false;
+      return result;
     }
 
-    // En la función commandParser, agregar después de los otros comandos PNR:
+    // Comandos TK para ticketing
     if (cmd.startsWith('TK')) {
-      return await handleTicketing(cmd, userId);
+      result = await handleTicketing(cmd, userId);
+      previousCommandWasXI = false;
+      return result;
     }
     
+    // Comando RF (verificar si está confirmando una cancelación)
     if (cmd.startsWith('RF')) {
-      return await handleReceivedFrom(cmd, userId);
+      // Intentar procesar como confirmación de XI
+      if (previousCommandWasXI) {
+        result = await confirmCancelPNR(cmd, userId, true);
+        if (result !== null) {
+          previousCommandWasXI = false; // Reiniciar el estado
+          return result;
+        }
+      }
+      
+      // Procesar normalmente si no es confirmación o la confirmación devolvió null
+      result = await handleReceivedFrom(cmd, userId);
+      previousCommandWasXI = false;
+      return result;
     }
     
     if (cmd === 'ET' || cmd === 'ER') {
-      return await handleEndTransaction(cmd, userId);
+      result = await handleEndTransaction(cmd, userId);
+      previousCommandWasXI = false;
+      return result;
     }
     
     if (cmd.startsWith('RT')) {
-      return await handleRetrievePNR(cmd, userId);
+      result = await handleRetrievePNR(cmd, userId);
+      previousCommandWasXI = false;
+      return result;
+    }
+    
+    // Nuevos comandos
+    if (cmd.startsWith('XE')) {
+      result = await handleDeleteElements(cmd);
+      previousCommandWasXI = false;
+      return result;
     }
     
     if (cmd === 'XI') {
-      return await handleCancelPNR(cmd, userId);
+      result = await handleCancelPNRWithConfirmation();
+      previousCommandWasXI = true; // Activar el estado para confirmar con RF
+      return result;
     }
     
-  // Si el comando fue exitoso (no es un mensaje de error)
-  if (result && !result.startsWith('Error') && !result.includes('incorrecto')) {
+    // Comandos de elementos suplementarios
+    if (cmd.startsWith('OS')) {
+      result = await handleAddOSI(cmd);
+      previousCommandWasXI = false;
+      return result;
+    }
+    
+    if (cmd.startsWith('SRFOID')) {
+      result = await handleAddFOID(cmd);
+      previousCommandWasXI = false;
+      return result;
+    }
+    
+    if (cmd.startsWith('SR')) {
+      result = await handleAddSSR(cmd);
+      previousCommandWasXI = false;
+      return result;
+    }
+    
+    // Si llegamos aquí, el comando no fue reconocido
+    result = `Comando no reconocido: ${cmd}`;
+    previousCommandWasXI = false;
+    
+    // Si el comando fue exitoso (no es un mensaje de error)
+    if (result && !result.startsWith('Error') && !result.includes('incorrecto')) {
       await experienceService.recordSuccessfulCommand(userId, cmd, commandType);
     } else if (result && result.includes('error')) {
       await experienceService.recordCommandError(userId, cmd, result);
@@ -148,6 +230,7 @@ export async function commandParser(command, userId) {
   } catch (error) {
     console.error('Error en commandParser:', error);
     await experienceService.recordCommandError(userId, cmd, error.message);
-    throw error;
+    previousCommandWasXI = false; // Reiniciar el estado en caso de error
+    return `Error al procesar el comando: ${error.message}`;
   }
 }

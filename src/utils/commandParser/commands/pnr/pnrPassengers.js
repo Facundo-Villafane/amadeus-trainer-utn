@@ -3,6 +3,7 @@ import { collection, addDoc, updateDoc, doc, serverTimestamp } from 'firebase/fi
 import { db } from '../../../../services/firebase';
 import { getCurrentPNR, setCurrentPNR, getUserEmail } from './pnrState';
 import { formatPNRResponse } from './pnrUtils';
+import { createInfantSSR } from './pnrSupplementary';
 
 /**
  * Maneja la adición de nombres (NM)
@@ -94,13 +95,29 @@ export async function handleAddName(cmd, userId) {
     // Actualizar la lista de pasajeros ordenada
     currentPNR.passengers = allPassengers;
     
+    // Si hay infantes, crear automáticamente los elementos SSR INFT
+    for (let i = 0; i < newPassengers.length; i++) {
+      if (newPassengers[i].type === 'INF' && newPassengers[i].infant) {
+        // Encontrar el índice del pasajero en la lista ordenada
+        const passengerIndex = currentPNR.passengers.findIndex(p => 
+          p.lastName === newPassengers[i].lastName && 
+          p.firstName === newPassengers[i].firstName
+        ) + 1; // +1 porque los índices en el PNR comienzan en 1
+        
+        // Crear el SSR INFT
+        const updatedPNR = createInfantSSR(currentPNR, passengerIndex, newPassengers[i].infant);
+        // Actualizar currentPNR con el PNR actualizado que incluye los SSR INFT
+        Object.assign(currentPNR, updatedPNR);
+      }
+    }
+    
     // Actualizar la referencia global
     setCurrentPNR(currentPNR);
     
     // Guardar el PNR actualizado en Firestore
     try {
       if (currentPNR.id) {
-        await updateDoc(doc(db, 'pnrs', currentPNR.id), {
+        const updateData = {
           passengers: currentPNR.passengers,
           updatedAt: serverTimestamp(),
           [`history.${Date.now()}`]: {
@@ -108,7 +125,14 @@ export async function handleAddName(cmd, userId) {
             result: `${quantity} passenger(s) added`,
             timestamp: new Date().toISOString()
           }
-        });
+        };
+        
+        // Si se agregaron SSRs para infantes, incluirlos en la actualización
+        if (currentPNR.ssrElements) {
+          updateData.ssrElements = currentPNR.ssrElements;
+        }
+        
+        await updateDoc(doc(db, 'pnrs', currentPNR.id), updateData);
       } else if (userId) {
         // Si el PNR no existe en Firestore, crearlo
         const historyEntry = {

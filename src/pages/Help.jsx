@@ -68,8 +68,8 @@ export default function Help() {
   // Datos para la página de ayuda
   const faqItems = [
     {
-      question: "¿Qué es Amadeus Trainer?",
-      answer: "Amadeus Trainer es una plataforma educativa diseñada para simular el entorno de trabajo del sistema de reservas Amadeus. Permite a los estudiantes y profesionales practicar comandos y procedimientos en un entorno seguro antes de trabajar con sistemas reales."
+      question: "¿Qué es Mozart Trainer?",
+      answer: "Mozart Trainer es una plataforma educativa diseñada para simular el entorno de trabajo del sistema de reservas Mozart. Permite a los estudiantes y profesionales practicar comandos y procedimientos en un entorno seguro antes de trabajar con sistemas reales."
     },
     {
       question: "¿Cómo empiezo a usar la terminal?",
@@ -77,7 +77,7 @@ export default function Help() {
     },
     {
       question: "¿Los PNRs creados son reales?",
-      answer: "No, todos los PNRs y reservas creados en Amadeus Trainer son simulados y no tienen impacto en sistemas reales. La plataforma está diseñada exclusivamente para fines educativos."
+      answer: "No, todos los PNRs y reservas creados en Mozart Trainer son simulados y no tienen impacto en sistemas reales. La plataforma está diseñada exclusivamente para fines educativos."
     },
     {
       question: "¿Puedo ver mis comandos anteriores?",
@@ -113,6 +113,36 @@ export default function Help() {
       description: "Agrega nombres de pasajeros a la reserva.",
       example: "NM1GARCIA/JUAN MR",
       result: "RP/XXXXX1234/\n1.GARCIA/JUAN MR\n2 IB 6841 J 15NOV 1 EZEMAD DK1 1310 0530+1 16NOV E 346\n*TRN*"
+    },
+    {
+      command: "OS - Información Especial",
+      description: "Agrega información especial al PNR para las aerolíneas.",
+      example: "OS UX PAX VIP WAGNER /P1",
+      result: "RP/XXXXX1234/\n1.WAGNER/PETER MR\n2 UX 1234 J 15NOV 1 MADEZE DK1 1200 1400 15NOV E 320\n3 OSI UX PAX VIP WAGNER/P1\n*TRN*"
+    },
+    {
+      command: "SR - Solicitud de Servicio Especial",
+      description: "Agrega solicitudes de servicios especiales como comidas o asistencia.",
+      example: "SRVGML/P1",
+      result: "RP/XXXXX1234/\n1.KUMAR/RAVI MR\n2 UX 1234 J 15NOV 1 MADEZE DK1 1200 1400 15NOV E 320\n3 SSR VGML UX HK1 /S2/P1\n*TRN*"
+    },
+    {
+      command: "SRFOID - Documento de Identidad",
+      description: "Agrega información del documento de identidad del pasajero.",
+      example: "SRFOID YY HK1-PP12345678/P1",
+      result: "RP/XXXXX1234/\n1.SMITH/JOHN MR\n2 IB 1234 J 15NOV 1 MADEZE DK1 1200 1400 15NOV E 320\n3 SSR FOID IB HK1 PP12345678/P1\n*TRN*"
+    },
+    {
+      command: "XE - Borrar Elementos",
+      description: "Elimina elementos específicos del PNR actual.",
+      example: "XE3",
+      result: "RP/XXXXX1234/\n1.GARCIA/JUAN MR\n2 IB 6841 J 15NOV 1 EZEMAD DK1 1310 0530+1 16NOV E 346\n*TRN*"
+    },
+    {
+      command: "XI - Cancelar PNR",
+      description: "Inicia el proceso de cancelación del PNR actual (requiere confirmación con RF).",
+      example: "XI",
+      result: "¿Está seguro de que desea cancelar el PNR ABC123? Use RF seguido de su nombre para confirmar la cancelación."
     },
     {
       command: "RT - Recuperar PNR",
@@ -155,7 +185,7 @@ export default function Help() {
           <div className="max-w-7xl mx-auto">
             <h1 className="text-2xl font-semibold text-gray-900">Centro de Ayuda</h1>
             <p className="mt-1 text-sm text-gray-500">
-              Guía de referencia para utilizar el sistema Amadeus Trainer.
+              Guía de referencia para utilizar el sistema Mozart Trainer.
             </p>
             
             {/* Categorías */}
@@ -169,7 +199,7 @@ export default function Help() {
                     <div className="ml-5 w-0 flex-1">
                       <h3 className="text-lg font-medium text-gray-900">Comandos Frecuentes</h3>
                       <p className="text-sm text-gray-500">
-                        Referencia rápida de los comandos más utilizados en Amadeus.
+                        Referencia rápida de los comandos más utilizados en Mozart.
                       </p>
                     </div>
                   </div>

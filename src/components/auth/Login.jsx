@@ -272,7 +272,7 @@ export default function Login() {
             {isRegisterMode ? 'Crear una cuenta' : 'Iniciar sesión'}
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
-            Bienvenido a Amadeus Trainer
+            Bienvenido a Mozart Trainer
           </p>
         </div>
 
