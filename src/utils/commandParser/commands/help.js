@@ -32,6 +32,9 @@ export function generateHelpText() {
   SRFOID[AEROLÍNEA]HK1-[TIPO][#]/P[#] Agregar documento de identidad
   SM                                  Abrir mapa de asientos gráfico
   ST[SEGMENTO][ASIENTO]/P[PASAJERO]   Asignar asiento (ej: ST14A/P1)
+  RM [TEXTO]                          Agregar comentario general
+  RC [TEXTO]                          Agregar comentario confidencial
+  RIR [TEXTO]                         Agregar comentario para el itinerario
   RF[NOMBRE]                          Recibido de
   TK[OPCIONES]                        Emisión de billetes
   ET                                  Finalizar transacción
@@ -419,6 +422,50 @@ export function generateHelpText() {
 
     El asiento se registra como un SSR RQST en el PNR.
     `;
+      
+      case 'RM':
+        return `
+  RM - Comentario General (Remark)
+  
+  Formato: RM [TEXTO]
+  
+  Ejemplos:
+  RM CONTACTAR AL PASAJERO 24HS ANTES DEL VUELO     Agrega un comentario general al PNR
+  RM PRECIO COTIZADO USD 954                        Agrega información sobre precio
+  
+  Los comentarios RM son visibles para todos los agentes que acceden al PNR.
+  Se muestran en el PNR como líneas numeradas, con el prefijo "RM" seguido del texto.
+  `;
+      
+      case 'RC':
+        return `
+  RC - Comentario Confidencial (Confidential Remark)
+  
+  Formato: RC [TEXTO]
+  
+  Ejemplos:
+  RC TARIFA NEGOCIADA CON DESCUENTO 25%          Agrega un comentario confidencial
+  RC PASAJERO VIP - AUTORIZADO POR GERENCIA      Agrega información interna
+  
+  Los comentarios RC son visibles solo para los agentes de la misma oficina o agencia.
+  En un sistema real, estos comentarios no se comparten con otras agencias.
+  Se muestran en el PNR como líneas numeradas, con el prefijo "RC" seguido del texto.
+  `;
+      
+      case 'RIR':
+        return `
+  RIR - Comentario para Itinerario (Remark for Itinerary/Receipt)
+  
+  Formato: RIR [TEXTO]
+  
+  Ejemplos:
+  RIR PRESENTARSE 3 HORAS ANTES DEL VUELO       Agrega un comentario que aparecerá en el itinerario
+  RIR DOCUMENTO DE IDENTIDAD OBLIGATORIO        Información para el pasajero
+  
+  Los comentarios RIR se incluyen en el itinerario o boleto impreso.
+  Son visibles para el pasajero y contienen información relevante para su viaje.
+  Se muestran en el PNR como líneas numeradas, con el prefijo "RIR" seguido del texto.
+  `;
       
       default:
         return `No se encontró ayuda para el comando: ${subCommand}`;

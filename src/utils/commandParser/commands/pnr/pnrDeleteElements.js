@@ -9,6 +9,7 @@ import { formatPNRResponse } from './pnrUtils';
  * @param {string} cmd - Comando ingresado por el usuario (XE seguido de números)
  * @returns {string} Respuesta del comando
  */
+// Corrección de la función handleDeleteElements en pnrDeleteElements.js
 export async function handleDeleteElements(cmd) {
   try {
     // Verificar si hay un PNR en progreso
@@ -31,7 +32,7 @@ export async function handleDeleteElements(cmd) {
     const isRange = match[0].includes('-');
     const isCommaList = match[0].includes(',');
     
-    // Crear un array con los elementos a eliminar
+    // Crear un array con los números de elemento a eliminar
     let elementsToDelete = [];
     
     if (isRange) {
@@ -50,85 +51,116 @@ export async function handleDeleteElements(cmd) {
     // Ordenar los elementos de mayor a menor para evitar problemas al eliminar
     elementsToDelete.sort((a, b) => b - a);
     
-    // Contar total de elementos en el PNR para validar los índices
-    let totalElements = 0;
+    // Crear un mapeo de los elementos del PNR para poder eliminarlos correctamente
+    const elementMap = [];
     
-    // Contar pasajeros
-    if (currentPNR.passengers) {
-      totalElements += currentPNR.passengers.length;
+    // Mapear pasajeros
+    if (currentPNR.passengers && currentPNR.passengers.length > 0) {
+      currentPNR.passengers.forEach((_, index) => {
+        elementMap.push({
+          type: 'passenger',
+          index: index
+        });
+      });
     }
     
-    // Contar segmentos
-    if (currentPNR.segments) {
-      totalElements += currentPNR.segments.length;
+    // Mapear segmentos
+    if (currentPNR.segments && currentPNR.segments.length > 0) {
+      currentPNR.segments.forEach((_, index) => {
+        elementMap.push({
+          type: 'segment',
+          index: index
+        });
+      });
     }
     
-    // Contar contactos telefónicos
-    if (currentPNR.contacts) {
-      totalElements += currentPNR.contacts.length;
+    // Mapear contactos telefónicos
+    if (currentPNR.contacts && currentPNR.contacts.length > 0) {
+      currentPNR.contacts.forEach((_, index) => {
+        elementMap.push({
+          type: 'contact',
+          index: index
+        });
+      });
     }
     
-    // Contar contactos de email
-    if (currentPNR.emailContacts) {
-      totalElements += currentPNR.emailContacts.length;
+    // Mapear contactos de email
+    if (currentPNR.emailContacts && currentPNR.emailContacts.length > 0) {
+      currentPNR.emailContacts.forEach((_, index) => {
+        elementMap.push({
+          type: 'emailContact',
+          index: index
+        });
+      });
     }
     
-    // Contar ticketing
+    // Mapear elementos OSI
+    if (currentPNR.osiElements && currentPNR.osiElements.length > 0) {
+      currentPNR.osiElements.forEach((_, index) => {
+        elementMap.push({
+          type: 'osiElement',
+          index: index
+        });
+      });
+    }
+    
+    // Mapear elementos SSR
+    if (currentPNR.ssrElements && currentPNR.ssrElements.length > 0) {
+      currentPNR.ssrElements.forEach((_, index) => {
+        elementMap.push({
+          type: 'ssrElement',
+          index: index
+        });
+      });
+    }
+    
+    // Mapear ticketing
     if (currentPNR.ticketing) {
-      totalElements += 1;
+      elementMap.push({
+        type: 'ticketing'
+      });
     }
     
-    // Validar que los elementos existan
+    // Validar que los elementos existen
     for (const elementNum of elementsToDelete) {
-      if (elementNum <= 0 || elementNum > totalElements) {
+      if (elementNum <= 0 || elementNum > elementMap.length) {
         return `Error: El elemento ${elementNum} no existe en el PNR actual.`;
       }
     }
     
     // Eliminar los elementos en orden inverso (de mayor a menor índice)
     for (const elementNum of elementsToDelete) {
-      let currentIndex = 1; // Empezamos desde 1 para alinearnos con la numeración del PNR
+      const elementToDelete = elementMap[elementNum - 1];
       
-      // Verificar si el elemento es un pasajero
-      if (currentPNR.passengers && elementNum <= currentPNR.passengers.length) {
-        // Eliminar el pasajero en la posición correspondiente (elementNum - 1)
-        currentPNR.passengers.splice(elementNum - 1, 1);
-        continue;
+      if (!elementToDelete) {
+        continue; // Saltar si no existe
       }
-      currentIndex += currentPNR.passengers ? currentPNR.passengers.length : 0;
       
-      // Verificar si el elemento es un segmento
-      if (currentPNR.segments && elementNum <= currentIndex + currentPNR.segments.length) {
-        // Eliminar el segmento en la posición correspondiente
-        const segmentIndex = elementNum - currentIndex - 1 + 1; // Ajuste para el índice en el array (base 0)
-        currentPNR.segments.splice(segmentIndex - 1, 1);
-        continue;
-      }
-      currentIndex += currentPNR.segments ? currentPNR.segments.length : 0;
-      
-      // Verificar si el elemento es un contacto telefónico
-      if (currentPNR.contacts && elementNum <= currentIndex + currentPNR.contacts.length) {
-        // Eliminar el contacto en la posición correspondiente
-        const contactIndex = elementNum - currentIndex - 1 + 1;
-        currentPNR.contacts.splice(contactIndex - 1, 1);
-        continue;
-      }
-      currentIndex += currentPNR.contacts ? currentPNR.contacts.length : 0;
-      
-      // Verificar si el elemento es un contacto de email
-      if (currentPNR.emailContacts && elementNum <= currentIndex + currentPNR.emailContacts.length) {
-        // Eliminar el contacto de email en la posición correspondiente
-        const emailIndex = elementNum - currentIndex - 1 + 1;
-        currentPNR.emailContacts.splice(emailIndex - 1, 1);
-        continue;
-      }
-      currentIndex += currentPNR.emailContacts ? currentPNR.emailContacts.length : 0;
-      
-      // Verificar si el elemento es ticketing
-      if (currentPNR.ticketing && elementNum === currentIndex + 1) {
-        // Eliminar la información de ticketing
-        delete currentPNR.ticketing;
-        continue;
+      // Eliminar según el tipo de elemento
+      switch (elementToDelete.type) {
+        case 'passenger':
+          currentPNR.passengers.splice(elementToDelete.index, 1);
+          break;
+        case 'segment':
+          currentPNR.segments.splice(elementToDelete.index, 1);
+          break;
+        case 'contact':
+          currentPNR.contacts.splice(elementToDelete.index, 1);
+          break;
+        case 'emailContact':
+          currentPNR.emailContacts.splice(elementToDelete.index, 1);
+          break;
+        case 'osiElement':
+          currentPNR.osiElements.splice(elementToDelete.index, 1);
+          break;
+        case 'ssrElement':
+          currentPNR.ssrElements.splice(elementToDelete.index, 1);
+          break;
+        case 'ticketing':
+          delete currentPNR.ticketing;
+          break;
+        default:
+          break;
       }
     }
     
@@ -154,6 +186,14 @@ export async function handleDeleteElements(cmd) {
         
         if (currentPNR.emailContacts) {
           updateData.emailContacts = currentPNR.emailContacts;
+        }
+        
+        if (currentPNR.osiElements) {
+          updateData.osiElements = currentPNR.osiElements;
+        }
+        
+        if (currentPNR.ssrElements) {
+          updateData.ssrElements = currentPNR.ssrElements;
         }
         
         // Si se eliminó el ticketing, actualizarlo a null

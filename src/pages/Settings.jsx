@@ -43,7 +43,7 @@ export default function Settings() {
               Configuración
             </h1>
             <p className="mt-1 text-sm text-gray-500">
-              Personaliza tu experiencia en Amadeus Trainer.
+              Personaliza tu experiencia en Mozart Trainer.
             </p>
             
             {/* Tabs de navegación */}

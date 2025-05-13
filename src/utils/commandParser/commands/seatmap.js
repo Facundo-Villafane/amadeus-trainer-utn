@@ -71,7 +71,8 @@ export async function handleSeatmapCommand(cmd) {
   }
 }
 
-// Método alternativo: comando para asignar asiento directamente (ST)
+// Versión completa y corregida del comando ST para asignar asientos
+
 // eslint-disable-next-line no-unused-vars
 export async function handleAssignSeatCommand(cmd, userId) {
     try {
@@ -115,6 +116,7 @@ export async function handleAssignSeatCommand(cmd, userId) {
         // Obtener el segmento seleccionado y validar
         const segment = currentPNR.segments[segmentIndex];
         const segmentNumber = segmentIndex + 1; // Índice real en el PNR (base 1)
+        const routeCode = `${segment.origin}${segment.destination}`;
     
         // Validar formato del asiento (más flexible para incluir letras y números, como 24L)
         if (!/^[1-9]\d*[A-Z]$/i.test(seat)) {
@@ -131,18 +133,17 @@ export async function handleAssignSeatCommand(cmd, userId) {
             ssr.code === 'RQST' && ssr.segmentIndex === segmentIndex
         );
     
-        const routeCode = `${segment.origin}${segment.destination}`;
         const passengerNumber = passengerIndex + 1; // Número de pasajero (base 1)
     
         if (existingRqstIndex >= 0) {
             // Actualizar SSR existente
             const existingRqst = currentPNR.ssrElements[existingRqstIndex];
       
-            // Verificar si el pasajero ya tiene un asiento asignado
+            // Verificar si el pasajero ya tiene un asiento asignado o inicializar seatInfo
             const seatInfo = existingRqst.seatInfo || {};
             seatInfo[`P${passengerNumber}`] = seat;
       
-            // Actualizar el mensaje del SSR
+            // Actualizar el mensaje del SSR con formato correcto: ORIGENDESTIN/24L,P1/15C,P2
             const seatAssignments = Object.entries(seatInfo)
                 .map(([passenger, seatNumber]) => `${seatNumber},${passenger}`)
                 .join('/');
@@ -151,6 +152,9 @@ export async function handleAssignSeatCommand(cmd, userId) {
             existingRqst.seatInfo = seatInfo;
       
             currentPNR.ssrElements[existingRqstIndex] = existingRqst;
+            
+            // Log para depuración
+            console.log("SSR RQST actualizado:", existingRqst);
         } else {
             // Crear nuevo SSR RQST
             const seatInfo = { [`P${passengerNumber}`]: seat };
@@ -169,6 +173,9 @@ export async function handleAssignSeatCommand(cmd, userId) {
             };
       
             currentPNR.ssrElements.push(newSsrElement);
+            
+            // Log para depuración
+            console.log("Nuevo SSR RQST creado:", newSsrElement);
         }
         
         // Actualizar la referencia global

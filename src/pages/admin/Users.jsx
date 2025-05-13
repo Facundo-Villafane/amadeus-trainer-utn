@@ -339,7 +339,15 @@ const Users = () => {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                      {user.createdAt ? new Date(user.createdAt.toDate()).toLocaleDateString() : 'N/A'}
+                    {user.createdAt 
+                      ? (typeof user.createdAt.toDate === 'function' 
+                        ? new Date(user.createdAt.toDate()).toLocaleDateString() 
+                        : (user.createdAt instanceof Date 
+                            ? user.createdAt.toLocaleDateString()
+                            : (typeof user.createdAt === 'string' 
+                              ? new Date(user.createdAt).toLocaleDateString()
+                              : 'N/A')))
+                      : 'N/A'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
                       <div className="flex flex-wrap gap-2">

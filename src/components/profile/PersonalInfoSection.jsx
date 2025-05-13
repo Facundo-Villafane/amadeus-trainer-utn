@@ -1,5 +1,5 @@
 // src/components/profile/PersonalInfoSection.jsx
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   updateProfile, updateEmail, updatePassword, 
   EmailAuthProvider, reauthenticateWithCredential,
@@ -7,10 +7,10 @@ import {
 } from 'firebase/auth';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../services/firebase';
-import { FiUser, FiMail, FiLock, FiSave, FiAlertCircle, FiInfo } from 'react-icons/fi';
+import { FiUser, FiMail, FiLock, FiSave, FiAlertCircle, FiInfo, FiEdit } from 'react-icons/fi';
 import toast from 'react-hot-toast';
-import { getProfilePhotoUrl, isGoogleUser } from '../../utils/profileUtils'; // Importa las utilidades
-
+import { getProfilePhotoUrl, isGoogleUser, isUsingGravatar } from '../../utils/profileUtils';
+import { GravatarQuickEditorCore } from '@gravatar-com/quick-editor'; // Importar el editor
 
 export default function PersonalInfoSection({ currentUser, userData, userRole, stats, loading }) {
   const [localUserData, setLocalUserData] = useState({
@@ -23,6 +23,7 @@ export default function PersonalInfoSection({ currentUser, userData, userRole, s
   const [updatingProfile, setUpdatingProfile] = useState(false);
   const [updatingEmail, setUpdatingEmail] = useState(false);
   const [updatingPassword, setUpdatingPassword] = useState(false);
+  const [avatarKey, setAvatarKey] = useState(Date.now());
   
   // Handle form input changes
   const handleInputChange = (e) => {
@@ -175,11 +176,44 @@ export default function PersonalInfoSection({ currentUser, userData, userRole, s
     }
   };
 
-  // Check if the user is signed in with Google - ahora usando la utilidad importada
+  // Check if the user is signed in with Google
   const userIsGoogleAccount = isGoogleUser(currentUser) || (userData && userData.provider === 'google.com');
+  
+  // Check if the user is using Gravatar
+  const userUsingGravatar = isUsingGravatar(currentUser);
+  
+  // Handler when Gravatar is updated
+  const handleGravatarUpdate = () => {
+    // Force re-render of avatar by updating the key
+    setAvatarKey(Date.now());
+    toast.success('Gravatar actualizado correctamente');
+  };
 
-  // Obtener la URL de la foto de perfil usando nuestra utilidad
-  const userPhotoUrl = getProfilePhotoUrl(currentUser, 128);
+  useEffect(() => {
+    if (!currentUser || userIsGoogleAccount) return;
+  
+    const editor = new GravatarQuickEditorCore({
+      email: currentUser.email,
+      scope: ['avatars'],
+      onProfileUpdated: () => {
+        console.log('¡Perfil actualizado!');
+        handleGravatarUpdate();
+      },
+      onOpened: () => {
+        console.log('Editor abierto');
+      },
+    });
+  
+    const editButton = document.getElementById('editar-perfil');
+    if (!editButton) return;
+  
+    const openEditor = () => editor.open();
+    editButton.addEventListener('click', openEditor);
+  
+    return () => {
+      editButton.removeEventListener('click', openEditor);
+    };
+  }, [currentUser, userIsGoogleAccount]);
 
   return (
     <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
@@ -191,14 +225,43 @@ export default function PersonalInfoSection({ currentUser, userData, userRole, s
             <div className="text-center text-gray-400 py-8">Cargando datos...</div>
           ) : (
             <>
-              {/* Avatar - Ahora usando la URL de foto obtenida con la utilidad */}
               <div className="flex justify-center mb-6">
-                <img
-                  id="user-avatar"
-                  src={userPhotoUrl}
-                  alt="Avatar"
-                  className="h-24 w-24 rounded-full border-2 border-amadeus-primary shadow"
-                />
+                {userUsingGravatar ? (
+                  <div>
+                    <img
+                      id="avatar-gravatar"
+                      key={`avatar-${avatarKey}`}
+                      src={getProfilePhotoUrl(currentUser, 128, false)}
+                      alt="Avatar"
+                      className="h-24 w-24 rounded-full border-2 border-amadeus-primary shadow"
+                    />
+                    <button
+                      id="editar-perfil"
+                      onClick={() => {
+                        const editor = new GravatarQuickEditorCore({
+                          email: currentUser?.email,
+                          scope: ['avatars'],
+                          onProfileUpdated: () => {
+                            console.log('Perfil actualizado desde botón test');
+                            handleGravatarUpdate();
+                          },
+                        });
+                        editor.open();
+                      }}
+                      className="mt-2 text-sm text-amadeus-primary hover:underline flex items-center"
+                    >
+                      <FiEdit className="mr-1" />
+                      Editar avatar
+                    </button>
+                  </div>
+                ) : (
+                  <img
+                    key={`avatar-${avatarKey}`}
+                    src={getProfilePhotoUrl(currentUser, 128, false)}
+                    alt="Avatar"
+                    className="h-24 w-24 rounded-full border-2 border-amadeus-primary shadow"
+                  />
+                )}
               </div>
 
               {/* Provider badge */}

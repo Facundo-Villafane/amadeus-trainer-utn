@@ -21,7 +21,10 @@ import {
   confirmCancelPNR,
   handleAddOSI,
   handleAddSSR,
-  handleAddFOID
+    handleAddFOID,
+    handleGeneralRemark,       // Agregar esta línea
+  handleConfidentialRemark,  // Agregar esta línea
+  handleItineraryRemark      // Agregar esta línea
 } from './commands/pnr';
 import experienceService from '../../services/experienceService';
 import { handleSeatmapCommand, handleAssignSeatCommand } from './commands/seatmap';
@@ -61,6 +64,9 @@ export async function commandParser(command, userId) {
     else if (cmd.startsWith('SRFOID')) commandType = 'FOID';
     else if (cmd.startsWith('SM')) commandType = 'SM';
     else if (cmd.startsWith('ST')) commandType = 'ST';
+    else if (cmd.startsWith('RM')) commandType = 'REMARK';
+else if (cmd.startsWith('RC')) commandType = 'REMARK';
+else if (cmd.startsWith('RIR')) commandType = 'REMARK';
     else if (cmd === 'HELP' || cmd.startsWith('HE')) commandType = 'HELP';
     else if (cmd === 'MD' || cmd === 'M' || cmd === 'U') commandType = 'NAVIGATION';
     
@@ -488,6 +494,54 @@ export async function commandParser(command, userId) {
       result = await handleAssignSeatCommand(cmd, userId);
       previousCommandWasXI = false;
       return result;
+      }
+      
+    if (cmd.startsWith('RM')) {
+    result = await handleGeneralRemark(cmd, userId);
+    previousCommandWasXI = false;
+    
+    // Registrar resultado
+    if (userId) {
+        if (!result.startsWith('Error')) {
+        await experienceService.recordSuccessfulCommand(userId, cmd, 'REMARK');
+        } else {
+        await experienceService.recordCommandError(userId, cmd, result);
+        }
+    }
+    
+    return result;
+    }
+
+    if (cmd.startsWith('RC')) {
+    result = await handleConfidentialRemark(cmd, userId);
+    previousCommandWasXI = false;
+    
+    // Registrar resultado
+    if (userId) {
+        if (!result.startsWith('Error')) {
+        await experienceService.recordSuccessfulCommand(userId, cmd, 'REMARK');
+        } else {
+        await experienceService.recordCommandError(userId, cmd, result);
+        }
+    }
+    
+    return result;
+    }
+
+    if (cmd.startsWith('RIR')) {
+    result = await handleItineraryRemark(cmd, userId);
+    previousCommandWasXI = false;
+    
+    // Registrar resultado
+    if (userId) {
+        if (!result.startsWith('Error')) {
+        await experienceService.recordSuccessfulCommand(userId, cmd, 'REMARK');
+        } else {
+        await experienceService.recordCommandError(userId, cmd, result);
+        }
+    }
+    
+    return result;
     }
     
     // Si llegamos aquí, el comando no fue reconocido

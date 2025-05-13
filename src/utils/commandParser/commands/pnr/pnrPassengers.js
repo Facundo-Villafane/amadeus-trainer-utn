@@ -21,7 +21,7 @@ export async function handleAddName(cmd, userId) {
     
     // Analizar el comando NM
     // Formato básico: NM1APELLIDO/NOMBRE
-    // Formato con título: NM1APELLIDO/NOMBRE MR
+    // Formato con título: NM1APELLIDO/NOMBRE
     // Formato con niño: NM1APELLIDO/NOMBRE(CHD/01JAN15)
     // Formato con infante: NM1APELLIDO/NOMBRE(INFGARCIA/LUIS/01JAN20)
     
@@ -29,7 +29,7 @@ export async function handleAddName(cmd, userId) {
     const match = cmd.match(namePattern);
     
     if (!match) {
-      return "Formato incorrecto. Ejemplo: NM1GARCIA/JUAN MR";
+      return "Formato incorrecto. Ejemplo: NM1GARCIA/JUAN";
     }
     
     const [, quantityStr, lastName, firstName, title, passengerType, additionalInfo] = match;
@@ -55,7 +55,7 @@ export async function handleAddName(cmd, userId) {
       const passenger = {
         lastName: lastName.toUpperCase(),
         firstName: firstName.trim().toUpperCase(),
-        title: (title || 'MR').toUpperCase(),
+        title: (title || '').toUpperCase(),
         type: passengerType ? passengerType.toUpperCase() : 'ADT', // Por defecto adulto
         addedAt: new Date()
       };

@@ -1,4 +1,5 @@
 // src/utils/commandParser/commands/pnr/pnrRetrieval.js
+// eslint-disable-next-line no-unused-vars
 import { collection, query, where, getDocs, limit, updateDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../../../services/firebase';
 import { setCurrentPNR } from './pnrState';
@@ -10,6 +11,7 @@ import { formatRTResponse } from './pnrUtils';
  * @param {string} userId - ID del usuario
  * @returns {string} Respuesta del comando
  */
+// eslint-disable-next-line no-unused-vars
 export async function handleRetrievePNR(cmd, userId) {
   try {
     // Formato: RT[CODIGO]

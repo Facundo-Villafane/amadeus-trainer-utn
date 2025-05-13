@@ -19,12 +19,12 @@ export async function handleAddContact(cmd, userId) {
     }
     
     // Analizar el comando AP
-    // Formato: AP CIUDAD TELEFONO-TIPO
-    const contactPattern = /AP\s+([A-Z]{3})\s+([0-9-]+)(?:-([A-Z]))?/i;
+    // Formato: APCIUDADTELEFONO-TIPO
+    const contactPattern = /AP+([A-Z]{3})+([0-9-]+)(?:-([A-Z]))?/i;
     const match = cmd.match(contactPattern);
     
     if (!match) {
-      return "Formato incorrecto. Ejemplo: AP BUE 12345678-M";
+      return "Formato incorrecto. Ejemplo: APBUE12345678-M";
     }
     
     const [, city, phone, type = 'H'] = match; // H (Home) por defecto

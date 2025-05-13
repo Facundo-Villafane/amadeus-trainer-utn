@@ -1,4 +1,4 @@
-// src/pages/Leaderboard.jsx
+// src/pages/Leaderboard.jsx - con modificación para filtrar administradores
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../hooks/useAuth';
@@ -22,7 +22,11 @@ export default function Leaderboard() {
       try {
         setLoading(true);
         const data = await experienceService.getLeaderboard(50);
-        setLeaderboard(data);
+        
+        // Filtrar para excluir a usuarios con rol de administrador/instructor
+        const filteredData = data.filter(user => user.role !== 'admin');
+        
+        setLeaderboard(filteredData);
       } catch (error) {
         console.error('Error fetching leaderboard:', error);
       } finally {

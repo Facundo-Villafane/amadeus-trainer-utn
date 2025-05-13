@@ -1214,30 +1214,33 @@ class ExperienceService {
         orderBy('xp', 'desc'),
         firestoreLimit(limitCount)
       );
-      
+  
       const snapshot = await getDocs(usersQuery);
       const leaderboard = [];
-      
+  
       snapshot.forEach((doc) => {
         const data = doc.data();
-        leaderboard.push({
-          id: doc.id,
-          name: data.displayName || data.email,
-          email: data.email,
-          xp: data.xp || 0,
-          level: this.calculateLevel(data.xp || 0),
-          levelTitle: this.getLevelTitle(this.calculateLevel(data.xp || 0)),
-          pnrsCreated: data.pnrsCreated || 0,
-          avgPNRTime: data.lastPNRCreationTime 
-            ? parseFloat(data.lastPNRCreationTime).toFixed(1)
-            : '0.0',
-          achievements: data.achievements || [],
-          achievementCount: (data.achievements || []).length,
-          commissionName: data.commissionName || '',
-          commissionCode: data.commissionCode || ''
-        });
+        // Asegúrate de que el rol del usuario esté disponible en los datos
+        if (data.role !== 'admin') { // Filtrar administradores
+          leaderboard.push({
+            id: doc.id,
+            name: data.displayName || data.email,
+            email: data.email,
+            xp: data.xp || 0,
+            level: this.calculateLevel(data.xp || 0),
+            levelTitle: this.getLevelTitle(this.calculateLevel(data.xp || 0)),
+            pnrsCreated: data.pnrsCreated || 0,
+            avgPNRTime: data.lastPNRCreationTime 
+              ? parseFloat(data.lastPNRCreationTime).toFixed(1)
+              : '0.0',
+            achievements: data.achievements || [],
+            achievementCount: (data.achievements || []).length,
+            commissionName: data.commissionName || '',
+            commissionCode: data.commissionCode || ''
+          });
+        }
       });
-      
+  
       return leaderboard;
     } catch (error) {
       console.error('Error getting leaderboard:', error);

@@ -6,6 +6,13 @@ import { convertToAmadeusDate } from './dateUtils';
  * @param {Object} pnr - El objeto PNR a formatear
  * @returns {string} - Respuesta formateada para el terminal
  */
+// Versión completa de la función formatPNRResponse en pnrUtils.js
+
+/**
+ * Formatea un PNR para mostrar como respuesta en el terminal
+ * @param {Object} pnr - El objeto PNR a formatear
+ * @returns {string} - Respuesta formateada para el terminal
+ */
 export function formatPNRResponse(pnr) {
   // Formatear la respuesta con receivedFrom si existe
   let response = `\nRP/UTN5168476/`;
@@ -85,6 +92,7 @@ export function formatPNRResponse(pnr) {
       // Formato: SSR VGML YY HK1 /S3/P2
       // O para infantes: SSR INFT YY HK1 APELLIDO/NOMBRE/S3/P2
       // O para FOID: SSR FOID YY HK1 PP12345678/P2
+      // O para RQST: SSR RQST YY HK1 BUEMAD/24A,P1/15C,P2 /S1
       let ssrLine = `${elementNumber} SSR ${ssrElement.code} ${ssrElement.airlineCode} ${ssrElement.status}`;
       
       // Si es un SSR de infante, añadir el nombre
@@ -97,13 +105,18 @@ export function formatPNRResponse(pnr) {
         ssrLine += ` ${ssrElement.docType}${ssrElement.docNumber}`;
       }
       
-      // Añadir referencia al segmento, excepto para FOID que no está asociado a segmentos
-      if (ssrElement.code !== 'FOID' && ssrElement.segmentNumber) {
+      // Si es un RQST, mostrar el mensaje completo que incluye ruta y asignación de asientos
+      if (ssrElement.code === 'RQST' && ssrElement.message) {
+        ssrLine += ` ${ssrElement.message}`;
+      }
+      
+      // Añadir referencia al segmento
+      if (ssrElement.segmentNumber) {
         ssrLine += ` /S${ssrElement.segmentNumber}`;
       }
       
-      // Añadir referencia al pasajero
-      if (ssrElement.passengerNumber) {
+      // Añadir referencia al pasajero, excepto para RQST que ya incluye esta info en el mensaje
+      if (ssrElement.passengerNumber && ssrElement.code !== 'RQST') {
         ssrLine += `/P${ssrElement.passengerNumber}`;
       }
       
@@ -127,6 +140,37 @@ export function formatPNRResponse(pnr) {
     response += tkDisplay;
     elementNumber++;
   }
+
+    // Actualización de la función formatPNRResponse para incluir los comentarios
+
+  // Este código debe integrarse dentro de la función formatPNRResponse existente,
+  // justo antes de la parte final donde se muestra "*TRN*\n>"
+
+  // Mostrar comentarios generales (RM)
+  if (pnr.remarks && pnr.remarks.length > 0) {
+    pnr.remarks.forEach((remark) => {
+      response += `${elementNumber} RM ${remark.text}\n`;
+      elementNumber++;
+    });
+  }
+
+  // Mostrar comentarios confidenciales (RC)
+  if (pnr.confidentialRemarks && pnr.confidentialRemarks.length > 0) {
+    pnr.confidentialRemarks.forEach((remark) => {
+      response += `${elementNumber} RC ${remark.text}\n`;
+      elementNumber++;
+    });
+  }
+
+  // Mostrar comentarios para el itinerario (RIR)
+  if (pnr.itineraryRemarks && pnr.itineraryRemarks.length > 0) {
+    pnr.itineraryRemarks.forEach((remark) => {
+      response += `${elementNumber} RIR ${remark.text}\n`;
+      elementNumber++;
+    });
+  }
+
+
   
   response += `*TRN*\n>`;
   

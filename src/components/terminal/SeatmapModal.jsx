@@ -188,19 +188,20 @@ export default function SeatmapModal({ isOpen, onClose, addTerminalResponse }) {
       
       // Crear objeto seatInfo a partir de selectedSeats
       const seatInfo = {};
+      const seatAssignmentParts = [];
+      
       Object.entries(selectedSeats).forEach(([passengerIndex, seat]) => {
         const passengerNumber = parseInt(passengerIndex, 10) + 1;
         seatInfo[`P${passengerNumber}`] = seat;
+        seatAssignmentParts.push(`${seat},P${passengerNumber}`);
       });
       
-      // Crear mensaje para el SSR
-      const seatAssignments = Object.entries(seatInfo)
-        .map(([passenger, seatNumber]) => `${seatNumber},${passenger}`)
-        .join('/');
+      // Crear el mensaje completo con formato: ORIGENDESTIN/24A,P1/15C,P2
+      const fullMessage = `${routeCode}/${seatAssignmentParts.join('/')}`;
       
       if (existingRqstIndex >= 0) {
         // Actualizar SSR existente
-        currentPNR.ssrElements[existingRqstIndex].message = `${routeCode}/${seatAssignments}`;
+        currentPNR.ssrElements[existingRqstIndex].message = fullMessage;
         currentPNR.ssrElements[existingRqstIndex].seatInfo = seatInfo;
       } else {
         // Crear nuevo SSR RQST
@@ -209,7 +210,7 @@ export default function SeatmapModal({ isOpen, onClose, addTerminalResponse }) {
           code: 'RQST',
           airlineCode: segment.airline_code,
           status: 'HK1',
-          message: `${routeCode}/${seatAssignments}`,
+          message: fullMessage,
           segmentNumber: segmentNumber,
           segmentIndex: segmentIndex,
           seatInfo: seatInfo,
@@ -219,20 +220,32 @@ export default function SeatmapModal({ isOpen, onClose, addTerminalResponse }) {
         currentPNR.ssrElements.push(newSsrElement);
       }
       
+      // IMPORTANTE: Guarda log para depuración
+      console.log("SSR RQST creado/actualizado:", 
+        existingRqstIndex >= 0 ? currentPNR.ssrElements[existingRqstIndex] : 
+        currentPNR.ssrElements[currentPNR.ssrElements.length - 1]
+      );
+      
       // Actualizar la referencia global
       setCurrentPNR(currentPNR);
       
       // Guardar el PNR actualizado en Firestore
       if (currentPNR.id && currentUser) {
-        await updateDoc(doc(db, 'pnrs', currentPNR.id), {
-          ssrElements: currentPNR.ssrElements,
-          updatedAt: serverTimestamp(),
-          [`history.${Date.now()}`]: {
-            command: 'SM',
-            result: 'Asientos seleccionados via SM',
-            timestamp: new Date().toISOString()
-          }
-        });
+        try {
+          await updateDoc(doc(db, 'pnrs', currentPNR.id), {
+            ssrElements: currentPNR.ssrElements,
+            updatedAt: serverTimestamp(),
+            [`history.${Date.now()}`]: {
+              command: 'SM',
+              result: `Asientos seleccionados via SM: ${Object.entries(selectedSeats).map(([p, s]) => `P${parseInt(p)+1}=${s}`).join(', ')}`,
+              timestamp: new Date().toISOString()
+            }
+          });
+        } catch (error) {
+          console.error('Error al guardar PNR en Firestore:', error);
+          alert(`Error al guardar en la base de datos: ${error.message}`);
+          // Continuamos para mostrar al menos la respuesta local
+        }
       }
       
       // Mostrar respuesta en la terminal
