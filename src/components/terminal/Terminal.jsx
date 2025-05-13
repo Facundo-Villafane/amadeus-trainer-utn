@@ -1,11 +1,12 @@
-// src/components/terminal/Terminal.jsx
+// Modificación para Terminal.jsx
 import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { db } from '../../services/firebase';
 import { collection, addDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
-import { commandParser } from '../../utils/commandParser/index';
+import { commandParser } from '../../utils/commandParser';
 import TerminalLine from './TerminalLine';
 import { FiTerminal } from 'react-icons/fi';
+import experienceService from '../../services/experienceService';
 
 export default function Terminal() {
   const [input, setInput] = useState('');
@@ -24,6 +25,22 @@ export default function Terminal() {
   const inputRef = useRef(null);
   const terminalRef = useRef(null);
   const welcomeShownRef = useRef(false);
+  const sessionStartedRef = useRef(false);
+
+  // Iniciar la sesión de experiencia cuando el usuario inicia sesión
+  useEffect(() => {
+    if (currentUser && !sessionStartedRef.current) {
+      // Iniciar sesión para registrar logros como Night Owl, Early Bird, etc.
+      experienceService.startSession(currentUser.uid)
+        .then(() => {
+          console.log("Sesión de experiencia iniciada");
+          sessionStartedRef.current = true;
+        })
+        .catch(error => {
+          console.error("Error al iniciar sesión de experiencia:", error);
+        });
+    }
+  }, [currentUser]);
 
    // Cargar historial guardado cuando el componente se monta
    useEffect(() => {
@@ -151,17 +168,29 @@ export default function Terminal() {
     setCommandHistory(prev => [cmd, ...prev.slice(0, 19)]);
     setHistoryIndex(-1);
     
+    // Asegurar que la sesión de experiencia esté iniciada
+    if (currentUser && !sessionStartedRef.current) {
+      try {
+        await experienceService.startSession(currentUser.uid);
+        sessionStartedRef.current = true;
+      } catch (error) {
+        console.error("Error al reiniciar sesión de experiencia:", error);
+      }
+    }
+    
     // Procesar el comando y obtener la respuesta
     try {
       // Pasar el ID del usuario actual al parser de comandos
-      const response = await commandParser(cmd, currentUser.uid);
+      const response = await commandParser(cmd, currentUser?.uid);
       
       // Agregar la respuesta al historial de la terminal
       addLine(response, 'output');
       
       // Guardar el comando en Firestore (si falla, ya tenemos un try/catch)
       try {
-        await saveCommandToHistory(cmd, response);
+        if (currentUser) {
+          await saveCommandToHistory(cmd, response);
+        }
       } catch {
         // Error silencioso - ya lo registramos en saveCommandToHistory
       }
@@ -180,7 +209,9 @@ export default function Terminal() {
       
       addLine(errorMessage, 'error');
       try {
-        await saveCommandToHistory(cmd, errorMessage);
+        if (currentUser) {
+          await saveCommandToHistory(cmd, errorMessage);
+        }
       } catch {
         // Error silencioso
       }
