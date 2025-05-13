@@ -32,9 +32,9 @@ export function calculateDaysLeft(dateStr) {
       'JUL': 6, 'AUG': 7, 'SEP': 8, 'OCT': 9, 'NOV': 10, 'DEC': 11
     };
     
-    if (!monthMap.hasOwnProperty(monthStr)) {
-      return 0; // Mes no válido
-    }
+      if (!Object.prototype.hasOwnProperty.call(monthMap, monthStr)) {
+    return 0; // Mes no válido
+  }
     
     const month = monthMap[monthStr];
     

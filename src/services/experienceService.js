@@ -19,20 +19,20 @@ class ExperienceService {
     { level: 1, requiredXP: 0, title: 'Novato' },
     { level: 2, requiredXP: 100, title: 'Principiante' },
     { level: 3, requiredXP: 250, title: 'Aprendiz' },
-    { level: 4, requiredXP: 500, title: 'Intermedio' },
-    { level: 5, requiredXP: 1000, title: 'Avanzado' },
-    { level: 6, requiredXP: 1750, title: 'Experto' },
-    { level: 7, requiredXP: 2750, title: 'Maestro' },
-    { level: 8, requiredXP: 4000, title: 'Gran Maestro' },
-    { level: 9, requiredXP: 5500, title: 'Elite' },
-    { level: 10, requiredXP: 7500, title: 'Leyenda' }
+    { level: 4, requiredXP: 800, title: 'Intermedio' },
+    { level: 5, requiredXP: 1500, title: 'Avanzado' },
+    { level: 6, requiredXP: 2350, title: 'Experto' },
+    { level: 7, requiredXP: 4750, title: 'Maestro' },
+    { level: 8, requiredXP: 6000, title: 'Gran Maestro' },
+    { level: 9, requiredXP: 7500, title: 'Elite' },
+    { level: 10, requiredXP: 10000, title: 'Leyenda' }
   ];
 
   // Valores de XP por acción
   XP_VALUES = {
     COMMAND_SUCCESS: 2,
     COMMAND_ERROR: 1,
-    PNR_CREATED: 50,
+    PNR_CREATED: 20,
     PNR_FAST_CREATION: 25,
     PNR_ERROR: 5,
     ACHIEVEMENT_MULTIPLIER: 1
@@ -113,7 +113,263 @@ class ExperienceService {
       rarity: 'EPIC',
       secret: false
     },
-    // ... resto de achievements, código omitido para brevedad
+
+    // Achievements Graciosos - Errores
+    NOT_FOUND: {
+      id: 'NOT_FOUND',
+      name: '404 Flight Not Found',
+      description: 'Busca vuelos entre ciudades inexistentes 10 veces',
+      icon: '🛫',
+      xp: 15,
+      rarity: 'UNCOMMON',
+      secret: true
+    },
+    OOPS_WRONG_BUTTON: {
+      id: 'OOPS_WRONG_BUTTON',
+      name: 'Oops, Wrong Button',
+      description: 'Ejecuta 50 comandos inválidos',
+      icon: '🙈',
+      xp: 20,
+      rarity: 'UNCOMMON',
+      secret: true
+    },
+    LOST_IN_TRANSLATION: {
+      id: 'LOST_IN_TRANSLATION',
+      name: 'Lost in Translation',
+      description: 'Escribe 20 comandos con errores tipográficos',
+      icon: '🗺️',
+      xp: 15,
+      rarity: 'COMMON',
+      secret: true
+    },
+    GHOST_PASSENGER: {
+      id: 'GHOST_PASSENGER',
+      name: 'Ghost Passenger',
+      description: 'Intenta crear un PNR sin pasajeros',
+      icon: '👻',
+      xp: 10,
+      rarity: 'COMMON',
+      secret: true
+    },
+
+    // Achievements de Comportamiento
+    NIGHT_OWL: {
+      id: 'NIGHT_OWL',
+      name: 'Night Owl',
+      description: 'Usa el sistema entre 12 AM y 5 AM',
+      icon: '🦉',
+      xp: 25,
+      rarity: 'UNCOMMON',
+      secret: false
+    },
+    COFFEE_BREAK: {
+      id: 'COFFEE_BREAK',
+      name: 'Coffee Break',
+      description: 'Vuelve después de 1 hora de inactividad',
+      icon: '☕',
+      xp: 10,
+      rarity: 'COMMON',
+      secret: false
+    },
+    COPY_PASTE_MASTER: {
+      id: 'COPY_PASTE_MASTER',
+      name: 'Copy Paste Master',
+      description: 'Ejecuta el mismo comando 10 veces seguidas',
+      icon: '📋',
+      xp: 15,
+      rarity: 'UNCOMMON',
+      secret: true
+    },
+    THE_EXPLORER: {
+      id: 'THE_EXPLORER',
+      name: 'The Explorer',
+      description: 'Busca vuelos a 20 destinos diferentes',
+      icon: '🗺️',
+      xp: 40,
+      rarity: 'RARE',
+      secret: false
+    },
+    HOMESICK: {
+      id: 'HOMESICK',
+      name: 'Homesick',
+      description: 'Busca 10 vuelos desde/hacia tu ciudad base',
+      icon: '🏠',
+      xp: 20,
+      rarity: 'UNCOMMON',
+      secret: true
+    },
+
+    // Achievements Temáticos
+    AROUND_THE_WORLD: {
+      id: 'AROUND_THE_WORLD',
+      name: 'Around the World',
+      description: 'Crea PNRs con vuelos en todos los continentes',
+      icon: '🌍',
+      xp: 100,
+      rarity: 'LEGENDARY',
+      secret: false
+    },
+    WEEKEND_WARRIOR: {
+      id: 'WEEKEND_WARRIOR',
+      name: 'Weekend Warrior',
+      description: 'Usa el sistema solo fines de semana por un mes',
+      icon: '📅',
+      xp: 35,
+      rarity: 'RARE',
+      secret: false
+    },
+    EARLY_BIRD: {
+      id: 'EARLY_BIRD',
+      name: 'Early Bird',
+      description: 'Usa el sistema antes de las 7 AM durante 5 días',
+      icon: '🐦',
+      xp: 30,
+      rarity: 'RARE',
+      secret: false
+    },
+    FREQUENT_FLYER: {
+      id: 'FREQUENT_FLYER',
+      name: 'Frequent Flyer',
+      description: 'Crea 50 PNRs con el mismo pasajero',
+      icon: '✈️',
+      xp: 75,
+      rarity: 'EPIC',
+      secret: false
+    },
+
+    // Easter Eggs
+    THE_ANSWER: {
+      id: 'THE_ANSWER',
+      name: 'The Answer',
+      description: 'Ejecuta exactamente 42 comandos en un día',
+      icon: '42',
+      xp: 42,
+      rarity: 'RARE',
+      secret: true
+    },
+    LUCKY_SEVEN: {
+      id: 'LUCKY_SEVEN',
+      name: 'Lucky Seven',
+      description: 'Crea un PNR con 7 segmentos',
+      icon: '🎰',
+      xp: 77,
+      rarity: 'EPIC',
+      secret: true
+    },
+    BINARY_MASTER: {
+      id: 'BINARY_MASTER',
+      name: 'Binary Master',
+      description: 'Ejecuta 1010 comandos en total',
+      icon: '💻',
+      xp: 101,
+      rarity: 'EPIC',
+      secret: true
+    },
+    FLIGHT_CLUB: {
+      id: 'FLIGHT_CLUB',
+      name: 'Flight Club',
+      description: 'Primera regla: no hablar del Flight Club',
+      icon: '🥊',
+      xp: 50,
+      rarity: 'RARE',
+      secret: true
+    },
+
+    // Achievements de Persistencia
+    COMEBACK_KID: {
+      id: 'COMEBACK_KID',
+      name: 'Comeback Kid',
+      description: 'Vuelve después de 7 días de inactividad',
+      icon: '🔄',
+      xp: 25,
+      rarity: 'UNCOMMON',
+      secret: false
+    },
+    MARATHON_RUNNER: {
+      id: 'MARATHON_RUNNER',
+      name: 'Marathon Runner',
+      description: 'Usa el sistema durante 2 horas continuas',
+      icon: '🏃',
+      xp: 40,
+      rarity: 'RARE',
+      secret: false
+    },
+    CONSISTENCY_KEY: {
+      id: 'CONSISTENCY_KEY',
+      name: 'Consistency is Key',
+      description: 'Usa el sistema todos los días durante una semana',
+      icon: '🔑',
+      xp: 50,
+      rarity: 'RARE',
+      secret: false
+    },
+    THE_VETERAN: {
+      id: 'THE_VETERAN',
+      name: 'The Veteran',
+      description: 'Usa el sistema durante 30 días diferentes',
+      icon: '🎖️',
+      xp: 100,
+      rarity: 'EPIC',
+      secret: false
+    },
+
+    // Achievements Sociales
+    TOP_CLASS: {
+      id: 'TOP_CLASS',
+      name: 'Top of the Class',
+      description: 'Alcanza el top 3 del leaderboard',
+      icon: '🏆',
+      xp: 75,
+      rarity: 'EPIC',
+      secret: false
+    },
+    RISING_STAR: {
+      id: 'RISING_STAR',
+      name: 'Rising Star',
+      description: 'Sube 5 posiciones en el leaderboard en una semana',
+      icon: '⭐',
+      xp: 40,
+      rarity: 'RARE',
+      secret: false
+    },
+    HELPING_HAND: {
+      id: 'HELPING_HAND',
+      name: 'Helping Hand',
+      description: 'Usa el comando HELP 10 veces',
+      icon: '🤝',
+      xp: 15,
+      rarity: 'COMMON',
+      secret: false
+    },
+
+    // Achievements Estacionales
+    HOLIDAY_SPIRIT: {
+      id: 'HOLIDAY_SPIRIT',
+      name: 'Holiday Spirit',
+      description: 'Crea PNRs durante días festivos',
+      icon: '🎄',
+      xp: 30,
+      rarity: 'UNCOMMON',
+      secret: false
+    },
+    SUMMER_VACATION: {
+      id: 'SUMMER_VACATION',
+      name: 'Summer Vacation',
+      description: 'Crea PNRs a destinos de playa en verano',
+      icon: '🏖️',
+      xp: 25,
+      rarity: 'UNCOMMON',
+      secret: false
+    },
+    WINTER_IS_COMING: {
+      id: 'WINTER_IS_COMING',
+      name: 'Winter is Coming',
+      description: 'Crea PNRs a destinos fríos en invierno',
+      icon: '❄️',
+      xp: 25,
+      rarity: 'UNCOMMON',
+      secret: false
+    }
   };
 
   constructor() {

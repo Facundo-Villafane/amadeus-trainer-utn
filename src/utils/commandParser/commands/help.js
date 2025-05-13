@@ -29,7 +29,9 @@ export function generateHelpText() {
   APE-[CORREO]                        Agregar correo electrónico de contacto
   OS [AEROLÍNEA] [MENSAJE] /P[#]      Agregar información especial (OSI)
   SR[CÓDIGO]/P[#]                     Agregar solicitud de servicio especial
-  SRFOID [AEROLÍNEA] HK1-[TIPO][#]/P[#] Agregar documento de identidad
+  SRFOID[AEROLÍNEA]HK1-[TIPO][#]/P[#] Agregar documento de identidad
+  SM                                  Abrir mapa de asientos gráfico
+  ST[SEGMENTO][ASIENTO]/P[PASAJERO]   Asignar asiento (ej: ST14A/P1)
   RF[NOMBRE]                          Recibido de
   TK[OPCIONES]                        Emisión de billetes
   ET                                  Finalizar transacción
@@ -387,6 +389,36 @@ export function generateHelpText() {
   MEDA - Caso médico                   PCTC - Datos de contacto de emergencia
   COUR - Mensajero comercial          
   `;
+      
+      case 'SM':
+        return `
+    SM - Mapa de Asientos (Seat Map)
+    
+    Formato: SM o SM[SEGMENTO]
+    
+    Ejemplos:
+    SM                    Abre el mapa de asientos para el primer segmento del PNR
+    SM2                   Abre el mapa de asientos para el segundo segmento del PNR
+    
+    Este comando abre una interfaz gráfica para seleccionar asientos de manera
+    visual para los pasajeros de su PNR.
+    `;
+      
+      case 'ST':
+      return `
+    ST - Asignación de Asientos (Seat Assignment)
+
+    Formato: ST/[ASIENTO]/P[PASAJERO]/S[SEGMENTO]
+
+    Ejemplos:
+    ST/24L/P2/S1            Asigna el asiento 24L al pasajero 2 para el segmento 1
+    ST/15C/P1/S2            Asigna el asiento 15C al pasajero 1 para el segmento 2
+
+    Este comando permite asignar asientos directamente mediante la terminal,
+    sin necesidad de usar la interfaz gráfica. Es una alternativa al comando SM.
+
+    El asiento se registra como un SSR RQST en el PNR.
+    `;
       
       default:
         return `No se encontró ayuda para el comando: ${subCommand}`;

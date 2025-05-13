@@ -7,6 +7,8 @@ import { commandParser } from '../../utils/commandParser';
 import TerminalLine from './TerminalLine';
 import { FiTerminal } from 'react-icons/fi';
 import experienceService from '../../services/experienceService';
+import SeatmapModal from './SeatmapModal'; // Agregar esta importación
+import { currentSeatmapRequest } from '../../utils/commandParser/commands/seatmap'; // Agregar esta importación
 
 export default function Terminal() {
   const [input, setInput] = useState('');
@@ -21,6 +23,9 @@ export default function Terminal() {
     errorTextColor: '#FF0000'
   });
   
+  // Nuevo estado para modal de seatmap
+  const [showSeatmapModal, setShowSeatmapModal] = useState(false);
+
   const { currentUser } = useAuth();
   const inputRef = useRef(null);
   const terminalRef = useRef(null);
@@ -41,6 +46,22 @@ export default function Terminal() {
         });
     }
   }, [currentUser]);
+
+  // Nuevo efecto para verificar si se debe mostrar el modal de seatmap
+  useEffect(() => {
+    const checkSeatmapRequest = () => {
+      if (currentSeatmapRequest.showModal) {
+        setShowSeatmapModal(true);
+        // Resetear la solicitud para evitar mostrar el modal varias veces
+        currentSeatmapRequest.showModal = false;
+      }
+    };
+    
+    // Verificar cada 500ms si hay una solicitud de seatmap
+    const interval = setInterval(checkSeatmapRequest, 500);
+    
+    return () => clearInterval(interval);
+  }, []);
 
    // Cargar historial guardado cuando el componente se monta
    useEffect(() => {
@@ -313,6 +334,12 @@ export default function Terminal() {
           Enviar
         </button>
       </form>
+      {/* Modal de selección de asientos */}
+      <SeatmapModal 
+        isOpen={showSeatmapModal} 
+        onClose={() => setShowSeatmapModal(false)}
+        addTerminalResponse={addLine}
+      />
     </div>
   );
 }

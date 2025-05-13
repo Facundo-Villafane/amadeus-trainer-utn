@@ -118,30 +118,41 @@ export default function AchievementsSection({ currentUser }) {
   );
 }
 
-// Experience Bar Component
 function ExperienceBar({ userData }) {
-  // Calcular XP para el siguiente nivel
-  const xpForNextLevel = userData.level * 100; // Ejemplo: 100 XP por nivel
-  const xpPercent = Math.min(100, Math.round((userData.xp / xpForNextLevel) * 100));
-  
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-1">
-        <div className="flex items-center">
-          <span className="text-xl font-semibold text-gray-900">Nivel {userData.level}</span>
-          <span className="ml-2 text-gray-500">({userData.xp} XP)</span>
+    // Obtener nivel calculado correctamente basado en XP
+    const level = experienceService.calculateLevel(userData.xp);
+    
+    // Obtener XP para el siguiente nivel desde el servicio
+    const xpForNextLevel = experienceService.calculateXpForNextLevel(level);
+    
+    // Si está en el nivel máximo, mostrar 100%
+    const xpPercent = xpForNextLevel 
+      ? Math.min(100, Math.round(((userData.xp - experienceService.LEVELS[level-1].requiredXP) / 
+         (xpForNextLevel - experienceService.LEVELS[level-1].requiredXP)) * 100))
+      : 100;
+    
+    return (
+      <div>
+        <div className="flex items-center justify-between mb-1">
+          <div className="flex items-center">
+            <span className="text-xl font-semibold text-gray-900">Nivel {level}</span>
+            <span className="ml-2 text-gray-500">({userData.xp} XP)</span>
+          </div>
+          {xpForNextLevel ? (
+            <span className="text-sm text-gray-500">{userData.xp} / {xpForNextLevel} XP para el siguiente nivel</span>
+          ) : (
+            <span className="text-sm text-gray-500">¡Nivel máximo alcanzado!</span>
+          )}
         </div>
-        <span className="text-sm text-gray-500">{userData.xp} / {xpForNextLevel} XP para el siguiente nivel</span>
+        <div className="w-full bg-gray-200 rounded-full h-3 mb-6">
+          <div
+            className="bg-amadeus-primary h-3 rounded-full transition-all"
+            style={{ width: `${xpPercent}%` }}
+          ></div>
+        </div>
       </div>
-      <div className="w-full bg-gray-200 rounded-full h-3 mb-6">
-        <div
-          className="bg-amadeus-primary h-3 rounded-full transition-all"
-          style={{ width: `${xpPercent}%` }}
-        ></div>
-      </div>
-    </div>
-  );
-}
+    );
+  }
 
 // XP History Component
 function XPHistorySection({ userId }) {

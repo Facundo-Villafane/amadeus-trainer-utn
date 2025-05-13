@@ -24,6 +24,7 @@ import {
   handleAddFOID
 } from './commands/pnr';
 import experienceService from '../../services/experienceService';
+import { handleSeatmapCommand, handleAssignSeatCommand } from './commands/seatmap';
 
 // Variable para rastrear si el comando anterior fue XI (para confirmación con RF)
 let previousCommandWasXI = false;
@@ -58,6 +59,8 @@ export async function commandParser(command, userId) {
     else if (cmd.startsWith('OS')) commandType = 'OS';
     else if (cmd.startsWith('SR') && !cmd.startsWith('SRFOID')) commandType = 'SR';
     else if (cmd.startsWith('SRFOID')) commandType = 'FOID';
+    else if (cmd.startsWith('SM')) commandType = 'SM';
+    else if (cmd.startsWith('ST')) commandType = 'ST';
     else if (cmd === 'HELP' || cmd.startsWith('HE')) commandType = 'HELP';
     else if (cmd === 'MD' || cmd === 'M' || cmd === 'U') commandType = 'NAVIGATION';
     
@@ -471,6 +474,19 @@ export async function commandParser(command, userId) {
         }
       }
       
+      return result;
+      }
+      
+      // Comandos de seatmap
+    if (cmd.startsWith('SM')) {
+      result = await handleSeatmapCommand(cmd);
+      previousCommandWasXI = false;
+      return result;
+    }
+    
+    if (cmd.startsWith('ST')) {
+      result = await handleAssignSeatCommand(cmd, userId);
+      previousCommandWasXI = false;
       return result;
     }
     
