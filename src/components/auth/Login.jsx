@@ -311,7 +311,7 @@ export default function Login() {
                     value={verificationCode}
                     onChange={(e) => setVerificationCode(e.target.value.toUpperCase())}
                     className="appearance-none block w-full pl-10 px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-amadeus-primary focus:border-amadeus-primary"
-                    placeholder="Ej: COM2024A1"
+                    placeholder=""
                   />
                 </div>
               </div>

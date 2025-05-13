@@ -5,6 +5,7 @@ import { generatePNR } from '../../../../utils/pnrGenerator';
 import { getCurrentPNR, clearCurrentPNR, setCurrentPNR, validatePNR, getUserEmail } from './pnrState';
 import { formatERResponse } from './pnrUtils';
 import experienceService from '../../../../services/experienceService';
+import toast from 'react-hot-toast';
 
 /**
  * Maneja el fin de transacción (ET/ER)
@@ -175,22 +176,50 @@ export async function handleEndTransaction(cmd, userId) {
         // Guardar una copia del PNR antes de limpiarlo (para experiencia)
         const finalizedPNR = { ...currentPNR };
         
-        // Completar PNR y registrar experiencia
         if (finalizedPNR && finalizedPNR.id) {
-          const result = await experienceService.completePNR(
-            userId, 
-            finalizedPNR.id, 
-            finalizedPNR.recordLocator
-          );
-          
-          // Opcional: Mostrar notificación de XP ganado
-          console.log(`XP ganado: ${result.xpGained}`);
-          if (result.levelUp) {
-            console.log(`¡Subiste al nivel ${result.levelUp}!`);
-          }
-          
-          if (result.achievements && result.achievements.length > 0) {
-            console.log(`Logros desbloqueados: ${result.achievements.map(a => a.name).join(', ')}`);
+          try {
+            const result = await experienceService.completePNR(
+              userId, 
+              finalizedPNR.id, 
+              finalizedPNR.recordLocator
+            );
+            
+            // Mostrar XP ganado
+            if (result.xpGained) {
+              toast.success(`+${result.xpGained} XP`, {
+                icon: '🌟',
+                duration: 3000
+              });
+            }
+            
+            // Mostrar si subió de nivel
+            if (result.levelUp) {
+              toast.success(`¡Has subido al nivel ${result.levelUp}!`, {
+                icon: '🏆',
+                duration: 4000
+              });
+            }
+            
+            // Mostrar logros desbloqueados
+            if (result.achievements && result.achievements.length > 0) {
+              // Si hay varios logros, mostramos un mensaje general
+              if (result.achievements.length > 1) {
+                toast.success(`¡Has desbloqueado ${result.achievements.length} logros!`, {
+                  icon: '🎖️',
+                  duration: 4000
+                });
+              } else {
+                // Si solo hay un logro, mostramos su nombre
+                const achievement = result.achievements[0];
+                toast.success(`¡Logro desbloqueado: ${achievement.name}!`, {
+                  icon: achievement.icon || '🏅',
+                  duration: 4000
+                });
+              }
+            }
+          } catch (error) {
+            console.error('Error al procesar experiencia:', error);
+            // No mostrar toast de error para no confundir al usuario
           }
         }
         

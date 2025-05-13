@@ -1,6 +1,6 @@
 // src/components/dashboard/DashboardSidebar.jsx
 import { Link, useLocation } from 'react-router';
-import { FiMonitor, FiBook, FiUsers, FiBarChart2, FiSettings, FiHelpCircle, FiAirplay, FiSliders, FiGrid, FiEye, FiAward } from 'react-icons/fi';
+import { FiMonitor, FiBook, FiUser, FiUsers, FiBarChart2, FiSettings, FiHelpCircle, FiAirplay, FiSliders, FiGrid, FiEye, FiAward } from 'react-icons/fi';
 import PropTypes from 'prop-types';
 import { useAuth } from '../../hooks/useAuth';
 
@@ -23,8 +23,8 @@ export default function DashboardSidebar({ userRole }) {
   // Navegación para usuarios autenticados
   const userNavigation = [
     { name: 'Terminal', href: '/dashboard', icon: FiMonitor },
-    { name: 'Mis PNRs', href: '/my-pnrs', icon: FiBook },
-    { name: 'Historial de Comandos', href: '/command-history', icon: FiBarChart2 },
+    { name: 'Mi Perfil', href: '/profile', icon: FiUser },
+    // Quitar 'Mis PNRs' y 'Historial de Comandos' que ahora están en el perfil
     { name: 'Leaderboard', href: '/leaderboard', icon: FiAward },
     { name: 'Ayuda', href: '/help', icon: FiHelpCircle },
     { name: 'Configuración', href: '/settings', icon: FiSliders },
@@ -94,7 +94,7 @@ export default function DashboardSidebar({ userRole }) {
                   </div>
                   <div className="text-xs font-medium text-gray-300">
                     {isSpectator ? 'Solo lectura' : 
-                     userRole === 'admin' ? 'Acceso completo al sistema' : 'Acceso limitado'}
+                     userRole === 'admin' ? 'Acceso completo al sistema' : ''}
                   </div>
                 </div>
               </div>

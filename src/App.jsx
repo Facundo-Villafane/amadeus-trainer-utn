@@ -127,19 +127,12 @@ export default function App() {
           />
           
           {/* Rutas solo para usuarios autenticados (no espectadores) */}
-          <Route 
-            path="/command-history" 
-            element={
-              <AuthenticatedOnlyRoute>
-                <CommandHistory />
-              </AuthenticatedOnlyRoute>
-            } 
-          />
+          // Rutas de perfil centralizado
           <Route 
             path="/profile" 
             element={
               <AuthenticatedOnlyRoute>
-                <UserProfile />
+                <UserProfile initialTab="personal" />
               </AuthenticatedOnlyRoute>
             } 
           />
@@ -147,7 +140,15 @@ export default function App() {
             path="/my-pnrs" 
             element={
               <AuthenticatedOnlyRoute>
-                <MyPNRs />
+                <UserProfile initialTab="pnrs" />
+              </AuthenticatedOnlyRoute>
+            } 
+          />
+          <Route 
+            path="/command-history" 
+            element={
+              <AuthenticatedOnlyRoute>
+                <UserProfile initialTab="commands" />
               </AuthenticatedOnlyRoute>
             } 
           />
