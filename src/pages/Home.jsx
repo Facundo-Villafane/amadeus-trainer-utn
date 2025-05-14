@@ -10,13 +10,16 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gray-100">
       {/* Hero Section */}
-      <div className="bg-amadeus-primary text-white">
+      <div className="bg-amadeus-dark text-white">
         <div className="container mx-auto py-16 px-4 sm:px-6 lg:px-8">
           <div className="max-w-4xl mx-auto text-center">
-            <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl lg:text-6xl">
-              Mozart Trainer
+            <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl lg:text-9xl">
+              <span className="font-leckerli font-extralight">Mozart</span>
             </h1>
-            <p className="mt-6 text-xl max-w-3xl mx-auto">
+            <p className="mt-2 text-xl max-w-3xl mx-auto">
+              GDS Training Simulator
+            </p>
+            <p className="mt-24 text-xl max-w-3xl mx-auto">
               Plataforma educativa para la asignatura de Billetaje y Reservas de la Tecnicatura Universitaria en Gestión Aeronáutica - UTN
             </p>
             <div className="mt-6 text-lg max-w-3xl mx-auto">

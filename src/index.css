@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Leckerli+One&display=swap');
 @import "tailwindcss";
 
 
@@ -9,6 +10,7 @@
     --color-amadeus-accent: #ffb700;
 
     --font-mono: 'Courier New', Courier, monospace;
+    --font-leckerli: 'Leckerli One', cursive;
 }
 
 @layer base {
