@@ -33,10 +33,7 @@ export default function Dashboard() {
         
         <main className="flex-1 overflow-y-auto bg-gray-100 p-4">
           <div className="max-w-7xl mx-auto">
-            <h1 className="text-2xl font-semibold text-gray-900">Terminal Mozart</h1>
-            <p className="mt-1 text-sm text-gray-500">
-              Ingresa comandos en formato Mozart para practicar y aprender.
-            </p>
+            
             
             <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
               {/* Terminal */}

@@ -18,7 +18,7 @@ export default function DashboardHeader({ user, onLogout }) {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center py-3">
         <div className="flex items-center">
           <Link to="/dashboard" className="text-xl font-bold text-amadeus-primary">
-            Mozart Trainer
+            
           </Link>
         </div>
         
