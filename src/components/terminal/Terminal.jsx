@@ -1,4 +1,4 @@
-// Modificación para Terminal.jsx
+// src/components/terminal/Terminal.jsx
 import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { db } from '../../services/firebase';
@@ -7,8 +7,8 @@ import { commandParser } from '../../utils/commandParser';
 import TerminalLine from './TerminalLine';
 import { FiTerminal } from 'react-icons/fi';
 import experienceService from '../../services/experienceService';
-import SeatmapModal from './SeatmapModal'; // Agregar esta importación
-import { currentSeatmapRequest } from '../../utils/commandParser/commands/seatmap'; // Agregar esta importación
+import SeatmapModal from './SeatmapModal';
+import { currentSeatmapRequest } from '../../utils/commandParser/commands/seatmap';
 
 export default function Terminal() {
   const [input, setInput] = useState('');
@@ -68,6 +68,7 @@ export default function Terminal() {
     if (currentUser) {
       const savedHistory = localStorage.getItem(`terminal_history_${currentUser.uid}`);
       const savedCommandHistory = localStorage.getItem(`command_history_${currentUser.uid}`);
+      const welcomeShown = localStorage.getItem(`welcome_shown_${currentUser.uid}`);
       
       if (savedHistory) {
         try {
@@ -85,6 +86,11 @@ export default function Terminal() {
         } catch (error) {
           console.error('Error al cargar historial de comandos guardado:', error);
         }
+      }
+      
+      // Leer el estado de welcomeShown desde localStorage
+      if (welcomeShown === 'true') {
+        welcomeShownRef.current = true;
       }
     }
   }, [currentUser]);
@@ -142,8 +148,13 @@ export default function Terminal() {
     if (!welcomeShownRef.current) {
       addLine("Bienvenido a Mozart Terminal. Ingresa 'HELP' o 'HE' para ver los comandos disponibles.", 'output');
       welcomeShownRef.current = true;
+      
+      // Guardar en localStorage que se ha mostrado el mensaje de bienvenida
+      if (currentUser) {
+        localStorage.setItem(`welcome_shown_${currentUser.uid}`, 'true');
+      }
     }
-  }, []);
+  }, [currentUser]);
 
   // Foco automático en el input cuando el componente se monta
   useEffect(() => {
