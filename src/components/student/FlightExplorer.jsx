@@ -20,12 +20,15 @@ export default function FlightExplorer() {
     const [flightsPerPage] = useState(20);  // Aumentado de 10 a 20
     const [maxResultsLimit, setMaxResultsLimit] = useState(1000);  // Aumentado de 500 a 1000
     
+    // Obtener la fecha actual en formato YYYY-MM-DD para los filtros de fecha
+    const today = new Date().toISOString().split('T')[0];
+    
     // Estados para filtros
     const [filters, setFilters] = useState({
       origin: '',
       destination: '',
       airline: '',
-      dateFrom: '',
+      dateFrom: today, // Inicializar con la fecha actual
       dateTo: '',
       hasStops: 'all', // 'all', 'direct', 'connections'
       sortBy: 'departure_date' // Campo por el cual ordenar resultados
@@ -139,6 +142,19 @@ export default function FlightExplorer() {
           flightsQuery = query(flightsQuery, where('airline_code', '==', filters.airline));
         }
         
+        // Aplicar filtro de fecha mínima por defecto (si no se ha especificado)
+        // Formato de fecha en Firestore: DD/MM/YYYY
+        const todayFirestore = new Date().toLocaleDateString('es-ES', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric'
+        }).replace(/\//g, '/');
+        
+        // Si no hay filtros específicos de fecha, filtrar por fecha >= hoy
+        if (!filters.dateFrom && !filters.dateTo) {
+          flightsQuery = query(flightsQuery, where('departure_date', '>=', todayFirestore));
+        }
+        
         // No se puede filtrar por fecha y otros campos al mismo tiempo en Firestore sin índices compuestos
         // Haremos el filtrado de fechas en el cliente
         
@@ -190,6 +206,7 @@ export default function FlightExplorer() {
         
         // Informar si se alcanzó el límite
         if (querySnapshot.docs.length >= maxResultsLimit) {
+          console.log(`Se alcanzó el límite máximo de ${maxResultsLimit} resultados. Utiliza filtros más específicos para ver más vuelos.`);
           
         }
       } catch (error) {
@@ -265,7 +282,7 @@ export default function FlightExplorer() {
         origin: '',
         destination: '',
         airline: '',
-        dateFrom: '',
+        dateFrom: today, // Mantener la fecha actual como mínimo
         dateTo: '',
         hasStops: 'all',
         sortBy: 'departure_date'
