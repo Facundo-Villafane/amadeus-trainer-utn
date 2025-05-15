@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router';
 import { FiDatabase, FiMonitor, FiBook, FiUser, FiUsers, FiBarChart2, FiSettings, FiHelpCircle, FiAirplay, FiSliders, FiGrid, FiEye, FiAward } from 'react-icons/fi';
 import PropTypes from 'prop-types';
 import { useAuth } from '../../hooks/useAuth';
+import { SlPlane } from 'react-icons/sl';
 
 function classNames(...classes) {
   return classes.filter(Boolean).join(' ');
@@ -17,6 +18,7 @@ export default function DashboardSidebar({ userRole }) {
   const spectatorNavigation = [
     { name: 'Terminal', href: '/dashboard', icon: FiMonitor },
     { name: 'Leaderboard', href: '/leaderboard', icon: FiAward },
+    { name: 'Explorador de Vuelos', href: '/flights', icon: SlPlane },
     { name: 'Ayuda', href: '/help', icon: FiHelpCircle },
   ];
   
@@ -26,8 +28,10 @@ export default function DashboardSidebar({ userRole }) {
     { name: 'Mi Perfil', href: '/profile', icon: FiUser },
     // Quitar 'Mis PNRs' y 'Historial de Comandos' que ahora están en el perfil
     { name: 'Leaderboard', href: '/leaderboard', icon: FiAward },
+    { name: 'Explorador de Vuelos', href: '/flights', icon: SlPlane },
     { name: 'Ayuda', href: '/help', icon: FiHelpCircle },
     { name: 'Configuración', href: '/settings', icon: FiSliders },
+    
   ];
   
   // Usar navegación de espectador si está en modo espectador

@@ -19,6 +19,7 @@ import MyPNRs from './pages/MyPNRs';
 import Leaderboard from './pages/Leaderboard';
 import Help from './pages/Help';
 import Settings from './pages/Settings'; // Nueva página de configuración
+import FlightExplorerPage from './pages/FlightExplorerPage';
 
 // Páginas de administrador
 import AdminUsers from './pages/admin/Users';
@@ -122,6 +123,14 @@ export default function App() {
             element={
               <PrivateRoute>
                 <Leaderboard />
+              </PrivateRoute>
+            } 
+          />
+          <Route 
+            path="/flights" 
+            element={
+              <PrivateRoute>
+                <FlightExplorerPage />
               </PrivateRoute>
             } 
           />
