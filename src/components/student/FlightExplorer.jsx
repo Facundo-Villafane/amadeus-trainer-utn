@@ -122,11 +122,7 @@ export default function FlightExplorer() {
           filters.dateTo || 
           filters.hasStops !== 'all';
         
-        // Si no hay filtros aplicados, mostrar un mensaje recomendando usar filtros
-        if (!hasFilters && !window.confirm('Estás a punto de cargar todos los vuelos sin filtros, lo que puede ser lento. ¿Quieres continuar? Te recomendamos usar filtros para una mejor experiencia.')) {
-          setLoading(false);
-          return;
-        }
+        
         
         let flightsQuery = query(collection(db, 'flights'));
         
