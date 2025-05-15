@@ -1,6 +1,6 @@
 // src/components/dashboard/DashboardSidebar.jsx
 import { Link, useLocation } from 'react-router';
-import { FiMonitor, FiBook, FiUser, FiUsers, FiBarChart2, FiSettings, FiHelpCircle, FiAirplay, FiSliders, FiGrid, FiEye, FiAward } from 'react-icons/fi';
+import { FiDatabase, FiMonitor, FiBook, FiUser, FiUsers, FiBarChart2, FiSettings, FiHelpCircle, FiAirplay, FiSliders, FiGrid, FiEye, FiAward } from 'react-icons/fi';
 import PropTypes from 'prop-types';
 import { useAuth } from '../../hooks/useAuth';
 
@@ -40,7 +40,8 @@ export default function DashboardSidebar({ userRole }) {
       { name: 'Gestión de Comisiones', href: '/admin/commissions', icon: FiGrid },
       { name: 'Gestión de Usuarios', href: '/admin/users', icon: FiUsers },
       { name: 'Gestión de Vuelos', href: '/admin/flights', icon: FiAirplay },
-      { name: 'Configuración Sistema', href: '/admin/settings', icon: FiSettings }
+      { name: 'Configuración Sistema', href: '/admin/settings', icon: FiSettings },
+      { name: 'Datos Maestros', href: '/admin/data-management', icon: FiDatabase },
     ];
   }
 

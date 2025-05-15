@@ -27,7 +27,7 @@ import AdminFlights from './pages/admin/Flights';
 import AdminCommissions from './pages/admin/Commissions';
 import UserCommandHistoryPage from './pages/admin/UserCommandHistory';
 import UserPNRsPage from './pages/admin/UserPNRsPage';
-
+import DataManagementPage from './pages/admin/DataManagementPage';
 // Páginas de error
 import NotFound from './pages/NotFound';
 
@@ -209,6 +209,14 @@ export default function App() {
             element={
               <AdminRoute>
                 <AdminFlights />
+              </AdminRoute>
+            } 
+          />
+          <Route 
+            path="/admin/data-management" 
+            element={
+              <AdminRoute>
+                <DataManagementPage />
               </AdminRoute>
             } 
           />
