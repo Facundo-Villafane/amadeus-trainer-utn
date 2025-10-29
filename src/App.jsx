@@ -12,6 +12,7 @@ import Login from './components/auth/Login';
 import Signup from './components/auth/Signup';
 
 // Páginas privadas
+import HomeNew from './pages/Home_New';
 import Dashboard from './pages/Dashboard';
 import CommandHistory from './pages/CommandHistory';
 import UserProfile from './pages/UserProfile';
@@ -29,6 +30,10 @@ import AdminCommissions from './pages/admin/Commissions';
 import UserCommandHistoryPage from './pages/admin/UserCommandHistory';
 import UserPNRsPage from './pages/admin/UserPNRsPage';
 import DataManagementPage from './pages/admin/DataManagementPage';
+import ReleaseNotesManagement from './pages/admin/ReleaseNotesManagement';
+import AnnouncementsManagement from './pages/admin/AnnouncementsManagement';
+import BugReportsManagement from './pages/admin/BugReportsManagement';
+import MyBugReports from './pages/MyBugReports';
 // Páginas de error
 import NotFound from './pages/NotFound';
 
@@ -100,15 +105,23 @@ export default function App() {
           <Route path="/" element={<Home />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
-          
+
           {/* Rutas protegidas - accesibles por usuarios y espectadores */}
-          <Route 
-            path="/dashboard" 
+          <Route
+            path="/home"
+            element={
+              <PrivateRoute>
+                <HomeNew />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/dashboard"
             element={
               <PrivateRoute>
                 <Dashboard />
               </PrivateRoute>
-            } 
+            }
           />
           <Route 
             path="/help" 
@@ -161,15 +174,23 @@ export default function App() {
               </AuthenticatedOnlyRoute>
             } 
           />
-          <Route 
-            path="/settings" 
+          <Route
+            path="/settings"
             element={
               <AuthenticatedOnlyRoute>
                 <Settings />
               </AuthenticatedOnlyRoute>
-            } 
+            }
           />
-          
+          <Route
+            path="/bug-reports"
+            element={
+              <AuthenticatedOnlyRoute>
+                <MyBugReports />
+              </AuthenticatedOnlyRoute>
+            }
+          />
+
           {/* Rutas de administrador */}
           <Route 
             path="/admin/commissions" 
@@ -221,15 +242,39 @@ export default function App() {
               </AdminRoute>
             } 
           />
-          <Route 
-            path="/admin/data-management" 
+          <Route
+            path="/admin/data-management"
             element={
               <AdminRoute>
                 <DataManagementPage />
               </AdminRoute>
-            } 
+            }
           />
-          
+          <Route
+            path="/admin/release-notes"
+            element={
+              <AdminRoute>
+                <ReleaseNotesManagement />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/admin/announcements"
+            element={
+              <AdminRoute>
+                <AnnouncementsManagement />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/admin/bug-reports"
+            element={
+              <AdminRoute>
+                <BugReportsManagement />
+              </AdminRoute>
+            }
+          />
+
           {/* Ruta 404 */}
           <Route path="*" element={<NotFound />} />
         </Routes>

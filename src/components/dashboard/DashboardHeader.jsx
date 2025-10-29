@@ -5,6 +5,7 @@ import { Link } from 'react-router';
 import { FiChevronDown, FiUser, FiSettings, FiLogOut, FiEye } from 'react-icons/fi';
 import PropTypes from 'prop-types';
 import { useAuth } from '../../hooks/useAuth';
+import { useLatestVersion } from '../../hooks/useLatestVersion';
 
 function classNames(...classes) {
   return classes.filter(Boolean).join(' ');
@@ -12,16 +13,11 @@ function classNames(...classes) {
 
 export default function DashboardHeader({ user, onLogout }) {
   const { isSpectator } = useAuth();
-  
+  const { version } = useLatestVersion();
+
   return (
     <header className="bg-white shadow">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center py-3">
-        <div className="flex items-center">
-          <Link to="/dashboard" className="text-xl font-bold text-amadeus-primary">
-            
-          </Link>
-        </div>
-        
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-end items-center py-3">
         <div className="flex items-center space-x-4">
           {/* User Dropdown */}
           <Menu as="div" className="relative inline-block text-left">

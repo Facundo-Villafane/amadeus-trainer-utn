@@ -1,8 +1,9 @@
 // src/components/dashboard/DashboardSidebar.jsx
 import { Link, useLocation } from 'react-router';
-import { FiDatabase, FiMonitor, FiBook, FiUser, FiUsers, FiBarChart2, FiSettings, FiHelpCircle, FiAirplay, FiSliders, FiGrid, FiEye, FiAward } from 'react-icons/fi';
+import { FiDatabase, FiMonitor, FiBook, FiUser, FiUsers, FiBarChart2, FiSettings, FiHelpCircle, FiAirplay, FiSliders, FiGrid, FiEye, FiAward, FiHome, FiAlertCircle } from 'react-icons/fi';
 import PropTypes from 'prop-types';
 import { useAuth } from '../../hooks/useAuth';
+import { useLatestVersion } from '../../hooks/useLatestVersion';
 import { SlPlane } from 'react-icons/sl';
 
 function classNames(...classes) {
@@ -12,26 +13,30 @@ function classNames(...classes) {
 export default function DashboardSidebar({ userRole }) {
   const location = useLocation();
   const { isSpectator } = useAuth();
+  const { version } = useLatestVersion();
   const isAdmin = userRole === 'admin';
   
   // Navegación para espectadores
   const spectatorNavigation = [
+    { name: 'Inicio', href: '/home', icon: FiHome },
     { name: 'Terminal', href: '/dashboard', icon: FiMonitor },
     { name: 'Leaderboard', href: '/leaderboard', icon: FiAward },
     { name: 'Explorador de Vuelos', href: '/flights', icon: SlPlane },
     { name: 'Ayuda', href: '/help', icon: FiHelpCircle },
   ];
-  
+
   // Navegación para usuarios autenticados
   const userNavigation = [
+    { name: 'Inicio', href: '/home', icon: FiHome },
     { name: 'Terminal', href: '/dashboard', icon: FiMonitor },
     { name: 'Mi Perfil', href: '/profile', icon: FiUser },
     // Quitar 'Mis PNRs' y 'Historial de Comandos' que ahora están en el perfil
     { name: 'Leaderboard', href: '/leaderboard', icon: FiAward },
     { name: 'Explorador de Vuelos', href: '/flights', icon: SlPlane },
+    { name: 'Reportar Error', href: '/bug-reports', icon: FiAlertCircle },
     { name: 'Ayuda', href: '/help', icon: FiHelpCircle },
     { name: 'Configuración', href: '/settings', icon: FiSliders },
-    
+
   ];
   
   // Usar navegación de espectador si está en modo espectador
@@ -41,6 +46,9 @@ export default function DashboardSidebar({ userRole }) {
   if (isAdmin && !isSpectator) {
     navigation = [
       ...navigation,
+      { name: 'Gestión de Avisos', href: '/admin/announcements', icon: FiBarChart2 },
+      { name: 'Gestión de Versiones', href: '/admin/release-notes', icon: FiBook },
+      { name: 'Gestión de Bugs', href: '/admin/bug-reports', icon: FiAlertCircle },
       { name: 'Gestión de Comisiones', href: '/admin/commissions', icon: FiGrid },
       { name: 'Gestión de Usuarios', href: '/admin/users', icon: FiUsers },
       { name: 'Gestión de Vuelos', href: '/admin/flights', icon: FiAirplay },
@@ -54,9 +62,10 @@ export default function DashboardSidebar({ userRole }) {
       <div className="flex flex-col w-64">
         <div className="flex flex-col h-0 flex-1 bg-amadeus-dark">
           <div className="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto">
-            <div className="flex items-center flex-shrink-0 px-4">
+            <Link to="/home" className="flex flex-col items-start flex-shrink-0 px-4 hover:opacity-80 transition-opacity">
               <span className="font-leckerli text-white text-6xl font-extralight">Mozart</span>
-            </div>
+              <span className="text-xs text-gray-400 font-mono ml-1">v{version}</span>
+            </Link>
             <nav className="mt-5 flex-1 px-2 space-y-1">
               {navigation.map((item) => (
                 <Link

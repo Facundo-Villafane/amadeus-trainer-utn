@@ -1,0 +1,107 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Función auxiliar para verificar si el usuario está autenticado
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Función auxiliar para verificar si el usuario actual es el propietario del documento
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Función auxiliar para verificar si el usuario es administrador
+    function isAdmin() {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Reglas para la colección de usuarios
+    match /users/{userId} {
+      // Permitir a los usuarios leer su propio documento completo
+      allow read: if isOwner(userId);
+      // Permitir a cualquier usuario autenticado leer todos los perfiles para el leaderboard
+      allow read: if isAuthenticated();
+      // Permitir a los usuarios actualizar su propio documento, excepto el campo 'role'
+      allow update: if isOwner(userId) &&
+                     !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']);
+      // Solo los administradores pueden cambiar el campo 'role'
+      allow update: if isAdmin();
+      // Permitir crear documentos de usuario al registrarse
+      allow create: if isOwner(userId);
+    }
+
+    // Reglas para el historial de comandos
+    match /commandHistory/{docId} {
+      // Los usuarios pueden leer sus propios registros de comandos
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      // Los usuarios pueden crear sus propios registros de comandos
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+    }
+
+    // Reglas para PNRs
+    match /pnrs/{pnrId} {
+      // Todos los usuarios autenticados pueden leer PNRs
+      allow read: if isAuthenticated();
+      // El resto de las reglas se mantienen igual
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+
+    // Reglas para vuelos
+    match /flights/{flightId} {
+      // Todos los usuarios pueden leer vuelos
+      allow read: if isAuthenticated();
+      // Solo los administradores pueden crear, actualizar o eliminar vuelos
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Reglas para comisiones - ACTUALIZADA
+    match /commissions/{commissionId} {
+      // Permitir lectura a todos para verificación de código durante registro
+      allow read: if true;
+
+      // Permitir actualización solo para incrementar currentStudents y agregar el usuario a la lista de estudiantes
+      allow update: if isAuthenticated() &&
+               request.resource.data.diff(resource.data).affectedKeys().hasOnly(['currentStudents', 'students']) &&
+               request.resource.data.currentStudents == resource.data.currentStudents + 1 &&
+               request.resource.data.students.hasAll(resource.data.students) &&
+               request.resource.data.students.size() == resource.data.students.size() + 1;
+
+      // Solo los administradores pueden crear o eliminar comisiones, o hacer otras actualizaciones
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin();
+    }
+
+    // Reglas para configuraciones del sistema
+    match /system/{docId} {
+      // Solo los administradores pueden leer y escribir configuraciones del sistema
+      allow read, write: if isAdmin();
+      // Todos los usuarios pueden leer configuraciones pero no escribir
+      allow read: if isAuthenticated();
+    }
+
+    // Reglas para Release Notes - NUEVA
+    match /releaseNotes/{noteId} {
+      // Todos los usuarios autenticados pueden leer las release notes
+      allow read: if isAuthenticated();
+      // Solo los administradores pueden crear, actualizar o eliminar release notes
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /cities/{docId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAdmin();
+    }
+    match /airports/{docId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAdmin();
+    }
+    match /airlines/{docId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAdmin();
+    }
+  }
+}

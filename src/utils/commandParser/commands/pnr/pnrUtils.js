@@ -58,15 +58,29 @@ export function formatPNRResponse(pnr) {
   // Mostrar contactos
   if (pnr.contacts && pnr.contacts.length > 0) {
     pnr.contacts.forEach((contact) => {
-      response += `${elementNumber} AP ${contact.city} ${contact.phone}-${contact.type}\n`;
+      let contactLine = `${elementNumber} AP ${contact.city} ${contact.phone}-${contact.type}`;
+
+      // Añadir referencia al pasajero si existe
+      if (contact.passengerNumber) {
+        contactLine += `/P${contact.passengerNumber}`;
+      }
+
+      response += `${contactLine}\n`;
       elementNumber++;
     });
   }
-  
+
   // Mostrar contactos de correo electrónico
   if (pnr.emailContacts && pnr.emailContacts.length > 0) {
     pnr.emailContacts.forEach((contact) => {
-      response += `${elementNumber} APE ${contact.email}\n`;
+      let emailLine = `${elementNumber} APE ${contact.email}`;
+
+      // Añadir referencia al pasajero si existe
+      if (contact.passengerNumber) {
+        emailLine += `/P${contact.passengerNumber}`;
+      }
+
+      response += `${emailLine}\n`;
       elementNumber++;
     });
   }
@@ -267,15 +281,29 @@ export function formatERResponse(pnr) {
   // Mostrar contactos
   if (pnr.contacts && pnr.contacts.length > 0) {
     pnr.contacts.forEach((contact) => {
-      response += `${elementNumber} AP ${contact.city} ${contact.phone}-${contact.type}\n`;
+      let contactLine = `${elementNumber} AP ${contact.city} ${contact.phone}-${contact.type}`;
+
+      // Añadir referencia al pasajero si existe
+      if (contact.passengerNumber) {
+        contactLine += `/P${contact.passengerNumber}`;
+      }
+
+      response += `${contactLine}\n`;
       elementNumber++;
     });
   }
-  
+
   // Mostrar contactos de correo electrónico
   if (pnr.emailContacts && pnr.emailContacts.length > 0) {
     pnr.emailContacts.forEach((contact) => {
-      response += `${elementNumber} APE ${contact.email}\n`;
+      let emailLine = `${elementNumber} APE ${contact.email}`;
+
+      // Añadir referencia al pasajero si existe
+      if (contact.passengerNumber) {
+        emailLine += `/P${contact.passengerNumber}`;
+      }
+
+      response += `${emailLine}\n`;
       elementNumber++;
     });
   }

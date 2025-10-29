@@ -25,7 +25,7 @@ export default function Signup() {
       setLoading(true);
       await signup(email, password, displayName);
       toast.success('Cuenta creada exitosamente');
-      navigate('/dashboard');
+      navigate('/home');
     } catch (error) {
       console.error('Error al registrarse:', error);
       
@@ -49,7 +49,7 @@ export default function Signup() {
       setLoading(true);
       await loginWithGoogle();
       toast.success('Registro con Google exitoso');
-      navigate('/dashboard');
+      navigate('/home');
     } catch (error) {
       console.error('Error al registrarse con Google:', error);
       toast.error('Error al registrarse con Google');

@@ -225,13 +225,54 @@ export default function EnhancedFlightScheduleGenerator({ flight, onClose, onCom
     }
   };
 
-  // Función para calcular fecha de llegada basada en fecha/hora de salida y duración
-  const calculateArrivalDate = (departureDate, departureTime, durationHours) => {
-    // Convertir fecha y hora de salida a un objeto Date
-    const [day, month, year] = departureDate.split('/').map(num => parseInt(num));
-    const [hours, minutes] = departureTime.split(':').map(num => parseInt(num));
+  // Modificación segura para calculateArrivalDate
+const calculateArrivalDate = (departureDate, departureTime, durationHours) => {
+  try {
+    // Verificar que los parámetros son válidos
+    if (!departureDate || !departureTime || durationHours === undefined) {
+      console.warn('Parámetros incompletos para calculateArrivalDate', { departureDate, departureTime, durationHours });
+      return ''; // Devolver fecha vacía si faltan datos
+    }
     
+    // Convertir fecha y hora de salida a un objeto Date
+    let day, month, year;
+    
+    // Intentar dividir la fecha según el formato (D/M/YYYY)
+    try {
+      [day, month, year] = departureDate.split('/').map(num => parseInt(num, 10));
+      
+      // Verificar que los valores son válidos
+      if (isNaN(day) || isNaN(month) || isNaN(year)) {
+        throw new Error('Formato de fecha inválido');
+      }
+    } catch (error) {
+      console.warn('Error al procesar la fecha de salida:', error);
+      return ''; // Devolver fecha vacía en caso de error
+    }
+    
+    // Procesar la hora
+    let hours = 0, minutes = 0;
+    try {
+      [hours, minutes] = departureTime.split(':').map(num => parseInt(num, 10));
+      
+      // Verificar que los valores son válidos
+      if (isNaN(hours) || isNaN(minutes)) {
+        throw new Error('Formato de hora inválido');
+      }
+    } catch (error) {
+      console.warn('Error al procesar la hora de salida:', error);
+      hours = 0;
+      minutes = 0;
+    }
+    
+    // Crear fecha de salida (mes - 1 porque en JS los meses van de 0-11)
     const departureDateTime = new Date(year, month - 1, day, hours, minutes);
+    
+    // Validar que la fecha es válida
+    if (isNaN(departureDateTime.getTime())) {
+      console.warn('Fecha/hora de salida inválida');
+      return '';
+    }
     
     // Calcular fecha y hora de llegada añadiendo la duración
     const durationMs = durationHours * 60 * 60 * 1000;
@@ -239,7 +280,11 @@ export default function EnhancedFlightScheduleGenerator({ flight, onClose, onCom
     
     // Formatear fecha de llegada: D/M/YYYY
     return `${arrivalDateTime.getDate()}/${arrivalDateTime.getMonth() + 1}/${arrivalDateTime.getFullYear()}`;
-  };
+  } catch (error) {
+    console.error('Error general en calculateArrivalDate:', error);
+    return ''; // Devolver fecha vacía en caso de error general
+  }
+};
 
   // Componente para editar las clases disponibles
   const ClassesEditor = () => {

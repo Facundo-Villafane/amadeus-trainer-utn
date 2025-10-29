@@ -17,23 +17,34 @@ export async function handleAddContact(cmd, userId) {
     if (!currentPNR) {
       return "No hay un PNR en progreso. Primero debe seleccionar un vuelo con SS.";
     }
-    
+
     // Analizar el comando AP
-    // Formato: APCIUDADTELEFONO-TIPO
-    const contactPattern = /AP+([A-Z]{3})+([0-9-]+)(?:-([A-Z]))?/i;
+    // Formato: APCIUDADTELEFONO-TIPO/PNUMERO (el /PNUMERO es opcional)
+    const contactPattern = /AP+([A-Z]{3})+([0-9-]+)(?:-([A-Z]))?(?:\/P(\d+))?/i;
     const match = cmd.match(contactPattern);
-    
+
     if (!match) {
-      return "Formato incorrecto. Ejemplo: APBUE12345678-M";
+      return "Formato incorrecto. Ejemplo: APBUE12345678-M o APBUE12345678-M/P1";
     }
-    
-    const [, city, phone, type = 'H'] = match; // H (Home) por defecto
-    
+
+    const [, city, phone, type = 'H', passengerNumber] = match; // H (Home) por defecto
+
+    // Verificar si el número de pasajero es válido
+    if (passengerNumber) {
+      const paxNum = parseInt(passengerNumber, 10);
+      const totalPassengers = currentPNR.passengers ? currentPNR.passengers.length : 0;
+
+      if (paxNum < 1 || paxNum > totalPassengers) {
+        return `Error: Número de pasajero inválido. Debe estar entre 1 y ${totalPassengers}.`;
+      }
+    }
+
     // Crear objeto de contacto
     const contact = {
       city: city.toUpperCase(),
       phone: phone,
       type: type.toUpperCase(),
+      passengerNumber: passengerNumber ? parseInt(passengerNumber, 10) : undefined,
       addedAt: new Date()
     };
     
@@ -105,10 +116,10 @@ export async function handleReceivedFrom(cmd, userId) {
       return "No hay un PNR en progreso. Primero debe seleccionar un vuelo con SS.";
     }
     
-    // Formato: RF NOMBRE
-    const rfPattern = /RF\s+(.+)/i;
+    // Formato: RFNOMBRE (sin espacio)
+    const rfPattern = /RF(.+)/i;
     const match = cmd.match(rfPattern);
-    
+
     let receivedFrom = 'UNKNOWN';
     if (match && match[1]) {
       receivedFrom = match[1].trim().toUpperCase();
@@ -180,22 +191,33 @@ export async function handleAddEmailContact(cmd, userId) {
     if (!currentPNR) {
       return "No hay un PNR en progreso. Primero debe seleccionar un vuelo con SS.";
     }
-    
+
     // Analizar el comando APE-
-    // Formato: APE-CORREO@ELECTRONICO.COM
-    const emailPattern = /APE-([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i;
+    // Formato: APE-CORREO@ELECTRONICO.COM/PNUMERO (el /PNUMERO es opcional)
+    const emailPattern = /APE-([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})(?:\/P(\d+))?/i;
     const match = cmd.match(emailPattern);
-    
+
     if (!match) {
-      return "Formato incorrecto. Ejemplo: APE-usuario@ejemplo.com";
+      return "Formato incorrecto. Ejemplo: APE-usuario@ejemplo.com o APE-usuario@ejemplo.com/P1";
     }
-    
-    const [, email] = match;
-    
+
+    const [, email, passengerNumber] = match;
+
+    // Verificar si el número de pasajero es válido
+    if (passengerNumber) {
+      const paxNum = parseInt(passengerNumber, 10);
+      const totalPassengers = currentPNR.passengers ? currentPNR.passengers.length : 0;
+
+      if (paxNum < 1 || paxNum > totalPassengers) {
+        return `Error: Número de pasajero inválido. Debe estar entre 1 y ${totalPassengers}.`;
+      }
+    }
+
     // Crear objeto de contacto de correo
     const emailContact = {
       email: email.toLowerCase(),
       type: 'E', // E para Email
+      passengerNumber: passengerNumber ? parseInt(passengerNumber, 10) : undefined,
       addedAt: new Date()
     };
     

@@ -29,7 +29,7 @@ export default function Login() {
   const { login, loginWithGoogle, signup, enterSpectatorMode } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const from = location.state?.from?.pathname || '/dashboard';
+  const from = location.state?.from?.pathname || '/home';
 
   // Función para verificar el código de comisión
   const verifyCommissionCode = async () => {
@@ -103,7 +103,7 @@ export default function Login() {
       });
       
       toast.success('Registro completado exitosamente');
-      navigate('/dashboard');
+      navigate('/home');
     } catch (error) {
       console.error('Error al completar registro:', error);
       toast.error('Error al completar el registro');
@@ -258,7 +258,7 @@ export default function Login() {
       toast.success('Accediendo en modo espectador');
       
       // Navegar al dashboard
-      navigate('/dashboard');
+      navigate('/home');
     } catch (error) {
       console.error('Error al acceder como espectador:', error);
       setError('Error al acceder como espectador');
