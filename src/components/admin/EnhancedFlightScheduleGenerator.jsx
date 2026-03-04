@@ -1,9 +1,10 @@
 // src/components/admin/EnhancedFlightScheduleGenerator.jsx
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { collection, addDoc, getDocs, query, where, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { FiCalendar, FiCheck, FiLoader, FiLayers } from 'react-icons/fi';
 import toast from 'react-hot-toast';
+import { calculateArrival } from '../../utils/flightUtils';
 
 export default function EnhancedFlightScheduleGenerator({ flight, onClose, onComplete }) {
   const [startDate, setStartDate] = useState('');
@@ -20,40 +21,37 @@ export default function EnhancedFlightScheduleGenerator({ flight, onClose, onCom
   const [generating, setGenerating] = useState(false);
   const [stats, setStats] = useState({ total: 0, created: 0, skipped: 0 });
   const [progress, setProgress] = useState({ current: 0, total: 0 });
-  
+
   // Estado para configuración avanzada
   const [showAdvancedConfig, setShowAdvancedConfig] = useState(false);
   const [classAvailability, setClassAvailability] = useState({});
   const [hasStops, setHasStops] = useState(false);
   const [stops, setStops] = useState([]);
   const [includeClasses, setIncludeClasses] = useState(true);
-  
+
   // Inicializar clases basadas en la aerolínea
-  useState(() => {
+  useEffect(() => {
     if (flight?.airline_code) {
       let initialClasses = {};
-      
+
       // Configuraciones predefinidas por aerolínea
       const airlineConfigs = {
         IB: { J: 4, C: 4, D: 4, Y: 9, B: 9, H: 9, K: 9, L: 9, M: 9, V: 9 }, // Iberia
         BA: { F: 2, J: 4, W: 4, Y: 9, B: 9, M: 9, K: 9 },                   // British Airways
         AF: { P: 2, F: 2, J: 4, W: 4, Y: 9, B: 9, M: 9 },                   // Air France
         LH: { F: 2, A: 2, J: 4, C: 4, Y: 9, B: 9, M: 9, H: 9 },             // Lufthansa
-        // Añadir más aerolíneas según sea necesario
       };
-      
-      // Usar configuración de la aerolínea o predeterminada
+
       initialClasses = airlineConfigs[flight.airline_code] || { Y: 9, B: 9, M: 9 };
-      
-      // Si el vuelo ya tiene clases definidas, usarlas
+
       if (flight.class_availability && Object.keys(flight.class_availability).length > 0) {
         initialClasses = { ...flight.class_availability };
       }
-      
+
       setClassAvailability(initialClasses);
     }
   }, [flight]);
-  
+
   // Manejar cambios en la selección de días
   const handleDayChange = (day) => {
     setSelectedDays(prev => ({
@@ -61,23 +59,23 @@ export default function EnhancedFlightScheduleGenerator({ flight, onClose, onCom
       [day]: !prev[day]
     }));
   };
-  
+
   // Función para gestionar paradas/escalas
   const addStop = () => {
-    setStops([...stops, { 
-      airport_code: '', 
-      arrival_time: '', 
-      departure_time: '', 
+    setStops([...stops, {
+      airport_code: '',
+      arrival_time: '',
+      departure_time: '',
       ground_time: 60 // 60 minutos por defecto
     }]);
   };
-  
+
   const removeStop = (index) => {
     const newStops = [...stops];
     newStops.splice(index, 1);
     setStops(newStops);
   };
-  
+
   const updateStop = (index, field, value) => {
     const newStops = [...stops];
     newStops[index][field] = value;
@@ -132,7 +130,7 @@ export default function EnhancedFlightScheduleGenerator({ flight, onClose, onCom
 
       // Generar fechas
       const dates = generateDates();
-      
+
       if (dates.length === 0) {
         toast.error('No hay fechas para generar. Verifica las fechas y días seleccionados.');
         setGenerating(false);
@@ -141,20 +139,20 @@ export default function EnhancedFlightScheduleGenerator({ flight, onClose, onCom
 
       let created = 0;
       let skipped = 0;
-      
+
       // Inicializar progreso
       setProgress({ current: 0, total: dates.length });
 
       // Para cada fecha, crear un nuevo vuelo
       for (let i = 0; i < dates.length; i++) {
         const date = dates[i];
-        
+
         // Actualizar progreso
         setProgress({ current: i + 1, total: dates.length });
-        
-        // Formatear fecha como D/M/YYYY
-        const formattedDate = `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()}`;
-        
+
+        // Formatear fecha como YYYY-MM-DD (formato ISO estándar para Firestore)
+        const formattedDate = date.toISOString().split('T')[0];
+
         // Verificar si el vuelo ya existe para esta fecha
         const flightQuery = query(
           collection(db, 'flights'),
@@ -162,24 +160,30 @@ export default function EnhancedFlightScheduleGenerator({ flight, onClose, onCom
           where('airline_code', '==', flight.airline_code),
           where('departure_date', '==', formattedDate)
         );
-        
+
         const existingFlights = await getDocs(flightQuery);
-        
+
         if (existingFlights.empty) {
           // Crear nuevo vuelo con la misma información pero fecha diferente
+          const { arrival_date, arrival_time } = calculateArrival(
+            formattedDate,
+            flight.departure_time,
+            flight.duration_hours
+          );
+
           const newFlightData = {
             ...flight,
             departure_date: formattedDate,
-            // Recalcular arrival_date basado en duration_hours
-            arrival_date: calculateArrivalDate(formattedDate, flight.departure_time, flight.duration_hours),
+            arrival_date,
+            arrival_time,
             created_at: serverTimestamp()
           };
-          
+
           // Añadir información de clases si está habilitado
           if (includeClasses) {
             newFlightData.class_availability = classAvailability;
           }
-          
+
           // Añadir información de escalas si está habilitado
           if (hasStops && stops.length > 0) {
             newFlightData.stops = stops.length;
@@ -188,21 +192,21 @@ export default function EnhancedFlightScheduleGenerator({ flight, onClose, onCom
             newFlightData.stops = 0;
             newFlightData.connection_airports = [];
           }
-          
+
           // Añadir información de frecuencia
           const daysOfOperation = Object.entries(selectedDays)
             .filter(([_, selected]) => selected)
             .map(([day, _]) => day.charAt(0).toUpperCase())
             .join('');
-            
+
           newFlightData.days_of_operation = daysOfOperation || 'D'; // D = Diario si no hay días específicos
-          
+
           await addDoc(collection(db, 'flights'), newFlightData);
           created++;
         } else {
           skipped++;
         }
-        
+
         // Actualizar estadísticas mientras avanza
         setStats({
           total: dates.length,
@@ -212,7 +216,7 @@ export default function EnhancedFlightScheduleGenerator({ flight, onClose, onCom
       }
 
       toast.success(`Programación generada: ${created} vuelos creados, ${skipped} omitidos`);
-      
+
       // Notificar que se ha completado la generación
       if (onComplete) {
         onComplete();
@@ -225,73 +229,13 @@ export default function EnhancedFlightScheduleGenerator({ flight, onClose, onCom
     }
   };
 
-  // Modificación segura para calculateArrivalDate
-const calculateArrivalDate = (departureDate, departureTime, durationHours) => {
-  try {
-    // Verificar que los parámetros son válidos
-    if (!departureDate || !departureTime || durationHours === undefined) {
-      console.warn('Parámetros incompletos para calculateArrivalDate', { departureDate, departureTime, durationHours });
-      return ''; // Devolver fecha vacía si faltan datos
-    }
-    
-    // Convertir fecha y hora de salida a un objeto Date
-    let day, month, year;
-    
-    // Intentar dividir la fecha según el formato (D/M/YYYY)
-    try {
-      [day, month, year] = departureDate.split('/').map(num => parseInt(num, 10));
-      
-      // Verificar que los valores son válidos
-      if (isNaN(day) || isNaN(month) || isNaN(year)) {
-        throw new Error('Formato de fecha inválido');
-      }
-    } catch (error) {
-      console.warn('Error al procesar la fecha de salida:', error);
-      return ''; // Devolver fecha vacía en caso de error
-    }
-    
-    // Procesar la hora
-    let hours = 0, minutes = 0;
-    try {
-      [hours, minutes] = departureTime.split(':').map(num => parseInt(num, 10));
-      
-      // Verificar que los valores son válidos
-      if (isNaN(hours) || isNaN(minutes)) {
-        throw new Error('Formato de hora inválido');
-      }
-    } catch (error) {
-      console.warn('Error al procesar la hora de salida:', error);
-      hours = 0;
-      minutes = 0;
-    }
-    
-    // Crear fecha de salida (mes - 1 porque en JS los meses van de 0-11)
-    const departureDateTime = new Date(year, month - 1, day, hours, minutes);
-    
-    // Validar que la fecha es válida
-    if (isNaN(departureDateTime.getTime())) {
-      console.warn('Fecha/hora de salida inválida');
-      return '';
-    }
-    
-    // Calcular fecha y hora de llegada añadiendo la duración
-    const durationMs = durationHours * 60 * 60 * 1000;
-    const arrivalDateTime = new Date(departureDateTime.getTime() + durationMs);
-    
-    // Formatear fecha de llegada: D/M/YYYY
-    return `${arrivalDateTime.getDate()}/${arrivalDateTime.getMonth() + 1}/${arrivalDateTime.getFullYear()}`;
-  } catch (error) {
-    console.error('Error general en calculateArrivalDate:', error);
-    return ''; // Devolver fecha vacía en caso de error general
-  }
-};
 
   // Componente para editar las clases disponibles
   const ClassesEditor = () => {
     // Lista de clases comunes para mostrar
     const commonClasses = ['F', 'A', 'J', 'C', 'D', 'I', 'W', 'S', 'Y', 'B', 'M', 'H', 'K', 'L', 'Q', 'T', 'V', 'X'];
     const [newClass, setNewClass] = useState('');
-    
+
     const addClass = () => {
       if (newClass && !classAvailability[newClass]) {
         setClassAvailability({
@@ -301,24 +245,24 @@ const calculateArrivalDate = (departureDate, departureTime, durationHours) => {
         setNewClass('');
       }
     };
-    
+
     const removeClass = (classCode) => {
       const updatedClasses = { ...classAvailability };
       delete updatedClasses[classCode];
       setClassAvailability(updatedClasses);
     };
-    
+
     const updateAvailability = (classCode, value) => {
       setClassAvailability({
         ...classAvailability,
         [classCode]: parseInt(value, 10)
       });
     };
-    
+
     return (
       <div className="mt-4 border-t pt-4">
         <h4 className="text-sm font-medium text-gray-700 mb-2">Clases disponibles</h4>
-        
+
         <div className="grid grid-cols-4 gap-2 mb-3">
           {Object.entries(classAvailability).map(([classCode, seats]) => (
             <div key={classCode} className="flex items-center space-x-2 p-2 border rounded">
@@ -341,7 +285,7 @@ const calculateArrivalDate = (departureDate, departureTime, durationHours) => {
             </div>
           ))}
         </div>
-        
+
         <div className="flex items-center space-x-2">
           <select
             value={newClass}
@@ -367,7 +311,7 @@ const calculateArrivalDate = (departureDate, departureTime, durationHours) => {
       </div>
     );
   };
-  
+
   // Componente para editar las escalas
   const StopsEditor = () => {
     return (
@@ -382,7 +326,7 @@ const calculateArrivalDate = (departureDate, departureTime, durationHours) => {
             + Agregar escala
           </button>
         </div>
-        
+
         {stops.length === 0 ? (
           <p className="text-xs text-gray-500 mt-2">No hay escalas configuradas.</p>
         ) : (
@@ -399,7 +343,7 @@ const calculateArrivalDate = (departureDate, departureTime, durationHours) => {
                     Eliminar
                   </button>
                 </div>
-                
+
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <label className="block text-xs text-gray-700">Aeropuerto</label>
@@ -412,7 +356,7 @@ const calculateArrivalDate = (departureDate, departureTime, durationHours) => {
                       maxLength={3}
                     />
                   </div>
-                  
+
                   <div>
                     <label className="block text-xs text-gray-700">Tiempo en tierra (min)</label>
                     <input
@@ -423,7 +367,7 @@ const calculateArrivalDate = (departureDate, departureTime, durationHours) => {
                       className="w-full border rounded py-1 px-2 text-sm"
                     />
                   </div>
-                  
+
                   <div>
                     <label className="block text-xs text-gray-700">Llegada</label>
                     <input
@@ -433,7 +377,7 @@ const calculateArrivalDate = (departureDate, departureTime, durationHours) => {
                       className="w-full border rounded py-1 px-2 text-sm"
                     />
                   </div>
-                  
+
                   <div>
                     <label className="block text-xs text-gray-700">Salida</label>
                     <input
@@ -476,7 +420,7 @@ const calculateArrivalDate = (departureDate, departureTime, durationHours) => {
                 <p className="text-sm text-gray-500 mt-1">
                   Crea múltiples instancias del vuelo {flight.airline_code} {flight.flight_number} en diferentes fechas.
                 </p>
-                
+
                 <div className="mt-4 space-y-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
@@ -508,7 +452,7 @@ const calculateArrivalDate = (departureDate, departureTime, durationHours) => {
                       />
                     </div>
                   </div>
-                  
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Días de operación
@@ -523,21 +467,20 @@ const calculateArrivalDate = (departureDate, departureTime, durationHours) => {
                         { id: 'saturday', label: 'S' },
                         { id: 'sunday', label: 'D' }
                       ].map((day) => (
-                        <div 
+                        <div
                           key={day.id}
                           onClick={() => handleDayChange(day.id)}
-                          className={`flex items-center justify-center rounded-full w-8 h-8 cursor-pointer border ${
-                            selectedDays[day.id] 
-                              ? 'bg-amadeus-primary text-white border-amadeus-primary' 
+                          className={`flex items-center justify-center rounded-full w-8 h-8 cursor-pointer border ${selectedDays[day.id]
+                              ? 'bg-amadeus-primary text-white border-amadeus-primary'
                               : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-                          }`}
+                            }`}
                         >
                           {day.label}
                         </div>
                       ))}
                     </div>
                   </div>
-                  
+
                   {/* Botón para mostrar/ocultar configuración avanzada */}
                   <div>
                     <button
@@ -549,7 +492,7 @@ const calculateArrivalDate = (departureDate, departureTime, durationHours) => {
                       {showAdvancedConfig ? 'Ocultar configuración avanzada' : 'Mostrar configuración avanzada'}
                     </button>
                   </div>
-                  
+
                   {/* Configuración avanzada */}
                   {showAdvancedConfig && (
                     <div className="space-y-3">
@@ -566,10 +509,10 @@ const calculateArrivalDate = (departureDate, departureTime, durationHours) => {
                           Configurar clases disponibles
                         </label>
                       </div>
-                      
+
                       {/* Editor de clases disponibles */}
                       {includeClasses && <ClassesEditor />}
-                      
+
                       {/* Opción para incluir/excluir escalas */}
                       <div className="flex items-center mt-4">
                         <input
@@ -583,7 +526,7 @@ const calculateArrivalDate = (departureDate, departureTime, durationHours) => {
                           Este vuelo tiene escalas
                         </label>
                       </div>
-                      
+
                       {/* Editor de escalas */}
                       {hasStops && <StopsEditor />}
                     </div>
@@ -597,8 +540,8 @@ const calculateArrivalDate = (departureDate, departureTime, durationHours) => {
                     </div>
                     <div className="flex items-center">
                       <div className="w-full bg-gray-200 rounded-full h-2.5">
-                        <div 
-                          className="bg-amadeus-primary h-2.5 rounded-full" 
+                        <div
+                          className="bg-amadeus-primary h-2.5 rounded-full"
                           style={{ width: `${(progress.current / progress.total) * 100}%` }}
                         ></div>
                       </div>
@@ -633,11 +576,10 @@ const calculateArrivalDate = (departureDate, departureTime, durationHours) => {
               type="button"
               onClick={generateSchedule}
               disabled={generating || !startDate || !endDate || !Object.values(selectedDays).some(selected => selected)}
-              className={`w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 text-base font-medium text-white ${
-                generating || !startDate || !endDate || !Object.values(selectedDays).some(selected => selected)
+              className={`w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 text-base font-medium text-white ${generating || !startDate || !endDate || !Object.values(selectedDays).some(selected => selected)
                   ? 'bg-gray-300 cursor-not-allowed'
                   : 'bg-amadeus-primary hover:bg-amadeus-secondary focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amadeus-primary'
-              } sm:ml-3 sm:w-auto sm:text-sm`}
+                } sm:ml-3 sm:w-auto sm:text-sm`}
             >
               {generating ? (
                 <>
@@ -659,4 +601,5 @@ const calculateArrivalDate = (departureDate, departureTime, durationHours) => {
         </div>
       </div>
     </div>
-  );}
+  );
+}

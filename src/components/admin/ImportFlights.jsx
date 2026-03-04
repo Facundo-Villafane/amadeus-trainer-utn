@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { collection, addDoc, getDocs, query, where, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { processFlightData } from '../../utils/flightDataProcessor';
+import { normalizeLegacyDateToISO } from '../../utils/flightUtils';
 import { FiUpload, FiCheck, FiAlertTriangle, FiFile } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 
@@ -17,19 +18,19 @@ export default function ImportFlights({ onImportComplete }) {
   const handleFileChange = (e) => {
     setFileError(null);
     const file = e.target.files[0];
-    
+
     if (!file) {
       setSelectedFile(null);
       return;
     }
-    
+
     // Verificar que sea un archivo JSON
     if (file.type !== 'application/json' && !file.name.endsWith('.json')) {
       setFileError('El archivo debe ser de tipo JSON');
       setSelectedFile(null);
       return;
     }
-    
+
     setSelectedFile(file);
   };
 
@@ -39,53 +40,57 @@ export default function ImportFlights({ onImportComplete }) {
       toast.error('Selecciona un archivo JSON primero');
       return;
     }
-    
+
     try {
       setImporting(true);
       setStats({ total: 0, imported: 0, errors: 0 });
-      
+
       // Leer el archivo JSON
       const fileReader = new FileReader();
-      
+
       fileReader.onload = async (event) => {
         try {
           // Parsear el contenido JSON
           const flightData = JSON.parse(event.target.result);
-          
+
           if (!Array.isArray(flightData)) {
             throw new Error('El archivo debe contener un array de vuelos');
           }
-          
+
           // Procesar los datos para completar información faltante
           const processedFlights = processFlightData(flightData);
-          
+
           let imported = 0;
           let errors = 0;
-          
+
           // Inicializar progreso
           setProgress({ current: 0, total: processedFlights.length });
-          
+
           // Importar cada vuelo a Firestore
           for (let i = 0; i < processedFlights.length; i++) {
             const flight = processedFlights[i];
-            
+
             // Actualizar progreso
             setProgress({ current: i + 1, total: processedFlights.length });
-            
+
             try {
-              // Verificar si el vuelo ya existe
+              // Normalizar departure_date a ISO antes de verificar duplicados
+              const normalizedDate = normalizeLegacyDateToISO(flight.departure_date) || flight.departure_date;
+              const flightToSave = { ...flight, departure_date: normalizedDate };
+
+              // Verificar si el vuelo ya existe (con fecha normalizada)
               const flightQuery = query(
                 collection(db, 'flights'),
-                where('flight_number', '==', flight.flight_number),
-                where('departure_date', '==', flight.departure_date)
+                where('flight_number', '==', flightToSave.flight_number),
+                where('departure_date', '==', normalizedDate)
               );
-              
+
               const existingFlights = await getDocs(flightQuery);
-              
+
               if (existingFlights.empty) {
-                // Añadir el vuelo a Firestore
+                // Añadir el vuelo a Firestore con fecha normalizada
                 await addDoc(collection(db, 'flights'), {
-                  ...flight,
+                  ...flightToSave,
                   imported_at: serverTimestamp()
                 });
                 imported++;
@@ -93,7 +98,7 @@ export default function ImportFlights({ onImportComplete }) {
                 // El vuelo ya existe, lo saltamos
                 errors++;
               }
-              
+
               // Actualizar estadísticas mientras avanza
               setStats({
                 total: processedFlights.length,
@@ -103,7 +108,7 @@ export default function ImportFlights({ onImportComplete }) {
             } catch (error) {
               console.error('Error al importar vuelo:', error);
               errors++;
-              
+
               // Actualizar estadísticas con el error
               setStats({
                 total: processedFlights.length,
@@ -112,26 +117,26 @@ export default function ImportFlights({ onImportComplete }) {
               });
             }
           }
-          
+
           setStats({
             total: processedFlights.length,
             imported,
             errors
           });
-          
+
           toast.success(`Importación completada: ${imported} vuelos importados`);
-          
+
           // Notificar que la importación ha sido completada
           if (onImportComplete && typeof onImportComplete === 'function') {
             onImportComplete();
           }
-          
+
           // Limpiar el archivo seleccionado después de importar
           setSelectedFile(null);
           // Resetear el input de archivo
           const fileInput = document.getElementById('flight-json-file');
           if (fileInput) fileInput.value = '';
-          
+
         } catch (error) {
           console.error('Error al procesar el archivo JSON:', error);
           toast.error(`Error al procesar el archivo: ${error.message}`);
@@ -140,14 +145,14 @@ export default function ImportFlights({ onImportComplete }) {
           setImporting(false);
         }
       };
-      
+
       fileReader.onerror = () => {
         toast.error('Error al leer el archivo');
         setImporting(false);
       };
-      
+
       fileReader.readAsText(selectedFile);
-      
+
     } catch (error) {
       console.error('Error al importar vuelos:', error);
       toast.error('Error al importar vuelos');
@@ -162,17 +167,17 @@ export default function ImportFlights({ onImportComplete }) {
         <div className="mt-2 max-w-xl text-sm text-gray-500">
           <p>Selecciona un archivo JSON con datos de vuelos para importar a la base de datos.</p>
         </div>
-        
+
         <div className="mt-5">
           <div className="flex items-center justify-center space-x-6">
             <label className="relative cursor-pointer bg-white rounded-md font-medium text-amadeus-primary hover:text-amadeus-secondary">
               <span>Seleccionar archivo</span>
-              <input 
-                id="flight-json-file" 
-                name="flight-json-file" 
-                type="file" 
-                accept=".json,application/json" 
-                className="sr-only" 
+              <input
+                id="flight-json-file"
+                name="flight-json-file"
+                type="file"
+                accept=".json,application/json"
+                className="sr-only"
                 onChange={handleFileChange}
                 disabled={importing}
               />
@@ -181,15 +186,14 @@ export default function ImportFlights({ onImportComplete }) {
               type="button"
               onClick={importFromFile}
               disabled={importing || !selectedFile}
-              className={`inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white ${
-                !selectedFile ? 'bg-gray-400 cursor-not-allowed' : 'bg-amadeus-primary hover:bg-amadeus-secondary focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amadeus-primary'
-              }`}
+              className={`inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white ${!selectedFile ? 'bg-gray-400 cursor-not-allowed' : 'bg-amadeus-primary hover:bg-amadeus-secondary focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amadeus-primary'
+                }`}
             >
               <FiUpload className="-ml-1 mr-2 h-5 w-5" />
               {importing ? `Importando (${progress.current}/${progress.total})` : 'Importar Vuelos'}
             </button>
           </div>
-          
+
           {importing && (
             <div className="mt-4 p-3 bg-blue-50 rounded-md">
               <div className="text-sm text-blue-700 mb-2">
@@ -197,8 +201,8 @@ export default function ImportFlights({ onImportComplete }) {
               </div>
               <div className="flex items-center">
                 <div className="w-full bg-gray-200 rounded-full h-2.5">
-                  <div 
-                    className="bg-amadeus-primary h-2.5 rounded-full" 
+                  <div
+                    className="bg-amadeus-primary h-2.5 rounded-full"
                     style={{ width: `${(progress.current / progress.total) * 100}%` }}
                   ></div>
                 </div>
@@ -208,14 +212,14 @@ export default function ImportFlights({ onImportComplete }) {
               </div>
             </div>
           )}
-          
+
           {selectedFile && !importing && (
             <div className="mt-3 flex items-center text-sm text-gray-600">
               <FiFile className="flex-shrink-0 mr-1.5 h-5 w-5 text-gray-400" />
               <span>Archivo seleccionado: {selectedFile.name}</span>
             </div>
           )}
-          
+
           {fileError && (
             <div className="mt-2 text-sm text-red-600">
               <div className="flex items-center">
@@ -225,7 +229,7 @@ export default function ImportFlights({ onImportComplete }) {
             </div>
           )}
         </div>
-        
+
         {!importing && stats.total > 0 && (
           <div className="mt-3 text-sm">
             <div className="flex items-center text-green-600">

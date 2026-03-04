@@ -1,382 +1,515 @@
 // src/services/experienceService.js
-import { 
-  doc, 
-  updateDoc, 
-  increment, 
-  arrayUnion, 
+import {
+  doc,
+  updateDoc,
+  increment,
+  arrayUnion,
   getDoc,
   collection,
   query,
   orderBy,
   limit as firestoreLimit,
-  getDocs
+  getDocs,
+  where
 } from 'firebase/firestore';
 import { db } from './firebase';
+import xpEventBus from './xpEventBus';
+
+// ─── Icon references (string identifiers mapped to react-icons in UI) ─────────
+// Achievement icons are identified by string keys and resolved in the UI layer
+// to avoid importing react-icons here (service layer stays framework-agnostic).
+// Keys map to react-icons/fi unless noted.
+const ICON = {
+  TARGET: 'FiTarget',
+  CLIPBOARD: 'FiClipboard',
+  TERMINAL: 'FiTerminal',
+  BOOK_OPEN: 'FiBookOpen',
+  AWARD: 'FiAward',
+  ZAP: 'FiZap',
+  CHECK_CIRCLE: 'FiCheckCircle',
+  SEARCH: 'FiSearch',
+  MOON: 'FiMoon',
+  COFFEE: 'FiCoffee',
+  MAP: 'FiMap',
+  HOME: 'FiHome',
+  GLOBE: 'FiGlobe',
+  CALENDAR: 'FiCalendar',
+  SUN: 'FiSun',
+  CLOUD_SNOW: 'FiCloudSnow',
+  REPEAT: 'FiRepeat',
+  ROTATE_CW: 'FiRotateCw',
+  CLOCK: 'FiClock',
+  TRENDING_UP: 'FiTrendingUp',
+  STAR: 'FiStar',
+  USERS: 'FiUsers',
+  EYE: 'FiEye',
+  SHIELD: 'FiShield',
+  CODE: 'FiCode',
+  LAYERS: 'FiLayers',
+  ACTIVITY: 'FiActivity',
+  FLAG: 'FiFlag',
+};
 
 class ExperienceService {
-  // Sistema de niveles
+  // ── Levels (20, gender-neutral titles) ──────────────────────────────────────
   LEVELS = [
-    { level: 1, requiredXP: 0, title: 'Novato' },
-    { level: 2, requiredXP: 100, title: 'Principiante' },
-    { level: 3, requiredXP: 250, title: 'Aprendiz' },
-    { level: 4, requiredXP: 800, title: 'Intermedio' },
-    { level: 5, requiredXP: 1500, title: 'Avanzado' },
-    { level: 6, requiredXP: 2350, title: 'Experto' },
-    { level: 7, requiredXP: 4750, title: 'Maestro' },
-    { level: 8, requiredXP: 6000, title: 'Gran Maestro' },
-    { level: 9, requiredXP: 7500, title: 'Elite' },
-    { level: 10, requiredXP: 10000, title: 'Leyenda' }
+    { level: 1, requiredXP: 0, title: 'Cadete' },
+    { level: 2, requiredXP: 150, title: 'Aprendiz/a' },
+    { level: 3, requiredXP: 400, title: 'Auxiliar' },
+    { level: 4, requiredXP: 800, title: 'Asistente' },
+    { level: 5, requiredXP: 1_400, title: 'Agente' },
+    { level: 6, requiredXP: 2_200, title: 'Agente Senior' },
+    { level: 7, requiredXP: 3_200, title: 'Consultor/a' },
+    { level: 8, requiredXP: 4_500, title: 'Consultor/a Senior' },
+    { level: 9, requiredXP: 6_200, title: 'Especialista' },
+    { level: 10, requiredXP: 8_500, title: 'Especialista Senior' },
+    { level: 11, requiredXP: 11_500, title: 'Analista' },
+    { level: 12, requiredXP: 15_000, title: 'Analista Senior' },
+    { level: 13, requiredXP: 19_500, title: 'Supervisor/a' },
+    { level: 14, requiredXP: 25_000, title: 'Inspector/a' },
+    { level: 15, requiredXP: 32_000, title: 'Ejecutivo/a' },
+    { level: 16, requiredXP: 40_000, title: 'Gerente' },
+    { level: 17, requiredXP: 50_000, title: 'Director/a' },
+    { level: 18, requiredXP: 65_000, title: 'VP de Reservas' },
+    { level: 19, requiredXP: 85_000, title: 'GM Amadeus' },
+    { level: 20, requiredXP: 110_000, title: 'Leyenda' },
   ];
 
-  // Valores de XP por acción
+  // ── XP values ────────────────────────────────────────────────────────────────
   XP_VALUES = {
-    COMMAND_SUCCESS: 2,
-    COMMAND_ERROR: 1,
-    PNR_CREATED: 20,
-    PNR_FAST_CREATION: 25,
-    PNR_ERROR: 5,
-    ACHIEVEMENT_MULTIPLIER: 1
+    COMMAND_SUCCESS: 3,
+    COMMAND_ERROR: -2,   // deducted; floor is 0
+    PNR_CREATED: 30,   // only when ≥3 min since last PNR
+    PNR_SPAM_PENALTY: -5,   // PNR completed in <30 sec
+    PNR_ERROR: -3,   // error during PNR creation
+    DAILY_STREAK: 10,   // per day (max 7 consecutive)
+    // PNR_FAST_CREATION: removed — was the main farming exploit
+    ACHIEVEMENT_MULTIPLIER: 1,
   };
 
-  // Sistema de rareza
+  // ── Anti-farming state ────────────────────────────────────────────────────────
+  // In-memory for the session; persisted to Firestore for cross-session protection
+  _lastPNRCompletedAt = null;   // ms timestamp
+  _commandSpamWindow = [];     // timestamps of recent commands (same command)
+  _lastCommand = null;
+
+  // ── Rarity ───────────────────────────────────────────────────────────────────
   RARITY = {
     COMMON: { name: 'Común', color: 'gray' },
     UNCOMMON: { name: 'Poco Común', color: 'green' },
     RARE: { name: 'Raro', color: 'blue' },
     EPIC: { name: 'Épico', color: 'purple' },
-    LEGENDARY: { name: 'Legendario', color: 'orange' }
+    LEGENDARY: { name: 'Legendario', color: 'amber' },
   };
 
-  // Definición de todos los achievements
+  // ── Achievements ─────────────────────────────────────────────────────────────
+  // hint: shown to all users before unlocking (short clue)
+  // description: shown after unlocking
+  // honorary: true → auto-awarded, not tracked as farmable
   ACHIEVEMENTS = {
-    // Achievements de Progreso (existentes)
+    // Progress
     FIRST_STEPS: {
       id: 'FIRST_STEPS',
       name: 'Primeros Pasos',
-      description: 'Ejecuta tu primer comando',
-      icon: '🎯',
+      hint: 'Ejecutá tu primer comando en la terminal.',
+      description: 'Ejecutaste tu primer comando.',
+      icon: ICON.TARGET,
       xp: 10,
       rarity: 'COMMON',
-      secret: false
+      secret: false,
     },
     PNR_NOVICE: {
       id: 'PNR_NOVICE',
-      name: 'Novato PNR',
-      description: 'Crea tu primer PNR',
-      icon: '📋',
+      name: 'Primer PNR',
+      hint: 'Completá un PNR de principio a fin.',
+      description: 'Creaste tu primer Passenger Name Record.',
+      icon: ICON.CLIPBOARD,
       xp: 25,
       rarity: 'COMMON',
-      secret: false
+      secret: false,
     },
     COMMAND_MASTER: {
       id: 'COMMAND_MASTER',
-      name: 'Maestro de Comandos',
-      description: 'Ejecuta 100 comandos exitosos',
-      icon: '⌨️',
+      name: 'Dominio del Terminal',
+      hint: 'La práctica hace al maestro. Seguí ejecutando comandos.',
+      description: 'Ejecutaste 100 comandos exitosos.',
+      icon: ICON.TERMINAL,
       xp: 50,
       rarity: 'UNCOMMON',
-      secret: false
+      secret: false,
     },
     QUICK_LEARNER: {
       id: 'QUICK_LEARNER',
       name: 'Aprendizaje Rápido',
-      description: 'Alcanza el nivel 3',
-      icon: '📚',
+      hint: 'Alcanzá un nivel intermedio.',
+      description: 'Llegaste al nivel 3.',
+      icon: ICON.BOOK_OPEN,
       xp: 30,
       rarity: 'UNCOMMON',
-      secret: false
+      secret: false,
     },
     PNR_EXPERT: {
       id: 'PNR_EXPERT',
-      name: 'Experto PNR',
-      description: 'Crea 10 PNRs',
-      icon: '🏆',
+      name: 'Experto/a PNR',
+      hint: 'La cantidad importa. Seguí creando PNRs.',
+      description: 'Creaste 10 PNRs.',
+      icon: ICON.AWARD,
       xp: 75,
       rarity: 'RARE',
-      secret: false
+      secret: false,
     },
-    SPEED_RUNNER: {
-      id: 'SPEED_RUNNER',
-      name: 'Velocista',
-      description: 'Crea un PNR en menos de 2 minutos',
-      icon: '⚡',
-      xp: 40,
+    PNR_25: {
+      id: 'PNR_25',
+      name: 'Coleccionista',
+      hint: 'Los PNRs se acumulan con la práctica.',
+      description: 'Creaste 25 PNRs.',
+      icon: ICON.LAYERS,
+      xp: 100,
       rarity: 'RARE',
-      secret: false
+      secret: false,
+    },
+    PNR_50: {
+      id: 'PNR_50',
+      name: 'Veterano/a',
+      hint: '50 PNRs. Esto ya no es suerte.',
+      description: 'Creaste 50 PNRs.',
+      icon: ICON.SHIELD,
+      xp: 200,
+      rarity: 'EPIC',
+      secret: false,
     },
     PERFECTIONIST: {
       id: 'PERFECTIONIST',
       name: 'Perfeccionista',
-      description: 'Crea 5 PNRs sin errores consecutivos',
-      icon: '✨',
+      hint: 'Completá varios PNRs sin cometer errores.',
+      description: 'Creaste 5 PNRs sin errores consecutivos.',
+      icon: ICON.CHECK_CIRCLE,
       xp: 60,
       rarity: 'EPIC',
-      secret: false
+      secret: false,
+    },
+    LEVEL_10: {
+      id: 'LEVEL_10',
+      name: 'Doble Dígito',
+      hint: 'La mitad del camino. No pares.',
+      description: 'Alcanzaste el nivel 10.',
+      icon: ICON.TRENDING_UP,
+      xp: 100,
+      rarity: 'EPIC',
+      secret: false,
+    },
+    LEVEL_20: {
+      id: 'LEVEL_20',
+      name: 'Cima',
+      hint: 'El nivel máximo. Solo para los más dedicados.',
+      description: 'Alcanzaste el nivel 20 — Leyenda.',
+      icon: ICON.STAR,
+      xp: 500,
+      rarity: 'LEGENDARY',
+      secret: false,
     },
 
-    // Achievements Graciosos - Errores
+    // Precision / streaks
+    PRECISION_MASTER: {
+      id: 'PRECISION_MASTER',
+      name: 'Precisión',
+      hint: 'Encadenás comandos correctos sin cometer errores.',
+      description: '20 comandos exitosos seguidos sin errores.',
+      icon: ICON.ACTIVITY,
+      xp: 50,
+      rarity: 'RARE',
+      secret: false,
+    },
+    DAILY_STREAK_3: {
+      id: 'DAILY_STREAK_3',
+      name: 'Constancia',
+      hint: 'Volvé al sistema varios días seguidos.',
+      description: 'Usaste el sistema 3 días consecutivos.',
+      icon: ICON.CALENDAR,
+      xp: 15,
+      rarity: 'COMMON',
+      secret: false,
+    },
+    DAILY_STREAK_7: {
+      id: 'DAILY_STREAK_7',
+      name: 'Racha Semanal',
+      hint: 'Una semana entera de práctica diaria.',
+      description: 'Usaste el sistema 7 días consecutivos.',
+      icon: ICON.FLAG,
+      xp: 50,
+      rarity: 'RARE',
+      secret: false,
+    },
+    DAILY_STREAK_30: {
+      id: 'DAILY_STREAK_30',
+      name: 'El Mes Perfecto',
+      hint: 'Un mes entero sin faltar. Casi imposible.',
+      description: '30 días consecutivos de uso.',
+      icon: ICON.AWARD,
+      xp: 200,
+      rarity: 'LEGENDARY',
+      secret: false,
+    },
+    ERROR_FREE_SESSION: {
+      id: 'ERROR_FREE_SESSION',
+      name: 'Sesión Perfecta',
+      hint: 'Terminá una sesión activa sin cometer ningún error.',
+      description: 'Cerraste sesión sin errores.',
+      icon: ICON.SHIELD,
+      xp: 25,
+      rarity: 'UNCOMMON',
+      secret: false,
+    },
+    CONSISTENCY_KEY: {
+      id: 'CONSISTENCY_KEY',
+      name: 'Constancia es Clave',
+      hint: 'La regularidad te lleva lejos.',
+      description: 'Usaste el sistema 30 días diferentes (no necesariamente consecutivos).',
+      icon: ICON.ROTATE_CW,
+      xp: 50,
+      rarity: 'RARE',
+      secret: false,
+    },
+    THE_VETERAN: {
+      id: 'THE_VETERAN',
+      name: 'Veterano/a',
+      hint: 'La experiencia se acumula con el tiempo.',
+      description: 'Usaste el sistema en 30 días diferentes.',
+      icon: ICON.CLOCK,
+      xp: 100,
+      rarity: 'EPIC',
+      secret: false,
+    },
+
+    // Behavior / funny (secret)
     NOT_FOUND: {
       id: 'NOT_FOUND',
       name: '404 Flight Not Found',
-      description: 'Busca vuelos entre ciudades inexistentes 10 veces',
-      icon: '🛫',
+      hint: 'Algunos destinos son difíciles de encontrar...',
+      description: 'Buscaste vuelos a destinos inexistentes muchas veces.',
+      icon: ICON.SEARCH,
       xp: 15,
       rarity: 'UNCOMMON',
-      secret: true
+      secret: true,
     },
     OOPS_WRONG_BUTTON: {
       id: 'OOPS_WRONG_BUTTON',
-      name: 'Oops, Wrong Button',
-      description: 'Ejecuta 50 comandos inválidos',
-      icon: '🙈',
+      name: 'Oops',
+      hint: 'Todos cometemos errores... ¿o no?',
+      description: 'Ejecutaste 50 comandos inválidos.',
+      icon: ICON.ZAP,
       xp: 20,
       rarity: 'UNCOMMON',
-      secret: true
+      secret: true,
     },
     LOST_IN_TRANSLATION: {
       id: 'LOST_IN_TRANSLATION',
       name: 'Lost in Translation',
-      description: 'Escribe 20 comandos con errores tipográficos',
-      icon: '🗺️',
+      hint: 'El teclado a veces tiene vida propia.',
+      description: '20 comandos con errores tipográficos.',
+      icon: ICON.MAP,
       xp: 15,
       rarity: 'COMMON',
-      secret: true
+      secret: true,
     },
     GHOST_PASSENGER: {
       id: 'GHOST_PASSENGER',
       name: 'Ghost Passenger',
-      description: 'Intenta crear un PNR sin pasajeros',
-      icon: '👻',
+      hint: 'Un PNR sin pasajeros no va a ningún lado.',
+      description: 'Intentaste crear un PNR sin agregar pasajeros.',
+      icon: ICON.USERS,
       xp: 10,
       rarity: 'COMMON',
-      secret: true
-    },
-
-    // Achievements de Comportamiento
-    NIGHT_OWL: {
-      id: 'NIGHT_OWL',
-      name: 'Night Owl',
-      description: 'Usa el sistema entre 12 AM y 5 AM',
-      icon: '🦉',
-      xp: 25,
-      rarity: 'UNCOMMON',
-      secret: false
-    },
-    COFFEE_BREAK: {
-      id: 'COFFEE_BREAK',
-      name: 'Coffee Break',
-      description: 'Vuelve después de 1 hora de inactividad',
-      icon: '☕',
-      xp: 10,
-      rarity: 'COMMON',
-      secret: false
+      secret: true,
     },
     COPY_PASTE_MASTER: {
       id: 'COPY_PASTE_MASTER',
-      name: 'Copy Paste Master',
-      description: 'Ejecuta el mismo comando 10 veces seguidas',
-      icon: '📋',
+      name: 'Copy Paste',
+      hint: 'Ctrl+C, Ctrl+V... ¿cuántas veces?',
+      description: 'Ejecutaste el mismo comando 10 veces seguidas.',
+      icon: ICON.REPEAT,
       xp: 15,
       rarity: 'UNCOMMON',
-      secret: true
+      secret: true,
     },
+
+    // Exploration
     THE_EXPLORER: {
       id: 'THE_EXPLORER',
-      name: 'The Explorer',
-      description: 'Busca vuelos a 20 destinos diferentes',
-      icon: '🗺️',
+      name: 'El/La Explorador/a',
+      hint: 'Hay un mundo de destinos para descubrir.',
+      description: 'Buscaste vuelos a 20 destinos diferentes.',
+      icon: ICON.GLOBE,
       xp: 40,
       rarity: 'RARE',
-      secret: false
+      secret: false,
     },
     HOMESICK: {
       id: 'HOMESICK',
       name: 'Homesick',
-      description: 'Busca 10 vuelos desde/hacia tu ciudad base',
-      icon: '🏠',
+      hint: '¿Siempre volvés al mismo lugar?',
+      description: 'Buscaste 10 vuelos desde/hacia tu ciudad base.',
+      icon: ICON.HOME,
       xp: 20,
       rarity: 'UNCOMMON',
-      secret: true
+      secret: true,
     },
-
-    // Achievements Temáticos
     AROUND_THE_WORLD: {
       id: 'AROUND_THE_WORLD',
-      name: 'Around the World',
-      description: 'Crea PNRs con vuelos en todos los continentes',
-      icon: '🌍',
+      name: 'La Vuelta al Mundo',
+      hint: 'Los continentes te esperan. Explorá todos.',
+      description: 'Creaste PNRs con vuelos en todos los continentes.',
+      icon: ICON.GLOBE,
       xp: 100,
       rarity: 'LEGENDARY',
-      secret: false
+      secret: false,
     },
-    WEEKEND_WARRIOR: {
-      id: 'WEEKEND_WARRIOR',
-      name: 'Weekend Warrior',
-      description: 'Usa el sistema solo fines de semana por un mes',
-      icon: '📅',
-      xp: 35,
-      rarity: 'RARE',
-      secret: false
+
+    // Time-based
+    NIGHT_OWL: {
+      id: 'NIGHT_OWL',
+      name: 'Night Owl',
+      hint: 'Hay quienes trabajan cuando el mundo duerme.',
+      description: 'Usaste el sistema entre medianoche y las 5 AM.',
+      icon: ICON.MOON,
+      xp: 25,
+      rarity: 'UNCOMMON',
+      secret: false,
+    },
+    COFFEE_BREAK: {
+      id: 'COFFEE_BREAK',
+      name: 'Coffee Break',
+      hint: 'Un descanso y de vuelta al trabajo.',
+      description: 'Volviste después de más de 1 hora de inactividad.',
+      icon: ICON.COFFEE,
+      xp: 10,
+      rarity: 'COMMON',
+      secret: false,
     },
     EARLY_BIRD: {
       id: 'EARLY_BIRD',
       name: 'Early Bird',
-      description: 'Usa el sistema antes de las 7 AM durante 5 días',
-      icon: '🐦',
+      hint: 'A madrugar te lleva lejos.',
+      description: 'Usaste el sistema antes de las 7 AM durante 5 días.',
+      icon: ICON.SUN,
       xp: 30,
       rarity: 'RARE',
-      secret: false
+      secret: false,
     },
-    FREQUENT_FLYER: {
-      id: 'FREQUENT_FLYER',
-      name: 'Frequent Flyer',
-      description: 'Crea 50 PNRs con el mismo pasajero',
-      icon: '✈️',
-      xp: 75,
-      rarity: 'EPIC',
-      secret: false
+    WEEKEND_WARRIOR: {
+      id: 'WEEKEND_WARRIOR',
+      name: 'Weekend Warrior',
+      hint: 'El fin de semana también es tiempo de práctica.',
+      description: 'Usaste el sistema solo fines de semana durante un mes.',
+      icon: ICON.CALENDAR,
+      xp: 35,
+      rarity: 'RARE',
+      secret: false,
+    },
+    MARATHON_RUNNER: {
+      id: 'MARATHON_RUNNER',
+      name: 'Marathon',
+      hint: '¿Cuánto tiempo podés mantenerte activo/a?',
+      description: 'Usaste el sistema durante 2 horas continuas.',
+      icon: ICON.ACTIVITY,
+      xp: 40,
+      rarity: 'RARE',
+      secret: false,
     },
 
-    // Easter Eggs
+    // Social
+    TOP_CLASS: {
+      id: 'TOP_CLASS',
+      name: 'Top de la Clase',
+      hint: 'El leaderboard dice quién está arriba.',
+      description: 'Alcanzaste el top 3 del leaderboard.',
+      icon: ICON.AWARD,
+      xp: 75,
+      rarity: 'EPIC',
+      secret: false,
+    },
+    RISING_STAR: {
+      id: 'RISING_STAR',
+      name: 'Estrella en Ascenso',
+      hint: 'Esta semana podés subir posiciones.',
+      description: 'Subiste 5 posiciones en el leaderboard en una semana.',
+      icon: ICON.TRENDING_UP,
+      xp: 40,
+      rarity: 'RARE',
+      secret: false,
+    },
+    HELPING_HAND: {
+      id: 'HELPING_HAND',
+      name: 'Ayuda',
+      hint: 'Nadie sabe todo. El manual existe por algo.',
+      description: 'Usaste el comando HELP 10 veces.',
+      icon: ICON.EYE,
+      xp: 15,
+      rarity: 'COMMON',
+      secret: false,
+    },
+
+    // Easter eggs (secret)
     THE_ANSWER: {
       id: 'THE_ANSWER',
       name: 'The Answer',
-      description: 'Ejecuta exactamente 42 comandos en un día',
-      icon: '42',
+      hint: '42.',
+      description: 'Ejecutaste exactamente 42 comandos en un día.',
+      icon: ICON.CODE,
       xp: 42,
       rarity: 'RARE',
-      secret: true
+      secret: true,
     },
     LUCKY_SEVEN: {
       id: 'LUCKY_SEVEN',
       name: 'Lucky Seven',
-      description: 'Crea un PNR con 7 segmentos',
-      icon: '🎰',
+      hint: 'Un PNR especialmente cargado.',
+      description: 'Creaste un PNR con 7 segmentos.',
+      icon: ICON.LAYERS,
       xp: 77,
       rarity: 'EPIC',
-      secret: true
+      secret: true,
     },
     BINARY_MASTER: {
       id: 'BINARY_MASTER',
       name: 'Binary Master',
-      description: 'Ejecuta 1010 comandos en total',
-      icon: '💻',
+      hint: '1010 en binario es 10 en decimal. ¿Pero en comandos?',
+      description: 'Ejecutaste 1010 comandos en total.',
+      icon: ICON.CODE,
       xp: 101,
       rarity: 'EPIC',
-      secret: true
+      secret: true,
     },
-    FLIGHT_CLUB: {
-      id: 'FLIGHT_CLUB',
-      name: 'Flight Club',
-      description: 'Primera regla: no hablar del Flight Club',
-      icon: '🥊',
-      xp: 50,
-      rarity: 'RARE',
-      secret: true
-    },
-
-    // Achievements de Persistencia
     COMEBACK_KID: {
       id: 'COMEBACK_KID',
-      name: 'Comeback Kid',
-      description: 'Vuelve después de 7 días de inactividad',
-      icon: '🔄',
+      name: 'Comeback',
+      hint: 'Siempre se puede volver a empezar.',
+      description: 'Volviste después de 7 días de inactividad.',
+      icon: ICON.ROTATE_CW,
       xp: 25,
       rarity: 'UNCOMMON',
-      secret: false
-    },
-    MARATHON_RUNNER: {
-      id: 'MARATHON_RUNNER',
-      name: 'Marathon Runner',
-      description: 'Usa el sistema durante 2 horas continuas',
-      icon: '🏃',
-      xp: 40,
-      rarity: 'RARE',
-      secret: false
-    },
-    CONSISTENCY_KEY: {
-      id: 'CONSISTENCY_KEY',
-      name: 'Consistency is Key',
-      description: 'Usa el sistema todos los días durante una semana',
-      icon: '🔑',
-      xp: 50,
-      rarity: 'RARE',
-      secret: false
-    },
-    THE_VETERAN: {
-      id: 'THE_VETERAN',
-      name: 'The Veteran',
-      description: 'Usa el sistema durante 30 días diferentes',
-      icon: '🎖️',
-      xp: 100,
-      rarity: 'EPIC',
-      secret: false
+      secret: false,
     },
 
-    // Achievements Sociales
-    TOP_CLASS: {
-      id: 'TOP_CLASS',
-      name: 'Top of the Class',
-      description: 'Alcanza el top 3 del leaderboard',
-      icon: '🏆',
-      xp: 75,
-      rarity: 'EPIC',
-      secret: false
+    // Honorary
+    LEGACY_PIONEER: {
+      id: 'LEGACY_PIONEER',
+      name: 'Pionero/a',
+      hint: 'Este logro es especial. No se puede conseguir ahora.',
+      description: 'Alumno/a de una camada anterior. Gracias por estar desde el inicio.',
+      icon: ICON.STAR,
+      xp: 0,
+      rarity: 'LEGENDARY',
+      secret: false,
+      honorary: true,
     },
-    RISING_STAR: {
-      id: 'RISING_STAR',
-      name: 'Rising Star',
-      description: 'Sube 5 posiciones en el leaderboard en una semana',
-      icon: '⭐',
-      xp: 40,
-      rarity: 'RARE',
-      secret: false
-    },
-    HELPING_HAND: {
-      id: 'HELPING_HAND',
-      name: 'Helping Hand',
-      description: 'Usa el comando HELP 10 veces',
-      icon: '🤝',
-      xp: 15,
-      rarity: 'COMMON',
-      secret: false
-    },
-
-    // Achievements Estacionales
-    HOLIDAY_SPIRIT: {
-      id: 'HOLIDAY_SPIRIT',
-      name: 'Holiday Spirit',
-      description: 'Crea PNRs durante días festivos',
-      icon: '🎄',
-      xp: 30,
-      rarity: 'UNCOMMON',
-      secret: false
-    },
-    SUMMER_VACATION: {
-      id: 'SUMMER_VACATION',
-      name: 'Summer Vacation',
-      description: 'Crea PNRs a destinos de playa en verano',
-      icon: '🏖️',
-      xp: 25,
-      rarity: 'UNCOMMON',
-      secret: false
-    },
-    WINTER_IS_COMING: {
-      id: 'WINTER_IS_COMING',
-      name: 'Winter is Coming',
-      description: 'Crea PNRs a destinos fríos en invierno',
-      icon: '❄️',
-      xp: 25,
-      rarity: 'UNCOMMON',
-      secret: false
-    }
   };
 
   constructor() {
     this.sessionStartTime = null;
     this.pnrStartTime = null;
     this.lastCommandTime = null;
-    this.lastCommand = null;
+    this._lastCommand = null;
     this.sameCommandCount = 0;
     this.sessionCommands = 0;
     this.consecutivePerfectPNRs = 0;
@@ -384,77 +517,138 @@ class ExperienceService {
     this.homeCity = null;
     this.homeCitySearches = 0;
     this.hadPNRError = false;
+    this.sessionCommandErrors = 0;  // For ERROR_FREE_SESSION
+    this.consecutiveSuccesses = 0;  // For PRECISION_MASTER
   }
 
-  // Iniciar sesión
+  // ── Session start ────────────────────────────────────────────────────────────
   async startSession(userId) {
     if (!userId) return;
-    
+
     this.sessionStartTime = Date.now();
-    const lastActivity = await this.getLastActivity(userId);
-    
-    if (lastActivity) {
-      const inactiveDays = Math.floor((Date.now() - lastActivity) / (1000 * 60 * 60 * 24));
-      if (inactiveDays >= 7) {
-        await this.checkAndUnlockAchievement(userId, 'COMEBACK_KID');
-      }
-    }
+    this.sessionCommandErrors = 0;
 
-    // Verificar hora para Night Owl
-    const hour = new Date().getHours();
-    if (hour >= 0 && hour < 5) {
-      await this.checkAndUnlockAchievement(userId, 'NIGHT_OWL');
-    }
-
-    // Verificar hora para Early Bird
-    if (hour >= 5 && hour < 7) {
-      await this.incrementEarlyBirdStreak(userId);
-    }
-    
-    // Actualizar última actividad
     try {
       const userRef = doc(db, 'users', userId);
-      await updateDoc(userRef, {
-        lastActivity: Date.now()
-      });
+      const userDoc = await getDoc(userRef);
+      const userData = userDoc.data() || {};
+
+      // Restore anti-farming state from Firestore
+      this._lastPNRCompletedAt = userData.lastPNRCompletedAt || null;
+
+      // Check comeback
+      const lastActivity = userData.lastActivity || null;
+      if (lastActivity) {
+        const inactiveDays = Math.floor((Date.now() - lastActivity) / 86_400_000);
+        if (inactiveDays >= 7) await this.checkAndUnlockAchievement(userId, 'COMEBACK_KID');
+      }
+
+      // Night Owl
+      const hour = new Date().getHours();
+      if (hour >= 0 && hour < 5) await this.checkAndUnlockAchievement(userId, 'NIGHT_OWL');
+      if (hour >= 5 && hour < 7) await this._incrementEarlyBirdStreak(userId);
+
+      // Daily streak
+      await this._updateDailyStreak(userId);
+
+      // Auto-award LEGACY_PIONEER for legacy users (once)
+      await this._checkLegacyPioneer(userId, userData);
+
+      await updateDoc(userRef, { lastActivity: Date.now() });
     } catch (error) {
-      console.error('Error updating lastActivity:', error);
+      console.error('Error in startSession:', error);
     }
   }
 
-  // Método para añadir entrada al historial de XP
-  async addXpHistoryEntry(userId, amount, reason, type = 'other') {
-    if (!userId || !amount) {
-      console.error('Invalid parameters for addXpHistoryEntry');
-      return false;
+  // ── Check if user belongs to an inactive commission ──────────────────────────
+  async _checkLegacyPioneer(userId, userData) {
+    if (!userData.commissionCode) return;
+    if ((userData.achievements || []).includes('LEGACY_PIONEER')) return;
+
+    try {
+      const q = query(
+        collection(db, 'commissions'),
+        where('code', '==', userData.commissionCode),
+        firestoreLimit(1)
+      );
+      const snap = await getDocs(q);
+      if (!snap.empty) {
+        const commission = snap.docs[0].data();
+        if (commission.active === false) {
+          await this.checkAndUnlockAchievement(userId, 'LEGACY_PIONEER');
+        }
+      }
+    } catch (e) {
+      console.warn('Could not check legacy pioneer:', e);
     }
-    
+  }
+
+  // ── Daily streak ─────────────────────────────────────────────────────────────
+  async _updateDailyStreak(userId) {
+    try {
+      const userRef = doc(db, 'users', userId);
+      const userDoc = await getDoc(userRef);
+      const userData = userDoc.data() || {};
+
+      const today = new Date().toDateString();
+      const lastLoginDay = userData.lastLoginDay || null;
+      const currentStreak = userData.dailyStreak || 0;
+
+      if (lastLoginDay === today) return; // already logged in today
+
+      const yesterday = new Date(Date.now() - 86_400_000).toDateString();
+      const newStreak = lastLoginDay === yesterday ? currentStreak + 1 : 1;
+
+      let xpBonus = 0;
+      if (newStreak > 1 && newStreak <= 7) {
+        xpBonus = this.XP_VALUES.DAILY_STREAK;
+      }
+
+      const updates = {
+        lastLoginDay: today,
+        dailyStreak: newStreak,
+      };
+      if (xpBonus > 0) {
+        const result = await this._applyXP(
+          userId,
+          this.XP_VALUES.DAILY_STREAK,
+          `Racha diaria (día ${newStreak})`,
+          'daily_streak'
+        );
+        if (result?.delta > 0) {
+          xpEventBus.emitDailyStreak(newStreak, result.delta);
+          if (result.levelInfo?.leveledUp) {
+            xpEventBus.emitLevelUp(result.levelInfo.oldLevel, result.levelInfo.newLevel, this.getLevelTitle(result.levelInfo.newLevel));
+          }
+        }
+      }
+      await updateDoc(userRef, updates);
+
+      // Streak achievements
+      if (newStreak >= 3) await this.checkAndUnlockAchievement(userId, 'DAILY_STREAK_3');
+      if (newStreak >= 7) await this.checkAndUnlockAchievement(userId, 'DAILY_STREAK_7');
+      if (newStreak >= 30) await this.checkAndUnlockAchievement(userId, 'DAILY_STREAK_30');
+
+    } catch (e) {
+      console.warn('Error updating daily streak:', e);
+    }
+  }
+
+  // ── XP history ───────────────────────────────────────────────────────────────
+  async addXpHistoryEntry(userId, amount, reason, type = 'other') {
+    if (!userId) return false;
     try {
       const userRef = doc(db, 'users', userId);
       const timestamp = Date.now();
-      
-      // Verificar si xpHistory ya existe
-      const userDoc = await getDoc(userRef);
-      const userData = userDoc.data() || {};
-      
-      // Si xpHistory no existe o no es un objeto, inicializarlo como un objeto vacío
-      if (!userData.xpHistory || typeof userData.xpHistory !== 'object') {
-        await updateDoc(userRef, {
-          xpHistory: {}
-        });
-      }
-      
-      // Añadir la nueva entrada
       await updateDoc(userRef, {
         [`xpHistory.${timestamp}`]: {
           amount,
           reason,
           type,
           addedAt: new Date().toISOString(),
-          timestamp
-        }
+          timestamp,
+        },
       });
-      
       return true;
     } catch (error) {
       console.error('Error adding XP history entry:', error);
@@ -462,790 +656,610 @@ class ExperienceService {
     }
   }
 
-  // Verificar si el usuario ha subido de nivel
-  async checkLevelUp(userId, oldXP, xpGained) {
-    const newXP = oldXP + xpGained;
+  // ── Level up check ───────────────────────────────────────────────────────────
+  async checkLevelUp(userId, oldXP, xpDelta) {
+    const newXP = Math.max(0, oldXP + xpDelta);
     const oldLevel = this.calculateLevel(oldXP);
     const newLevel = this.calculateLevel(newXP);
-    
+
     if (newLevel > oldLevel) {
-      // Registrar la subida de nivel en el historial
-      await this.addXpHistoryEntry(
-        userId,
-        0, // No XP adicional por subir de nivel
-        `¡Subiste al nivel ${newLevel}!`,
-        'level_up'
-      );
-      
-      return {
-        leveledUp: true,
-        oldLevel,
-        newLevel
-      };
+      await this.addXpHistoryEntry(userId, 0, `¡Subiste al nivel ${newLevel}!`, 'level_up');
+
+      // Level milestone achievements
+      if (newLevel >= 3) await this.checkAndUnlockAchievement(userId, 'QUICK_LEARNER');
+      if (newLevel >= 10) await this.checkAndUnlockAchievement(userId, 'LEVEL_10');
+      if (newLevel >= 20) await this.checkAndUnlockAchievement(userId, 'LEVEL_20');
+
+      return { leveledUp: true, oldLevel, newLevel };
     }
-    
-    return {
-      leveledUp: false,
-      oldLevel,
-      newLevel
-    };
+    return { leveledUp: false, oldLevel, newLevel };
   }
 
-  // Actualizar método recordSuccessfulCommand para nuevos achievements
-  async recordSuccessfulCommand(userId, command, commandType) {
-    if (!userId) return;
-    
+  // ── Apply XP (handles floor at 0) ────────────────────────────────────────────
+  async _applyXP(userId, delta, reason, type) {
     try {
       const userRef = doc(db, 'users', userId);
       const userDoc = await getDoc(userRef);
       const userData = userDoc.data() || {};
       const currentXP = userData.xp || 0;
 
-      // Primeros pasos - primer comando
+      // Enforce floor at 0
+      const effectiveDelta = delta < 0 ? Math.max(-currentXP, delta) : delta;
+      if (effectiveDelta === 0 && delta !== 0) return { currentXP, newXP: 0, delta: 0 };
+
+      await updateDoc(userRef, { xp: increment(effectiveDelta) });
+      await this.addXpHistoryEntry(userId, effectiveDelta, reason, type);
+
+      const newXP = currentXP + effectiveDelta;
+      const levelInfo = await this.checkLevelUp(userId, currentXP, effectiveDelta);
+
+      return { currentXP, newXP, delta: effectiveDelta, levelInfo };
+    } catch (e) {
+      console.error('_applyXP error:', e);
+      return null;
+    }
+  }
+
+  // ── Record successful command ─────────────────────────────────────────────────
+  async recordSuccessfulCommand(userId, command, commandType) {
+    if (!userId) return;
+
+    try {
+      const userRef = doc(db, 'users', userId);
+      const userDoc = await getDoc(userRef);
+      const userData = userDoc.data() || {};
+
+      // First command ever
       if (!userData.commandsExecuted || userData.commandsExecuted === 0) {
         await this.checkAndUnlockAchievement(userId, 'FIRST_STEPS');
       }
 
-      // Actualizar estadísticas básicas
+      // Precision streak
+      this.consecutiveSuccesses = (this.consecutiveSuccesses || 0) + 1;
+      if (this.consecutiveSuccesses >= 20) {
+        await this.checkAndUnlockAchievement(userId, 'PRECISION_MASTER');
+      }
+
+      // Anti-spam: same command repeated
+      const now = Date.now();
+      if (command === this._lastCommand) {
+        this.sameCommandCount++;
+        this._commandSpamWindow = [...(this._commandSpamWindow || []).filter(t => now - t < 60_000), now];
+        if (this.sameCommandCount >= 10) {
+          await this.checkAndUnlockAchievement(userId, 'COPY_PASTE_MASTER');
+        }
+        // >5 same commands in 60s → no XP
+        if (this._commandSpamWindow.length > 5) {
+          await updateDoc(userRef, { commandsExecuted: increment(1), lastActivity: now });
+          this._lastCommand = command;
+          return { xpGained: 0, spamDetected: true };
+        }
+      } else {
+        this.sameCommandCount = 1;
+        this._commandSpamWindow = [now];
+        this._lastCommand = command;
+      }
+
       const updates = {
         commandsExecuted: increment(1),
         successfulCommands: increment(1),
-        xp: increment(this.XP_VALUES.COMMAND_SUCCESS),
-        lastActivity: Date.now()
+        lastActivity: now,
       };
 
-      // Registrar XP en el historial
-      await this.addXpHistoryEntry(
+      // HELP command
+      if (command.toUpperCase().startsWith('HE') || command.toUpperCase() === 'HELP') {
+        updates.helpCommandsUsed = increment(1);
+        const helpCount = (userData.helpCommandsUsed || 0) + 1;
+        if (helpCount >= 10) await this.checkAndUnlockAchievement(userId, 'HELPING_HAND');
+      }
+
+      // Unique destinations
+      if (commandType === 'AN' || commandType === 'SN') {
+        const destMatch = command.match(/[A-Z]{3}([A-Z]{3})/);
+        if (destMatch) {
+          const dest = destMatch[1];
+          this.uniqueDestinations.add(dest);
+          updates.uniqueDestinations = arrayUnion(dest);
+          if (this.uniqueDestinations.size >= 20) {
+            await this.checkAndUnlockAchievement(userId, 'THE_EXPLORER');
+          }
+        }
+      }
+
+      // Daily stats for THE_ANSWER
+      const today = new Date().toDateString();
+      const dailyStats = userData.dailyStats || {};
+      const todayStats = dailyStats[today] || { commands: 0 };
+      todayStats.commands++;
+      if (todayStats.commands === 42) await this.checkAndUnlockAchievement(userId, 'THE_ANSWER');
+      updates.dailyStats = { ...dailyStats, [today]: todayStats };
+
+      // Binary master
+      if ((userData.commandsExecuted || 0) + 1 === 1010) {
+        await this.checkAndUnlockAchievement(userId, 'BINARY_MASTER');
+      }
+
+      // Command master
+      if ((userData.successfulCommands || 0) + 1 >= 100) {
+        await this.checkAndUnlockAchievement(userId, 'COMMAND_MASTER');
+      }
+
+      await updateDoc(userRef, updates);
+
+      const result = await this._applyXP(
         userId,
         this.XP_VALUES.COMMAND_SUCCESS,
         `Comando exitoso: ${command}`,
         'command_success'
       );
 
-      // Verificar Copy Paste Master
-      if (command === this.lastCommand) {
-        this.sameCommandCount++;
-        if (this.sameCommandCount >= 10) {
-          await this.checkAndUnlockAchievement(userId, 'COPY_PASTE_MASTER');
+      // Emit XP toast
+      if (result?.delta > 0) {
+        xpEventBus.emitCommandSuccess(result.delta);
+        if (result.levelInfo?.leveledUp) {
+          xpEventBus.emitLevelUp(result.levelInfo.oldLevel, result.levelInfo.newLevel, this.getLevelTitle(result.levelInfo.newLevel));
         }
-      } else {
-        this.sameCommandCount = 1;
-        this.lastCommand = command;
       }
-
-      // Contar comandos de esta sesión
       this.sessionCommands++;
 
-      // Verificar comandos diarios para "The Answer"
-      const today = new Date().toDateString();
-      const dailyStats = userData.dailyStats || {};
-      const todayStats = dailyStats[today] || { commands: 0 };
-      todayStats.commands = (todayStats.commands || 0) + 1;
-
-      if (todayStats.commands === 42) {
-        await this.checkAndUnlockAchievement(userId, 'THE_ANSWER');
-      }
-
-      updates.dailyStats = {
-        ...dailyStats,
-        [today]: todayStats
-      };
-
-      // Verificar destinos únicos para The Explorer
-      if (commandType === 'AN' || commandType === 'SN') {
-        const destinationMatch = command.match(/[A-Z]{3}([A-Z]{3})/);
-        if (destinationMatch) {
-          const destination = destinationMatch[1];
-          this.uniqueDestinations.add(destination);
-          
-          // Guardar destinos únicos en Firebase
-          updates.uniqueDestinations = arrayUnion(destination);
-          
-          if (this.uniqueDestinations.size >= 20) {
-            await this.checkAndUnlockAchievement(userId, 'THE_EXPLORER');
-          }
-
-          // Verificar Homesick
-          if (!this.homeCity && userData.homeCity) {
-            this.homeCity = userData.homeCity;
-          }
-          
-          if (this.homeCity && (command.includes(this.homeCity) || command.includes(`${this.homeCity}`))) {
-            this.homeCitySearches++;
-            if (this.homeCitySearches >= 10) {
-              await this.checkAndUnlockAchievement(userId, 'HOMESICK');
-            }
-          }
-        }
-      }
-
-      // Verificar HELP commands
-      if (command.toUpperCase().startsWith('HE') || command.toUpperCase() === 'HELP') {
-        updates.helpCommandsUsed = increment(1);
-        const helpCount = (userData.helpCommandsUsed || 0) + 1;
-        
-        if (helpCount >= 10) {
-          await this.checkAndUnlockAchievement(userId, 'HELPING_HAND');
-        }
-      }
-
-      // Verificar Binary Master
-      const totalCommands = (userData.commandsExecuted || 0) + 1;
-      if (totalCommands === 1010) {
-        await this.checkAndUnlockAchievement(userId, 'BINARY_MASTER');
-      }
-
-      // Verificar Command Master
-      if ((userData.successfulCommands || 0) + 1 >= 100) {
-        await this.checkAndUnlockAchievement(userId, 'COMMAND_MASTER');
-      }
-
-      // Actualizar usuario
-      await updateDoc(userRef, updates);
-
-      // Verificar nivel para Quick Learner
-      const levelInfo = await this.checkLevelUp(userId, currentXP, this.XP_VALUES.COMMAND_SUCCESS);
-      
-      if (levelInfo.newLevel >= 3) {
-        await this.checkAndUnlockAchievement(userId, 'QUICK_LEARNER');
-      }
-
-      // Verificar session duration
+      // Session duration check
       if (this.sessionStartTime) {
-        const sessionDuration = (Date.now() - this.sessionStartTime) / 1000 / 60; // minutos
-        if (sessionDuration >= 120) {
-          await this.checkAndUnlockAchievement(userId, 'MARATHON_RUNNER');
-        }
+        const mins = (now - this.sessionStartTime) / 60_000;
+        if (mins >= 120) await this.checkAndUnlockAchievement(userId, 'MARATHON_RUNNER');
       }
 
-      // Actualizar tiempo del último comando
-      this.lastCommandTime = Date.now();
-
+      return { xpGained: result?.delta || 0, levelInfo: result?.levelInfo };
     } catch (error) {
       console.error('Error recording successful command:', error);
     }
   }
 
-  // Actualizar método recordCommandError para nuevos achievements
-  async recordCommandError(userId, command, error) {
+  // ── Record command error ──────────────────────────────────────────────────────
+  async recordCommandError(userId, command, errorMessage) {
     if (!userId) return;
-    
+
     try {
       const userRef = doc(db, 'users', userId);
       const userDoc = await getDoc(userRef);
       const userData = userDoc.data() || {};
-      const currentXP = userData.xp || 0;
-      
+
+      // Reset precision streak
+      this.consecutiveSuccesses = 0;
+      this.sessionCommandErrors++;
+
       const updates = {
         commandsExecuted: increment(1),
         commandErrors: increment(1),
-        xp: increment(this.XP_VALUES.COMMAND_ERROR),
-        lastActivity: Date.now()
+        lastActivity: Date.now(),
       };
-      
-      // Registrar XP en el historial
-      await this.addXpHistoryEntry(
+
+      // Not-found errors
+      if (errorMessage && (errorMessage.includes('No se encontró') || errorMessage.includes('ciudad no válida'))) {
+        updates.notFoundErrors = increment(1);
+        const notFoundErrors = (userData.notFoundErrors || 0) + 1;
+        if (notFoundErrors >= 10) await this.checkAndUnlockAchievement(userId, 'NOT_FOUND');
+      }
+
+      // Typo detection
+      const validCommands = ['AN', 'SN', 'TN', 'SS', 'NM', 'AP', 'RF', 'ET', 'ER', 'RT', 'XI'];
+      const cmdStart = command.substring(0, 2).toUpperCase();
+      const isTypo = validCommands.some(v => v !== cmdStart && this._levenshtein(cmdStart, v) <= 1);
+      if (isTypo) {
+        updates.typoErrors = increment(1);
+        const typoErrors = (userData.typoErrors || 0) + 1;
+        if (typoErrors >= 20) await this.checkAndUnlockAchievement(userId, 'LOST_IN_TRANSLATION');
+      }
+
+      // Total errors
+      if ((userData.commandErrors || 0) + 1 >= 50) {
+        await this.checkAndUnlockAchievement(userId, 'OOPS_WRONG_BUTTON');
+      }
+
+      // Ghost passenger
+      if (errorMessage && (errorMessage.includes('No hay pasajeros') || errorMessage.includes('agregar al menos un pasajero'))) {
+        await this.checkAndUnlockAchievement(userId, 'GHOST_PASSENGER');
+      }
+
+      await updateDoc(userRef, updates);
+
+      // XP penalty (deduction)
+      const result = await this._applyXP(
         userId,
         this.XP_VALUES.COMMAND_ERROR,
         `Error en comando: ${command}`,
         'command_error'
       );
 
-      // Verificar tipos de errores
-      if (error.includes('No se encontró información') || error.includes('ciudad no válida')) {
-        updates.notFoundErrors = increment(1);
-        
-        const notFoundErrors = (userData.notFoundErrors || 0) + 1;
-        
-        if (notFoundErrors >= 10) {
-          await this.checkAndUnlockAchievement(userId, 'NOT_FOUND');
-        }
+      // Emit XP loss toast with the error reason
+      if (result?.delta < 0) {
+        xpEventBus.emitCommandError(result.delta, errorMessage);
       }
 
-      // Verificar errores tipográficos
-      const validCommands = ['AN', 'SN', 'TN', 'SS', 'NM', 'AP', 'RF', 'ET', 'ER', 'RT', 'XI'];
-      const cmdStart = command.substring(0, 2).toUpperCase();
-      
-      const isTypo = validCommands.some(valid => {
-        return cmdStart.length === valid.length && 
-               cmdStart !== valid && 
-               this.calculateLevenshteinDistance(cmdStart, valid) <= 1;
-      });
-
-      if (isTypo) {
-        updates.typoErrors = increment(1);
-        
-        const typoErrors = (userData.typoErrors || 0) + 1;
-        
-        if (typoErrors >= 20) {
-          await this.checkAndUnlockAchievement(userId, 'LOST_IN_TRANSLATION');
-        }
-      }
-
-      // Verificar total de errores
-      const totalErrors = (userData.commandErrors || 0) + 1;
-      
-      if (totalErrors >= 50) {
-        await this.checkAndUnlockAchievement(userId, 'OOPS_WRONG_BUTTON');
-      }
-
-      // Verificar si es un error de Ghost Passenger
-      if (error.includes('No hay pasajeros') || error.includes('debe agregar al menos un pasajero')) {
-        await this.checkAndUnlockAchievement(userId, 'GHOST_PASSENGER');
-      }
-
-      await updateDoc(userRef, updates);
-      
-      // Verificar si subió de nivel a pesar del error
-      await this.checkLevelUp(userId, currentXP, this.XP_VALUES.COMMAND_ERROR);
-      
+      return {
+        xpGained: result?.delta || 0,
+        penaltyApplied: true,
+        errorMessage,
+        levelInfo: result?.levelInfo,
+      };
     } catch (error) {
       console.error('Error recording command error:', error);
     }
   }
 
-  // Iniciar creación de PNR
+  // ── PNR lifecycle ─────────────────────────────────────────────────────────────
   async startPNRCreation(userId) {
     if (!userId) return null;
-    
     this.pnrStartTime = Date.now();
     this.hadPNRError = false;
-    
-    // Registrar en base de datos que se inició un PNR
     try {
-      const userRef = doc(db, 'users', userId);
-      await updateDoc(userRef, {
+      await updateDoc(doc(db, 'users', userId), {
         lastPNRStartTime: this.pnrStartTime,
-        lastActivity: Date.now()
+        lastActivity: Date.now(),
       });
-    } catch (error) {
-      console.error('Error starting PNR creation:', error);
+    } catch (e) {
+      console.error('startPNRCreation error:', e);
     }
-    
     return this.pnrStartTime;
   }
 
-  // Registrar error durante creación de PNR
   async recordPNRError(userId) {
     if (!userId) return;
-    
     this.hadPNRError = true;
-    
-    try {
-      const userRef = doc(db, 'users', userId);
-      const userDoc = await getDoc(userRef);
-      const userData = userDoc.data() || {};
-      const currentXP = userData.xp || 0;
-      
-      // Actualizar estadísticas
-      await updateDoc(userRef, {
-        xp: increment(this.XP_VALUES.PNR_ERROR),
-        pnrErrors: increment(1),
-        lastActivity: Date.now()
-      });
-      
-      // Registrar XP en el historial
-      await this.addXpHistoryEntry(
-        userId,
-        this.XP_VALUES.PNR_ERROR,
-        'Error durante creación de PNR',
-        'pnr_error'
-      );
-      
-      // Verificar si subió de nivel
-      await this.checkLevelUp(userId, currentXP, this.XP_VALUES.PNR_ERROR);
-      
-    } catch (error) {
-      console.error('Error recording PNR error:', error);
-    }
+    this.consecutiveSuccesses = 0;
+
+    const result = await this._applyXP(
+      userId,
+      this.XP_VALUES.PNR_ERROR,
+      'Error durante creación de PNR',
+      'pnr_error'
+    );
+    await updateDoc(doc(db, 'users', userId), {
+      pnrErrors: increment(1),
+      lastActivity: Date.now(),
+    });
+    return result;
   }
 
-  // Actualizar método completePNR para nuevos achievements
   async completePNR(userId, pnrId, recordLocator) {
-    if (!userId || !pnrId) {
-      console.error('Invalid parameters for completePNR');
-      return null;
-    }
-    
+    if (!userId || !pnrId) return null;
+
     try {
       const userRef = doc(db, 'users', userId);
       const userDoc = await getDoc(userRef);
       const userData = userDoc.data() || {};
-      const currentXP = userData.xp || 0;
-      
-      // Verificar que pnrStartTime exista
-      if (!this.pnrStartTime) {
-        console.warn('completePNR called without startPNRCreation');
-        this.pnrStartTime = Date.now() - 300000; // Asumir 5 minutos si no hay tiempo inicial
+      const now = Date.now();
+
+      if (!this.pnrStartTime) this.pnrStartTime = now - 300_000;
+
+      const creationMs = now - this.pnrStartTime;
+      const creationSecs = creationMs / 1000;
+
+      // ── Anti-farming cooldown check ──────────────────────────────────────────
+      const lastPNR = this._lastPNRCompletedAt || userData.lastPNRCompletedAt || null;
+      const secsSinceLast = lastPNR ? (now - lastPNR) / 1000 : Infinity;
+
+      let xpDelta = 0;
+      let cooldownHit = false;
+      let spamPenalty = false;
+
+      if (creationSecs < 30) {
+        // Spam: PNR in under 30 seconds
+        xpDelta = this.XP_VALUES.PNR_SPAM_PENALTY;
+        spamPenalty = true;
+      } else if (secsSinceLast < 180) {
+        // Cooldown: less than 3 minutes since last PNR
+        xpDelta = 0;
+        cooldownHit = true;
+      } else {
+        xpDelta = this.XP_VALUES.PNR_CREATED;
       }
 
-      // Primer PNR
+      // Update last PNR timestamp
+      this._lastPNRCompletedAt = now;
+
+      // First PNR ever
       if (!userData.pnrsCreated || userData.pnrsCreated === 0) {
         await this.checkAndUnlockAchievement(userId, 'PNR_NOVICE');
       }
 
-      // Obtener datos del PNR
-      const pnrRef = doc(db, 'pnrs', pnrId);
-      const pnrDoc = await getDoc(pnrRef);
-      
-      if (!pnrDoc.exists()) {
-        console.error(`PNR with ID ${pnrId} not found`);
-        return null;
-      }
-      
-      const pnrData = pnrDoc.data();
-
-      // Calcular tiempo de creación
-      const creationTime = Date.now() - this.pnrStartTime;
-      const creationMinutes = creationTime / 1000 / 60;
-
-      // XP base por crear PNR
-      let xpGained = this.XP_VALUES.PNR_CREATED;
-      let unlockedAchievements = [];
-
-      // Bonus por creación rápida
-      if (creationMinutes < 2) {
-        xpGained += this.XP_VALUES.PNR_FAST_CREATION;
-        const unlocked = await this.checkAndUnlockAchievement(userId, 'SPEED_RUNNER');
-        if (unlocked && this.ACHIEVEMENTS.SPEED_RUNNER) {
-          unlockedAchievements.push(this.ACHIEVEMENTS.SPEED_RUNNER);
-        }
-      }
-
-      // Actualizar estadísticas
       const updates = {
         pnrsCreated: increment(1),
-        xp: increment(xpGained),
-        lastActivity: Date.now(),
-        lastPNRCreationTime: creationMinutes
+        lastPNRCompletedAt: now,
+        lastPNRCreationTime: creationSecs / 60,
+        lastActivity: now,
       };
-      
-      // Registrar la ganancia de XP en el historial
-      await this.addXpHistoryEntry(
-        userId,
-        xpGained,
-        `Creación de PNR ${recordLocator || pnrId}`,
-        'pnr_creation'
-      );
 
-      // Verificar Lucky Seven
-      if (pnrData.segments && pnrData.segments.length === 7) {
-        const unlocked = await this.checkAndUnlockAchievement(userId, 'LUCKY_SEVEN');
-        if (unlocked && this.ACHIEVEMENTS.LUCKY_SEVEN) {
-          unlockedAchievements.push(this.ACHIEVEMENTS.LUCKY_SEVEN);
-        }
-      }
-
-      // Verificar continentes para Around the World
-      if (pnrData.segments) {
-        const continents = new Set();
-        pnrData.segments.forEach(segment => {
-          const continent = this.getContinent(segment.destination);
-          if (continent) continents.add(continent);
-        });
-
-        // Guardar continentes visitados en Firebase
-        const continentsArray = Array.from(continents);
-        if (continentsArray.length > 0) {
-          updates.continentsVisited = arrayUnion(...continentsArray);
-        }
-        
-        // Verificar logro Around the World
-        const userContinents = new Set(userData.continentsVisited || []);
-        continentsArray.forEach(c => userContinents.add(c));
-        
-        if (userContinents.size >= 6) {
-          const unlocked = await this.checkAndUnlockAchievement(userId, 'AROUND_THE_WORLD');
-          if (unlocked && this.ACHIEVEMENTS.AROUND_THE_WORLD) {
-            unlockedAchievements.push(this.ACHIEVEMENTS.AROUND_THE_WORLD);
-          }
-        }
-      }
-
-      // Verificar Frequent Flyer
-      if (pnrData.passengers && pnrData.passengers.length > 0) {
-        const mainPassenger = `${pnrData.passengers[0].lastName}/${pnrData.passengers[0].firstName}`;
-        
-        // Inicializar o actualizar el contador de pasajeros
-        const passengerPNRs = userData.passengerPNRs || {};
-        passengerPNRs[mainPassenger] = (passengerPNRs[mainPassenger] || 0) + 1;
-        
-        // Actualizar el contador en la base de datos
-        updates.passengerPNRs = passengerPNRs;
-        
-        // Verificar logro Frequent Flyer
-        if (passengerPNRs[mainPassenger] >= 50) {
-          const unlocked = await this.checkAndUnlockAchievement(userId, 'FREQUENT_FLYER');
-          if (unlocked && this.ACHIEVEMENTS.FREQUENT_FLYER) {
-            unlockedAchievements.push(this.ACHIEVEMENTS.FREQUENT_FLYER);
-          }
-        }
-      }
-
-      // Actualizar base de datos
       await updateDoc(userRef, updates);
 
-      // Verificar PNR Expert
+      let unlockedAchievements = [];
+
+      // PNR count achievements
       const totalPNRs = (userData.pnrsCreated || 0) + 1;
       if (totalPNRs >= 10) {
-        const unlocked = await this.checkAndUnlockAchievement(userId, 'PNR_EXPERT');
-        if (unlocked && this.ACHIEVEMENTS.PNR_EXPERT) {
-          unlockedAchievements.push(this.ACHIEVEMENTS.PNR_EXPERT);
-        }
+        const u1 = await this.checkAndUnlockAchievement(userId, 'PNR_EXPERT');
+        if (u1) unlockedAchievements.push(this.ACHIEVEMENTS.PNR_EXPERT);
+      }
+      if (totalPNRs >= 25) {
+        const u2 = await this.checkAndUnlockAchievement(userId, 'PNR_25');
+        if (u2) unlockedAchievements.push(this.ACHIEVEMENTS.PNR_25);
+      }
+      if (totalPNRs >= 50) {
+        const u3 = await this.checkAndUnlockAchievement(userId, 'PNR_50');
+        if (u3) unlockedAchievements.push(this.ACHIEVEMENTS.PNR_50);
       }
 
-      // Verificar PNRs perfectos consecutivos
-      if (!this.hadPNRError) {
-        this.consecutivePerfectPNRs++;
-        
-        // Actualizar contador en la base de datos para persistencia
-        await updateDoc(userRef, {
-          consecutivePerfectPNRs: this.consecutivePerfectPNRs
-        });
-        
-        if (this.consecutivePerfectPNRs >= 5) {
-          const unlocked = await this.checkAndUnlockAchievement(userId, 'PERFECTIONIST');
-          if (unlocked && this.ACHIEVEMENTS.PERFECTIONIST) {
-            unlockedAchievements.push(this.ACHIEVEMENTS.PERFECTIONIST);
+      // PNR segments check (Lucky Seven, Around the World)
+      const pnrDoc = await getDoc(doc(db, 'pnrs', pnrId));
+      if (pnrDoc.exists()) {
+        const pnrData = pnrDoc.data();
+
+        if (pnrData.segments?.length === 7) {
+          const u = await this.checkAndUnlockAchievement(userId, 'LUCKY_SEVEN');
+          if (u) unlockedAchievements.push(this.ACHIEVEMENTS.LUCKY_SEVEN);
+        }
+
+        if (pnrData.segments) {
+          const continents = new Set(pnrData.segments.map(s => this._continent(s.destination)).filter(Boolean));
+          if (continents.size > 0) {
+            await updateDoc(userRef, { continentsVisited: arrayUnion(...continents) });
+            const allContinents = new Set([...(userData.continentsVisited || []), ...continents]);
+            if (allContinents.size >= 6) {
+              const u = await this.checkAndUnlockAchievement(userId, 'AROUND_THE_WORLD');
+              if (u) unlockedAchievements.push(this.ACHIEVEMENTS.AROUND_THE_WORLD);
+            }
           }
         }
-      } else {
-        // Resetear contador si hubo error
-        this.consecutivePerfectPNRs = 0;
-        await updateDoc(userRef, {
-          consecutivePerfectPNRs: 0
-        });
+
+        if (pnrData.passengers?.length > 0) {
+          const pax = `${pnrData.passengers[0].lastName}/${pnrData.passengers[0].firstName}`;
+          const passengerPNRs = { ...(userData.passengerPNRs || {}), [pax]: (userData.passengerPNRs?.[pax] || 0) + 1 };
+          await updateDoc(userRef, { passengerPNRs });
+        }
       }
 
-      // Verificar si subió de nivel
-      const levelInfo = await this.checkLevelUp(userId, currentXP, xpGained);
+      // Perfect PNR streak
+      if (!this.hadPNRError) {
+        this.consecutivePerfectPNRs++;
+        await updateDoc(userRef, { consecutivePerfectPNRs: this.consecutivePerfectPNRs });
+        if (this.consecutivePerfectPNRs >= 5) {
+          const u = await this.checkAndUnlockAchievement(userId, 'PERFECTIONIST');
+          if (u) unlockedAchievements.push(this.ACHIEVEMENTS.PERFECTIONIST);
+        }
+      } else {
+        this.consecutivePerfectPNRs = 0;
+        await updateDoc(userRef, { consecutivePerfectPNRs: 0 });
+      }
 
-      // Limpiar variables de estado
+      // Apply XP and emit events
+      let currentXP = (await getDoc(userRef)).data()?.xp || 0;
+      let levelInfo = { leveledUp: false, oldLevel: this.calculateLevel(currentXP), newLevel: this.calculateLevel(currentXP) };
+
+      if (spamPenalty) {
+        xpEventBus.emitPNRSpam();
+      } else if (cooldownHit) {
+        // secsRemaining = 180 - secsSinceLast
+        xpEventBus.emitPNRCooldown(Math.max(0, 180 - secsSinceLast));
+      }
+
+      if (xpDelta !== 0) {
+        const res = await this._applyXP(
+          userId,
+          xpDelta,
+          spamPenalty ? 'PNR creado demasiado rápido (penalización)'
+            : `Creación de PNR ${recordLocator || pnrId}`,
+          spamPenalty ? 'pnr_spam' : 'pnr_creation'
+        );
+        levelInfo = res?.levelInfo || levelInfo;
+        currentXP = res?.currentXP || currentXP;
+
+        if (res?.delta > 0) {
+          xpEventBus.emitPNRCompleted(res.delta);
+        }
+        if (res?.levelInfo?.leveledUp) {
+          xpEventBus.emitLevelUp(res.levelInfo.oldLevel, res.levelInfo.newLevel, this.getLevelTitle(res.levelInfo.newLevel));
+        }
+      }
+
       this.pnrStartTime = null;
       this.hadPNRError = false;
 
-      // Devolver información completa sobre la experiencia y niveles
       return {
-        xpGained,
-        newXP: currentXP + xpGained,
+        xpGained: xpDelta,
+        newXP: currentXP + xpDelta,
         oldLevel: levelInfo.oldLevel,
         newLevel: levelInfo.newLevel,
         levelUp: levelInfo.leveledUp,
-        achievements: unlockedAchievements
+        achievements: unlockedAchievements,
+        cooldownHit,
+        spamPenalty,
+        secsSinceLast: Math.round(secsSinceLast),
       };
     } catch (error) {
       console.error('Error completing PNR:', error);
-      // Si ocurre un error, intentar limpiar el estado
       this.pnrStartTime = null;
       this.hadPNRError = false;
       return null;
     }
   }
 
-  // Métodos auxiliares
+  // ── Session end ───────────────────────────────────────────────────────────────
+  async endSession(userId) {
+    if (!userId) return;
+    if (this.sessionCommandErrors === 0 && this.sessionCommands > 0) {
+      await this.checkAndUnlockAchievement(userId, 'ERROR_FREE_SESSION');
+    }
+    this.sessionCommandErrors = 0;
+    this.sessionCommands = 0;
+  }
+
+  // ── Achievement unlock ────────────────────────────────────────────────────────
   async checkAndUnlockAchievement(userId, achievementId) {
     if (!userId || !achievementId) return false;
-    
     try {
       const userRef = doc(db, 'users', userId);
       const userDoc = await getDoc(userRef);
       const userData = userDoc.data() || {};
-      
-      const achievements = userData.achievements || [];
-      
-      // Verificar si ya tiene el logro
-      if (!achievements.includes(achievementId)) {
-        const achievement = this.ACHIEVEMENTS[achievementId];
-        
-        if (!achievement) {
-          console.error(`Achievement ${achievementId} not found`);
-          return false;
-        }
-        
-        // Actualizar logros y XP
-        await updateDoc(userRef, {
-          achievements: arrayUnion(achievementId),
-          xp: increment(achievement.xp)
-        });
-        
-        // Registrar la ganancia de XP en el historial
-        await this.addXpHistoryEntry(
-          userId,
-          achievement.xp,
-          `Logro desbloqueado: ${achievement.name}`,
-          'achievement'
-        );
-        
-        // Comprobar si subió de nivel con esta XP
-        const currentXP = (userData.xp || 0);
+      const achieved = userData.achievements || [];
+
+      if (achieved.includes(achievementId)) return false;
+
+      const achievement = this.ACHIEVEMENTS[achievementId];
+      if (!achievement) return false;
+
+      const updates = { achievements: arrayUnion(achievementId) };
+      if (achievement.xp > 0) updates.xp = increment(achievement.xp);
+      await updateDoc(userRef, updates);
+
+      if (achievement.xp > 0) {
+        await this.addXpHistoryEntry(userId, achievement.xp, `Logro desbloqueado: ${achievement.name}`, 'achievement');
+        const currentXP = userData.xp || 0;
         await this.checkLevelUp(userId, currentXP, achievement.xp);
-        
-        console.log(`Achievement unlocked: ${achievement.name}`);
-        
-        // Actualizar logros desbloqueados recientemente para notificaciones
-        await updateDoc(userRef, {
-          newAchievements: arrayUnion(achievement)
-        });
-        
-        return true;
       }
-      
-      return false;
+
+      // Store for notification
+      await updateDoc(userRef, { newAchievements: arrayUnion(achievement) });
+
+      // Emit achievement toast via event bus
+      xpEventBus.emitAchievement(achievement);
+
+      return true;
     } catch (error) {
       console.error('Error checking achievement:', error);
       return false;
     }
   }
 
-  // Función para limpiar logros recién desbloqueados después de mostrarlos
   async clearNewAchievements(userId) {
     if (!userId) return;
-    
     try {
-      const userRef = doc(db, 'users', userId);
-      await updateDoc(userRef, {
-        newAchievements: []
-      });
-    } catch (error) {
-      console.error('Error clearing new achievements:', error);
+      await updateDoc(doc(db, 'users', userId), { newAchievements: [] });
+    } catch (e) {
+      console.error('clearNewAchievements:', e);
     }
   }
 
-  calculateLevenshteinDistance(str1, str2) {
-    const matrix = [];
-    
-    for (let i = 0; i <= str2.length; i++) {
-      matrix[i] = [i];
-    }
-    
-    for (let j = 0; j <= str1.length; j++) {
-      matrix[0][j] = j;
-    }
-    
-    for (let i = 1; i <= str2.length; i++) {
-      for (let j = 1; j <= str1.length; j++) {
-        if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
-          matrix[i][j] = matrix[i - 1][j - 1];
-        } else {
-          matrix[i][j] = Math.min(
-            matrix[i - 1][j - 1] + 1,
-            Math.min(matrix[i][j - 1] + 1, matrix[i - 1][j] + 1)
-          );
-        }
-      }
-    }
-    
-    return matrix[str2.length][str1.length];
-  }
-
-  getContinent(airportCode) {
-    // Mapeo simplificado de aeropuertos a continentes
-    const continentMap = {
-      // América del Norte
-      'JFK': 'NA', 'LAX': 'NA', 'MIA': 'NA', 'YYZ': 'NA', 'MEX': 'NA',
-      // América del Sur
-      'EZE': 'SA', 'GRU': 'SA', 'SCL': 'SA', 'BOG': 'SA', 'LIM': 'SA',
-      // Europa
-      'LHR': 'EU', 'CDG': 'EU', 'FCO': 'EU', 'MAD': 'EU', 'FRA': 'EU',
-      // Asia
-      'NRT': 'AS', 'PEK': 'AS', 'HKG': 'AS', 'BKK': 'AS', 'SIN': 'AS',
-      // África
-      'JNB': 'AF', 'CAI': 'AF', 'CPT': 'AF', 'NBO': 'AF', 'ADD': 'AF',
-      // Oceanía
-      'SYD': 'OC', 'MEL': 'OC', 'AKL': 'OC', 'PER': 'OC', 'BNE': 'OC'
-    };
-   
-    return continentMap[airportCode] || null;
-  }
-
-  // Calcular nivel basado en XP total
-  calculateLevel(totalXp) {
-    if (typeof totalXp !== 'number' || isNaN(totalXp)) {
-      console.warn('Invalid XP value:', totalXp);
-      return 1; // Valor por defecto
-    }
-    
-    // Encontrar el nivel adecuado basado en la XP
-    for (let i = this.LEVELS.length - 1; i >= 0; i--) {
-      if (totalXp >= this.LEVELS[i].requiredXP) {
-        return this.LEVELS[i].level;
-      }
-    }
-    
-    return 1; // Nivel mínimo por defecto
-  }
-
-  // Calcular XP necesario para el siguiente nivel
-  calculateXpForNextLevel(currentLevel) {
-    // Buscar el siguiente nivel
-    for (let i = 0; i < this.LEVELS.length; i++) {
-      if (this.LEVELS[i].level > currentLevel) {
-        return this.LEVELS[i].requiredXP;
-      }
-    }
-    
-    // Si está en el nivel máximo, devolver null
-    return null;
-  }
-
-  // Obtener título del nivel actual
-  getLevelTitle(level) {
-    for (const levelInfo of this.LEVELS) {
-      if (levelInfo.level === level) {
-        return levelInfo.title;
-      }
-    }
-    return 'Desconocido';
-  }
-
-  async getLastActivity(userId) {
-    if (!userId) return null;
-    
-    try {
-      const userRef = doc(db, 'users', userId);
-      const userDoc = await getDoc(userRef);
-      return userDoc.data()?.lastActivity || null;
-    } catch (error) {
-      console.error('Error getting last activity:', error);
-      return null;
-    }
-  }
-
-  async incrementEarlyBirdStreak(userId) {
-    if (!userId) return;
-    
-    try {
-      const userRef = doc(db, 'users', userId);
-      const today = new Date().toDateString();
-      
-      // Actualizar la base de datos
-      await updateDoc(userRef, {
-        earlyBirdDays: arrayUnion(today)
-      });
-      
-      // Verificar si ya tiene 5 días
-      const userDoc = await getDoc(userRef);
-      const earlyBirdDays = userDoc.data()?.earlyBirdDays || [];
-      
-      // Eliminar duplicados (por si acaso)
-      const uniqueDays = [...new Set(earlyBirdDays)];
-      
-      if (uniqueDays.length >= 5) {
-        await this.checkAndUnlockAchievement(userId, 'EARLY_BIRD');
-      }
-    } catch (error) {
-      console.error('Error incrementing early bird streak:', error);
-    }
-  }
-
-  // Verificar logros relacionados con comandos
-  async checkCommandAchievements(userId) {
-    if (!userId) return;
-    
-    try {
-      const userRef = doc(db, 'users', userId);
-      const userDoc = await getDoc(userRef);
-      const userData = userDoc.data();
-      
-      if (!userData) return;
-      
-      const successfulCommands = userData.successfulCommands || 0;
-      
-      // Maestro de comandos (100 comandos exitosos)
-      if (successfulCommands >= 100) {
-        await this.checkAndUnlockAchievement(userId, 'COMMAND_MASTER');
-      }
-    } catch (error) {
-      console.error('Error checking command achievements:', error);
-    }
-  }
-
-  // Otorgar XP manual (para bonificaciones de administrador)
+  // ── Admin XP grant ────────────────────────────────────────────────────────────
   async grantXP(userId, amount, reason = 'Bonificación administrativa') {
-    if (!userId || !amount || amount <= 0) {
-      console.error('Invalid parameters for grantXP');
-      return false;
-    }
-    
-    try {
-      const userRef = doc(db, 'users', userId);
-      const userDoc = await getDoc(userRef);
-      const userData = userDoc.data() || {};
-      const currentXP = userData.xp || 0;
-      
-      // Actualizar XP
-      await updateDoc(userRef, {
-        xp: increment(amount)
-      });
-      
-      // Registrar en el historial
-      await this.addXpHistoryEntry(
-        userId,
-        amount,
-        reason,
-        'admin_bonus'
-      );
-      
-      // Verificar si subió de nivel
-      const levelInfo = await this.checkLevelUp(userId, currentXP, amount);
-      
-      return {
-        success: true,
-        oldXP: currentXP,
-        newXP: currentXP + amount,
-        oldLevel: levelInfo.oldLevel,
-        newLevel: levelInfo.newLevel,
-        levelUp: levelInfo.leveledUp
-      };
-    } catch (error) {
-      console.error('Error granting XP:', error);
-      return {
-        success: false,
-        error: error.message
-      };
-    }
+    if (!userId || !amount || amount <= 0) return { success: false };
+    const result = await this._applyXP(userId, amount, reason, 'admin_bonus');
+    return result ? { success: true, ...result } : { success: false };
   }
 
-  // Obtener ranking de usuarios
-  async getLeaderboard(limitCount = 10) {
+  // ── Leaderboard ───────────────────────────────────────────────────────────────
+  async getLeaderboard(limitCount = 50) {
     try {
+      // Load inactive commission codes for legacy detection
+      const commissionsSnap = await getDocs(collection(db, 'commissions'));
+      const inactiveCodes = new Set();
+      commissionsSnap.forEach(d => {
+        const c = d.data();
+        if (c.active === false && c.code) inactiveCodes.add(c.code);
+      });
+
       const usersQuery = query(
         collection(db, 'users'),
         orderBy('xp', 'desc'),
         firestoreLimit(limitCount)
       );
-  
       const snapshot = await getDocs(usersQuery);
       const leaderboard = [];
-  
-      snapshot.forEach((doc) => {
-        const data = doc.data();
-        // Asegúrate de que el rol del usuario esté disponible en los datos
-        if (data.role !== 'admin') { // Filtrar administradores
-          leaderboard.push({
-            id: doc.id,
-            name: data.displayName || data.email,
-            email: data.email,
-            xp: data.xp || 0,
-            level: this.calculateLevel(data.xp || 0),
-            levelTitle: this.getLevelTitle(this.calculateLevel(data.xp || 0)),
-            pnrsCreated: data.pnrsCreated || 0,
-            avgPNRTime: data.lastPNRCreationTime 
-              ? parseFloat(data.lastPNRCreationTime).toFixed(1)
-              : '0.0',
-            achievements: data.achievements || [],
-            achievementCount: (data.achievements || []).length,
-            commissionName: data.commissionName || '',
-            commissionCode: data.commissionCode || ''
-          });
-        }
+
+      snapshot.forEach(d => {
+        const data = d.data();
+        if (data.role === 'admin') return;
+
+        const isLegacy = data.commissionCode
+          ? inactiveCodes.has(data.commissionCode)
+          : false;
+
+        leaderboard.push({
+          id: d.id,
+          name: data.displayName || data.email,
+          email: data.email,
+          xp: data.xp || 0,
+          level: this.calculateLevel(data.xp || 0),
+          levelTitle: this.getLevelTitle(this.calculateLevel(data.xp || 0)),
+          pnrsCreated: data.pnrsCreated || 0,
+          avgPNRTime: data.lastPNRCreationTime
+            ? parseFloat(data.lastPNRCreationTime).toFixed(1)
+            : '0.0',
+          achievements: data.achievements || [],
+          achievementCount: (data.achievements || []).length,
+          commissionName: data.commissionName || '',
+          commissionCode: data.commissionCode || '',
+          isLegacy,
+        });
       });
-  
+
       return leaderboard;
     } catch (error) {
       console.error('Error getting leaderboard:', error);
       throw error;
     }
+  }
+
+  // ── Calculation helpers ───────────────────────────────────────────────────────
+  calculateLevel(totalXp) {
+    if (typeof totalXp !== 'number' || isNaN(totalXp)) return 1;
+    for (let i = this.LEVELS.length - 1; i >= 0; i--) {
+      if (totalXp >= this.LEVELS[i].requiredXP) return this.LEVELS[i].level;
+    }
+    return 1;
+  }
+
+  calculateXpForNextLevel(currentLevel) {
+    const next = this.LEVELS.find(l => l.level > currentLevel);
+    return next ? next.requiredXP : null;
+  }
+
+  getLevelTitle(level) {
+    return this.LEVELS.find(l => l.level === level)?.title || 'Desconocido';
+  }
+
+  async getLastActivity(userId) {
+    if (!userId) return null;
+    try {
+      return (await getDoc(doc(db, 'users', userId))).data()?.lastActivity || null;
+    } catch { return null; }
+  }
+
+  // ── Private helpers ───────────────────────────────────────────────────────────
+  async _incrementEarlyBirdStreak(userId) {
+    try {
+      const userRef = doc(db, 'users', userId);
+      const today = new Date().toDateString();
+      await updateDoc(userRef, { earlyBirdDays: arrayUnion(today) });
+      const earlyBirdDays = (await getDoc(userRef)).data()?.earlyBirdDays || [];
+      if ([...new Set(earlyBirdDays)].length >= 5) {
+        await this.checkAndUnlockAchievement(userId, 'EARLY_BIRD');
+      }
+    } catch (e) { console.warn('earlyBirdStreak:', e); }
+  }
+
+  _levenshtein(a, b) {
+    const m = [];
+    for (let i = 0; i <= b.length; i++) m[i] = [i];
+    for (let j = 0; j <= a.length; j++) m[0][j] = j;
+    for (let i = 1; i <= b.length; i++) {
+      for (let j = 1; j <= a.length; j++) {
+        m[i][j] = b[i - 1] === a[j - 1]
+          ? m[i - 1][j - 1]
+          : Math.min(m[i - 1][j - 1] + 1, m[i][j - 1] + 1, m[i - 1][j] + 1);
+      }
+    }
+    return m[b.length][a.length];
+  }
+
+  _continent(airportCode) {
+    const map = {
+      JFK: 'NA', LAX: 'NA', MIA: 'NA', YYZ: 'NA', MEX: 'NA', ORD: 'NA', ATL: 'NA',
+      EZE: 'SA', GRU: 'SA', SCL: 'SA', BOG: 'SA', LIM: 'SA', GIG: 'SA', MVD: 'SA',
+      LHR: 'EU', CDG: 'EU', FCO: 'EU', MAD: 'EU', FRA: 'EU', AMS: 'EU', BCN: 'EU', LIS: 'EU',
+      NRT: 'AS', PEK: 'AS', HKG: 'AS', BKK: 'AS', SIN: 'AS', DXB: 'AS', DOH: 'AS',
+      JNB: 'AF', CAI: 'AF', CPT: 'AF', NBO: 'AF', ADD: 'AF', LOS: 'AF',
+      SYD: 'OC', MEL: 'OC', AKL: 'OC', PER: 'OC', BNE: 'OC',
+    };
+    return map[airportCode] || null;
   }
 }
 

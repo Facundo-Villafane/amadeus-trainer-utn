@@ -124,22 +124,6 @@ export default function BugReportModal({ isOpen, onClose, userId, userEmail }) {
                 </select>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Prioridad
-                </label>
-                <select
-                  value={formData.priority}
-                  onChange={(e) =>
-                    setFormData({ ...formData, priority: e.target.value })
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
-                >
-                  <option value="low">Baja (Cosmético)</option>
-                  <option value="medium">Media (Molesto pero funciona)</option>
-                  <option value="high">Alta (No puedo continuar)</option>
-                </select>
-              </div>
             </div>
 
             <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200">

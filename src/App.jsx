@@ -1,13 +1,17 @@
 // src/App.jsx
+import { useState, useEffect } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router';
 import { Toaster } from 'react-hot-toast';
 import AuthProvider from './contexts/AuthProvider';
 import { useAuth } from './hooks/useAuth';
 import AutoLogout from './components/AutoLogout';
+import XpToastContainer, { LevelUpModal } from './components/gamification/XpToast';
+import xpEventBus from './services/xpEventBus';
 
 
 // Páginas públicas
 import Home from './pages/Home';
+import Docs from './pages/Docs';
 import Login from './components/auth/Login';
 import Signup from './components/auth/Signup';
 
@@ -41,16 +45,16 @@ import NotFound from './pages/NotFound';
 function PrivateRoute({ children }) {
   const { currentUser, loading, isSpectator } = useAuth();
   const location = useLocation();
-  
+
   if (loading) {
     return <div className="flex h-screen items-center justify-center">Cargando...</div>;
   }
-  
+
   // Permitir acceso si está autenticado o es espectador
   if (!currentUser && !isSpectator) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
-  
+
   return children;
 }
 
@@ -58,24 +62,24 @@ function PrivateRoute({ children }) {
 function AdminRoute({ children }) {
   const { currentUser, userRole, loading, isSpectator } = useAuth();
   const location = useLocation();
-  
+
   if (loading) {
     return <div className="flex h-screen items-center justify-center">Cargando...</div>;
   }
-  
+
   // No permitir acceso a espectadores
   if (isSpectator) {
     return <Navigate to="/dashboard" replace />;
   }
-  
+
   if (!currentUser) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
-  
+
   if (userRole !== 'admin') {
     return <Navigate to="/dashboard" replace />;
   }
-  
+
   return children;
 }
 
@@ -83,26 +87,61 @@ function AdminRoute({ children }) {
 function AuthenticatedOnlyRoute({ children }) {
   const { currentUser, loading, isSpectator } = useAuth();
   const location = useLocation();
-  
+
   if (loading) {
     return <div className="flex h-screen items-center justify-center">Cargando...</div>;
   }
-  
+
   if (!currentUser || isSpectator) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
-  
+
   return children;
+}
+
+// ── XP event manager ─────────────────────────────────────────────────────────
+// Subscribes to xpEventBus and renders toasts/modals globally
+function XpToastManager() {
+  const [toastEvents, setToastEvents] = useState([]);
+  const [achievements, setAchievements] = useState([]);
+  const [levelUpData, setLevelUpData] = useState(null);
+
+  useEffect(() => {
+    const unsub = xpEventBus.subscribe(ev => {
+      if (ev.type === 'level_up') {
+        setLevelUpData(ev.data);
+      } else if (ev.type === 'achievement') {
+        setAchievements(prev => [...prev, { ...ev.achievement, id: ev.id }]);
+      } else {
+        setToastEvents(prev => [...prev, ev]);
+      }
+    });
+    return unsub;
+  }, []);
+
+  return (
+    <>
+      <XpToastContainer
+        events={toastEvents}
+        achievements={achievements}
+        onDismissEvent={id => setToastEvents(prev => prev.filter(e => e.id !== id))}
+        onDismissAchievement={id => setAchievements(prev => prev.filter(a => a.id !== id))}
+      />
+      <LevelUpModal levelData={levelUpData} onClose={() => setLevelUpData(null)} />
+    </>
+  );
 }
 
 export default function App() {
   return (
     <AuthProvider>
+      <XpToastManager />
       <AutoLogout>
         <Toaster position="top-right" />
         <Routes>
           {/* Rutas públicas */}
           <Route path="/" element={<Home />} />
+          <Route path="/docs" element={<Docs />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
 
@@ -123,56 +162,56 @@ export default function App() {
               </PrivateRoute>
             }
           />
-          <Route 
-            path="/help" 
+          <Route
+            path="/help"
             element={
               <PrivateRoute>
                 <Help />
               </PrivateRoute>
-            } 
+            }
           />
-          <Route 
-            path="/leaderboard" 
+          <Route
+            path="/leaderboard"
             element={
               <PrivateRoute>
                 <Leaderboard />
               </PrivateRoute>
-            } 
+            }
           />
-          <Route 
-            path="/flights" 
+          <Route
+            path="/flights"
             element={
               <PrivateRoute>
                 <FlightExplorerPage />
               </PrivateRoute>
-            } 
+            }
           />
-          
+
           {/* Rutas solo para usuarios autenticados (no espectadores) */}
           // Rutas de perfil centralizado
-          <Route 
-            path="/profile" 
+          <Route
+            path="/profile"
             element={
               <AuthenticatedOnlyRoute>
                 <UserProfile initialTab="personal" />
               </AuthenticatedOnlyRoute>
-            } 
+            }
           />
-          <Route 
-            path="/my-pnrs" 
+          <Route
+            path="/my-pnrs"
             element={
               <AuthenticatedOnlyRoute>
                 <UserProfile initialTab="pnrs" />
               </AuthenticatedOnlyRoute>
-            } 
+            }
           />
-          <Route 
-            path="/command-history" 
+          <Route
+            path="/command-history"
             element={
               <AuthenticatedOnlyRoute>
                 <UserProfile initialTab="commands" />
               </AuthenticatedOnlyRoute>
-            } 
+            }
           />
           <Route
             path="/settings"
@@ -192,55 +231,55 @@ export default function App() {
           />
 
           {/* Rutas de administrador */}
-          <Route 
-            path="/admin/commissions" 
+          <Route
+            path="/admin/commissions"
             element={
               <AdminRoute>
                 <AdminCommissions />
               </AdminRoute>
-            } 
+            }
           />
-          <Route 
-            path="/admin/users" 
+          <Route
+            path="/admin/users"
             element={
               <AdminRoute>
                 <AdminUsers />
               </AdminRoute>
-            } 
+            }
           />
           {/* Nueva ruta para historial de comandos de usuario */}
-          <Route 
-            path="/admin/users/:userId/commands" 
+          <Route
+            path="/admin/users/:userId/commands"
             element={
               <AdminRoute>
                 <UserCommandHistoryPage />
               </AdminRoute>
-            } 
+            }
           />
           {/* Ruta para PNRs de usuario */}
-          <Route 
-            path="/admin/users/:userId/pnrs" 
+          <Route
+            path="/admin/users/:userId/pnrs"
             element={
               <AdminRoute>
                 <UserPNRsPage />
               </AdminRoute>
-            } 
+            }
           />
-          <Route 
-            path="/admin/settings" 
+          <Route
+            path="/admin/settings"
             element={
               <AdminRoute>
                 <AdminSettings />
               </AdminRoute>
-            } 
+            }
           />
-          <Route 
-            path="/admin/flights" 
+          <Route
+            path="/admin/flights"
             element={
               <AdminRoute>
                 <AdminFlights />
               </AdminRoute>
-            } 
+            }
           />
           <Route
             path="/admin/data-management"
