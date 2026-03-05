@@ -12,11 +12,11 @@ class OpenFlightsDataService {
   constructor() {
     this.initialized = false;
     this.airportService = airportDataService;
-    
+
     // Try to initialize immediately
     this.initializeService();
   }
-  
+
   /**
    * Initialize the service
    * @param {string} dataContent - Optional data content to initialize with
@@ -26,7 +26,7 @@ class OpenFlightsDataService {
     if (this.initialized) {
       return true;
     }
-    
+
     try {
       // If data was provided, use it
       if (dataContent && dataContent.length > 100) {
@@ -35,7 +35,7 @@ class OpenFlightsDataService {
         // Otherwise use default initialization
         await this.airportService.initialize();
       }
-      
+
       this.initialized = true;
       return true;
     } catch (error) {
@@ -46,7 +46,7 @@ class OpenFlightsDataService {
       return false;
     }
   }
-  
+
   /**
    * Search for cities by name
    * @param {string} cityName - Name of the city to search for
@@ -57,10 +57,24 @@ class OpenFlightsDataService {
       console.warn('OpenFlightsDataService not initialized, initializing with defaults');
       this.initializeService();
     }
-    
+
     return this.airportService.searchCitiesByName(cityName);
   }
-  
+
+  /**
+   * Search for airports by partial name
+   * @param {string} airportName - Name of the airport to search for
+   * @returns {Array} - Array of matching city groups that contain the airport
+   */
+  searchByAirportName(airportName) {
+    if (!this.initialized) {
+      console.warn('OpenFlightsDataService not initialized, initializing with defaults');
+      this.initializeService();
+    }
+
+    return this.airportService.searchByAirportName(airportName);
+  }
+
   /**
    * Get city information by code
    * @param {string} cityCode - The city/airport code
@@ -71,10 +85,10 @@ class OpenFlightsDataService {
       console.warn('OpenFlightsDataService not initialized, initializing with defaults');
       this.initializeService();
     }
-    
+
     return this.airportService.getCityByCode(cityCode);
   }
-  
+
   /**
    * Get airport information by code
    * @param {string} airportCode - The airport IATA code
@@ -85,10 +99,10 @@ class OpenFlightsDataService {
       console.warn('OpenFlightsDataService not initialized, initializing with defaults');
       this.initializeService();
     }
-    
+
     return this.airportService.getAirportByCode(airportCode);
   }
-  
+
   /**
    * Check if the service is initialized
    * @returns {boolean} - Initialization status

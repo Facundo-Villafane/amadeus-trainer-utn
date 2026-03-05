@@ -1,18 +1,19 @@
 // src/utils/commandParser/commandParser.js
 import { handleAvailabilityCommand } from './commands/availability';
 import { handleScheduleCommand } from './commands/schedule';
-import { handleTimetableCommand } from './commands/timetable'; 
+import { handleTimetableCommand } from './commands/timetable';
 import { handleMoveDown, handleMoveUp } from './commands/navigation';
 import { generateHelpText, handleHelpCommand } from './commands/help';
 import { handleEncodeCity, handleDecodeCity } from './commands/city';
 import { handleEncodeAirline } from './commands/airline';
+import { handleDecodeEquipment } from './commands/equipment';
 import { handleTicketing } from './commands/pnr/pnrTicketing';
-import { 
-  handleSellSegment, 
-  handleAddName, 
+import {
+  handleSellSegment,
+  handleAddName,
   handleAddContact,
   handleReceivedFrom,
-  handleEndTransaction, 
+  handleEndTransaction,
   handleRetrievePNR,
   getCurrentPNR,
   handleAddEmailContact,
@@ -21,13 +22,16 @@ import {
   confirmCancelPNR,
   handleAddOSI,
   handleAddSSR,
-    handleAddFOID,
-    handleGeneralRemark,       // Agregar esta línea
+  handleAddFOID,
+  handleGeneralRemark,       // Agregar esta línea
   handleConfidentialRemark,  // Agregar esta línea
   handleItineraryRemark      // Agregar esta línea
 } from './commands/pnr';
 import experienceService from '../../services/experienceService';
 import { handleSeatmapCommand, handleAssignSeatCommand } from './commands/seatmap';
+import { handleRRNCommand } from './commands/pnr/pnrClone';
+import { handleSplit, handleCloseAssociate } from './commands/pnr/pnrSplit';
+import { handleItineraryCommand } from './commands/pnr/pnrItinerary';
 
 // Variable para rastrear si el comando anterior fue XI (para confirmación con RF)
 let previousCommandWasXI = false;
@@ -38,15 +42,15 @@ export async function commandParser(command, userId) {
     console.warn('commandParser called without userId');
     // Continuar de todos modos para permitir uso por usuarios no autenticados
   }
-  
+
   // Convertir a mayúsculas y eliminar espacios al inicio y al final
   const cmd = command.trim().toUpperCase();
-  
+
   // Manejo de errores global para evitar que la aplicación se rompa
   try {
     let result;
     let commandType = 'UNKNOWN';
-    
+
     // Determinar tipo de comando para estadísticas
     if (cmd.startsWith('AN')) commandType = 'AN';
     else if (cmd.startsWith('SN')) commandType = 'SN';
@@ -65,67 +69,68 @@ export async function commandParser(command, userId) {
     else if (cmd.startsWith('SM')) commandType = 'SM';
     else if (cmd.startsWith('ST')) commandType = 'ST';
     else if (cmd.startsWith('RM')) commandType = 'REMARK';
-else if (cmd.startsWith('RC')) commandType = 'REMARK';
-else if (cmd.startsWith('RIR')) commandType = 'REMARK';
+    else if (cmd.startsWith('RC')) commandType = 'REMARK';
+    else if (cmd.startsWith('RIR')) commandType = 'REMARK';
+    else if (cmd.startsWith('DNE')) commandType = 'DECODE_EQP';
     else if (cmd === 'HELP' || cmd.startsWith('HE')) commandType = 'HELP';
     else if (cmd === 'MD' || cmd === 'M' || cmd === 'U') commandType = 'NAVIGATION';
-    
+
     // Si es el primer comando de creación de PNR, iniciar timer
     if (cmd.startsWith('SS') && !getCurrentPNR() && userId) {
       await experienceService.startPNRCreation(userId);
     }
-    
+
     // Comandos de paginación
     if (cmd === 'MD' || cmd === 'M') {
       result = await handleMoveDown();
-      
+
       // Registrar comando exitoso si hay userId
       if (userId && result && !result.startsWith('Error') && !result.includes('No hay resultados')) {
         await experienceService.recordSuccessfulCommand(userId, cmd, commandType);
       }
-      
+
       return result;
     }
-    
+
     if (cmd === 'U') {
       result = await handleMoveUp();
-      
+
       // Registrar comando exitoso si hay userId
       if (userId && result && !result.startsWith('Error') && !result.includes('No hay páginas previas')) {
         await experienceService.recordSuccessfulCommand(userId, cmd, commandType);
       }
-      
+
       return result;
     }
-    
+
     // Comandos de ayuda
     if (cmd === 'HELP' || cmd === 'HE') {
       result = generateHelpText();
-      
+
       // Registrar uso de comando HELP para logro "Helping Hand"
       if (userId) {
         await experienceService.recordSuccessfulCommand(userId, cmd, 'HELP');
       }
-      
+
       return result;
     }
-    
+
     // Comandos de formato HE
     if (cmd.startsWith('HE')) {
       result = handleHelpCommand(cmd);
-      
+
       // Registrar uso de comando HE para logro "Helping Hand"
       if (userId) {
         await experienceService.recordSuccessfulCommand(userId, cmd, 'HELP');
       }
-      
+
       return result;
     }
-    
+
     // Comando de despliegue de disponibilidad AN
     if (cmd.startsWith('AN')) {
       result = await handleAvailabilityCommand(cmd);
-      
+
       // Registrar resultado
       if (userId) {
         if (!result.startsWith('Error') && !result.includes('No se encontraron')) {
@@ -134,14 +139,14 @@ else if (cmd.startsWith('RIR')) commandType = 'REMARK';
           await experienceService.recordCommandError(userId, cmd, result);
         }
       }
-      
+
       return result;
     }
-    
+
     // Comando de despliegue de horarios SN
     if (cmd.startsWith('SN')) {
       result = await handleScheduleCommand(cmd);
-      
+
       // Registrar resultado
       if (userId) {
         if (!result.startsWith('Error') && !result.includes('No se encontraron')) {
@@ -150,14 +155,14 @@ else if (cmd.startsWith('RIR')) commandType = 'REMARK';
           await experienceService.recordCommandError(userId, cmd, result);
         }
       }
-      
+
       return result;
     }
-    
+
     // Comando de despliegue de frecuencias TN
     if (cmd.startsWith('TN')) {
       result = await handleTimetableCommand(cmd);
-      
+
       // Registrar resultado
       if (userId) {
         if (!result.startsWith('Error') && !result.includes('No se encontraron')) {
@@ -166,14 +171,14 @@ else if (cmd.startsWith('RIR')) commandType = 'REMARK';
           await experienceService.recordCommandError(userId, cmd, result);
         }
       }
-      
+
       return result;
     }
-    
+
     // Comandos de codificación y decodificación
     if (cmd.startsWith('DAN')) {
       result = await handleEncodeCity(cmd);
-      
+
       // Registrar resultado
       if (userId) {
         if (!result.startsWith('Error') && !result.includes('No se encontró')) {
@@ -182,13 +187,13 @@ else if (cmd.startsWith('RIR')) commandType = 'REMARK';
           await experienceService.recordCommandError(userId, cmd, result);
         }
       }
-      
+
       return result;
     }
-    
+
     if (cmd.startsWith('DAC')) {
       result = await handleDecodeCity(cmd);
-      
+
       // Registrar resultado
       if (userId) {
         if (!result.startsWith('Error') && !result.includes('No se encontró')) {
@@ -197,13 +202,13 @@ else if (cmd.startsWith('RIR')) commandType = 'REMARK';
           await experienceService.recordCommandError(userId, cmd, result);
         }
       }
-      
+
       return result;
     }
-    
+
     if (cmd.startsWith('DNA')) {
       result = await handleEncodeAirline(cmd);
-      
+
       // Registrar resultado
       if (userId) {
         if (!result.startsWith('Error') && !result.includes('No se encontró')) {
@@ -212,15 +217,30 @@ else if (cmd.startsWith('RIR')) commandType = 'REMARK';
           await experienceService.recordCommandError(userId, cmd, result);
         }
       }
-      
+
       return result;
     }
-    
+
+    if (cmd.startsWith('DNE')) {
+      result = await handleDecodeEquipment(cmd);
+
+      // Registrar resultado
+      if (userId) {
+        if (!result.startsWith('Error') && !result.includes('NOT FOUND') && !result.includes('FORMAT ERROR')) {
+          await experienceService.recordSuccessfulCommand(userId, cmd, 'DECODE_EQP');
+        } else {
+          await experienceService.recordCommandError(userId, cmd, result);
+        }
+      }
+
+      return result;
+    }
+
     // Comandos para PNR
     if (cmd.startsWith('SS')) {
       result = await handleSellSegment(cmd, userId);
       previousCommandWasXI = false;
-      
+
       // Registrar resultado
       if (userId) {
         if (!result.startsWith('Error')) {
@@ -229,70 +249,70 @@ else if (cmd.startsWith('RIR')) commandType = 'REMARK';
           await experienceService.recordCommandError(userId, cmd, result);
         }
       }
-      
+
       return result;
     }
-    
+
     if (cmd.startsWith('NM')) {
       result = await handleAddName(cmd, userId);
       previousCommandWasXI = false;
-      
+
       // Registrar resultado
       if (userId) {
         if (!result.startsWith('Error')) {
           await experienceService.recordSuccessfulCommand(userId, cmd, commandType);
         } else {
           await experienceService.recordCommandError(userId, cmd, result);
-          
+
           // Si es un error durante creación de PNR
           if (getCurrentPNR()) {
             await experienceService.recordPNRError(userId);
           }
         }
       }
-      
+
       return result;
     }
-    
+
     if (cmd.startsWith('AP') && !cmd.startsWith('APE')) {
       result = await handleAddContact(cmd, userId);
       previousCommandWasXI = false;
-      
+
       // Registrar resultado
       if (userId) {
         if (!result.startsWith('Error')) {
           await experienceService.recordSuccessfulCommand(userId, cmd, commandType);
         } else {
           await experienceService.recordCommandError(userId, cmd, result);
-          
+
           // Si es un error durante creación de PNR
           if (getCurrentPNR()) {
             await experienceService.recordPNRError(userId);
           }
         }
       }
-      
+
       return result;
     }
 
     if (cmd.startsWith('APE')) {
       result = await handleAddEmailContact(cmd, userId);
       previousCommandWasXI = false;
-      
+
       // Registrar resultado
       if (userId) {
         if (!result.startsWith('Error')) {
           await experienceService.recordSuccessfulCommand(userId, cmd, commandType);
         } else {
           await experienceService.recordCommandError(userId, cmd, result);
-          
+
           // Si es un error durante creación de PNR
           if (getCurrentPNR()) {
             await experienceService.recordPNRError(userId);
           }
         }
       }
-      
+
       return result;
     }
 
@@ -300,24 +320,24 @@ else if (cmd.startsWith('RIR')) commandType = 'REMARK';
     if (cmd.startsWith('TK')) {
       result = await handleTicketing(cmd, userId);
       previousCommandWasXI = false;
-      
+
       // Registrar resultado
       if (userId) {
         if (!result.startsWith('Error')) {
           await experienceService.recordSuccessfulCommand(userId, cmd, commandType);
         } else {
           await experienceService.recordCommandError(userId, cmd, result);
-          
+
           // Si es un error durante creación de PNR
           if (getCurrentPNR()) {
             await experienceService.recordPNRError(userId);
           }
         }
       }
-      
+
       return result;
     }
-    
+
     // Comando RF (verificar si está confirmando una cancelación)
     if (cmd.startsWith('RF')) {
       // Intentar procesar como confirmación de XI
@@ -325,7 +345,7 @@ else if (cmd.startsWith('RIR')) commandType = 'REMARK';
         result = await confirmCancelPNR(cmd, userId, true);
         if (result !== null) {
           previousCommandWasXI = false; // Reiniciar el estado
-          
+
           // Registrar resultado
           if (userId) {
             if (!result.startsWith('Error')) {
@@ -334,46 +354,46 @@ else if (cmd.startsWith('RIR')) commandType = 'REMARK';
               await experienceService.recordCommandError(userId, cmd, result);
             }
           }
-          
+
           return result;
         }
       }
-      
+
       // Procesar normalmente si no es confirmación o la confirmación devolvió null
       result = await handleReceivedFrom(cmd, userId);
       previousCommandWasXI = false;
-      
+
       // Registrar resultado
       if (userId) {
         if (!result.startsWith('Error')) {
           await experienceService.recordSuccessfulCommand(userId, cmd, commandType);
         } else {
           await experienceService.recordCommandError(userId, cmd, result);
-          
+
           // Si es un error durante creación de PNR
           if (getCurrentPNR()) {
             await experienceService.recordPNRError(userId);
           }
         }
       }
-      
+
       return result;
     }
-    
+
     if (cmd === 'ET' || cmd === 'ER') {
       result = await handleEndTransaction(cmd, userId);
       previousCommandWasXI = false;
-      
+
       // No necesitamos registrar comandos aquí ya que handleEndTransaction ya llama a
       // experienceService.completePNR que registra la experiencia
-      
+
       return result;
     }
-    
+
     if (cmd.startsWith('RT')) {
       result = await handleRetrievePNR(cmd, userId);
       previousCommandWasXI = false;
-      
+
       // Registrar resultado
       if (userId) {
         if (!result.startsWith('Error') && !result.includes('No se encontró el PNR')) {
@@ -382,15 +402,15 @@ else if (cmd.startsWith('RIR')) commandType = 'REMARK';
           await experienceService.recordCommandError(userId, cmd, result);
         }
       }
-      
+
       return result;
     }
-    
+
     // Nuevos comandos
     if (cmd.startsWith('XE')) {
       result = await handleDeleteElements(cmd);
       previousCommandWasXI = false;
-      
+
       // Registrar resultado
       if (userId) {
         if (!result.startsWith('Error')) {
@@ -399,14 +419,14 @@ else if (cmd.startsWith('RIR')) commandType = 'REMARK';
           await experienceService.recordCommandError(userId, cmd, result);
         }
       }
-      
+
       return result;
     }
-    
+
     if (cmd === 'XI') {
       result = await handleCancelPNRWithConfirmation();
       previousCommandWasXI = true; // Activar el estado para confirmar con RF
-      
+
       // Registrar resultado
       if (userId) {
         if (!result.startsWith('Error')) {
@@ -415,152 +435,204 @@ else if (cmd.startsWith('RIR')) commandType = 'REMARK';
           await experienceService.recordCommandError(userId, cmd, result);
         }
       }
-      
+
       return result;
     }
-    
+
     // Comandos de elementos suplementarios
     if (cmd.startsWith('OS')) {
       result = await handleAddOSI(cmd);
       previousCommandWasXI = false;
-      
+
       // Registrar resultado
       if (userId) {
         if (!result.startsWith('Error')) {
           await experienceService.recordSuccessfulCommand(userId, cmd, commandType);
         } else {
           await experienceService.recordCommandError(userId, cmd, result);
-          
+
           // Si es un error durante creación de PNR
           if (getCurrentPNR()) {
             await experienceService.recordPNRError(userId);
           }
         }
       }
-      
+
       return result;
     }
-    
+
+    if (cmd.startsWith('RRN')) {
+      result = await handleRRNCommand(cmd);
+      previousCommandWasXI = false;
+      if (userId) {
+        if (!result.startsWith('Error') && !result.startsWith('No hay') && !result.startsWith('El PNR') && !result.startsWith('Formato')) {
+          await experienceService.recordSuccessfulCommand(userId, cmd, commandType);
+        } else {
+          await experienceService.recordCommandError(userId, cmd, result);
+        }
+      }
+      return result;
+    }
+
+    if (/^SP[\d,\s-]+$/.test(cmd)) {
+      result = await handleSplit(cmd);
+      previousCommandWasXI = false;
+      if (userId) {
+        if (!result.startsWith('Error') && !result.startsWith('No hay') && !result.startsWith('Debe')) {
+          await experienceService.recordSuccessfulCommand(userId, 'SP', commandType);
+        } else {
+          await experienceService.recordCommandError(userId, cmd, result);
+        }
+      }
+      return result;
+    }
+
+    if (cmd === 'EF') {
+      result = await handleCloseAssociate(cmd);
+      previousCommandWasXI = false;
+      if (userId) {
+        if (!result.startsWith('Error') && result.indexOf('solo se puede') === -1) {
+          await experienceService.recordSuccessfulCommand(userId, cmd, commandType);
+        } else {
+          await experienceService.recordCommandError(userId, cmd, result);
+        }
+      }
+      return result;
+    }
+
+    if (/^(IE|IB)[DPJ]?(?:\/P\d+)?(?:-EML(?:A|-[^\s]+)?)?$/.test(cmd)) {
+      result = await handleItineraryCommand(cmd, userId);
+      previousCommandWasXI = false;
+      if (userId) {
+        if (!result.startsWith('Error') && !result.startsWith('No hay') && !result.startsWith('El PNR') && !result.startsWith('Comando')) {
+          await experienceService.recordSuccessfulCommand(userId, cmd.substring(0, 2), commandType);
+        } else {
+          await experienceService.recordCommandError(userId, cmd, result);
+        }
+      }
+      return result;
+    }
+
     if (cmd.startsWith('SRFOID')) {
       result = await handleAddFOID(cmd);
       previousCommandWasXI = false;
-      
+
       // Registrar resultado
       if (userId) {
         if (!result.startsWith('Error')) {
           await experienceService.recordSuccessfulCommand(userId, cmd, commandType);
         } else {
           await experienceService.recordCommandError(userId, cmd, result);
-          
+
           // Si es un error durante creación de PNR
           if (getCurrentPNR()) {
             await experienceService.recordPNRError(userId);
           }
         }
       }
-      
+
       return result;
     }
-    
+
     if (cmd.startsWith('SR')) {
       result = await handleAddSSR(cmd);
       previousCommandWasXI = false;
-      
+
       // Registrar resultado
       if (userId) {
         if (!result.startsWith('Error')) {
           await experienceService.recordSuccessfulCommand(userId, cmd, commandType);
         } else {
           await experienceService.recordCommandError(userId, cmd, result);
-          
+
           // Si es un error durante creación de PNR
           if (getCurrentPNR()) {
             await experienceService.recordPNRError(userId);
           }
         }
       }
-      
+
       return result;
-      }
-      
-      // Comandos de seatmap
+    }
+
+    // Comandos de seatmap
     if (cmd.startsWith('SM')) {
       result = await handleSeatmapCommand(cmd);
       previousCommandWasXI = false;
       return result;
     }
-    
+
     if (cmd.startsWith('ST')) {
       result = await handleAssignSeatCommand(cmd, userId);
       previousCommandWasXI = false;
       return result;
-      }
-      
-    if (cmd.startsWith('RM')) {
-    result = await handleGeneralRemark(cmd, userId);
-    previousCommandWasXI = false;
-    
-    // Registrar resultado
-    if (userId) {
-        if (!result.startsWith('Error')) {
-        await experienceService.recordSuccessfulCommand(userId, cmd, 'REMARK');
-        } else {
-        await experienceService.recordCommandError(userId, cmd, result);
-        }
     }
-    
-    return result;
+
+    if (cmd.startsWith('RM')) {
+      result = await handleGeneralRemark(cmd, userId);
+      previousCommandWasXI = false;
+
+      // Registrar resultado
+      if (userId) {
+        if (!result.startsWith('Error')) {
+          await experienceService.recordSuccessfulCommand(userId, cmd, 'REMARK');
+        } else {
+          await experienceService.recordCommandError(userId, cmd, result);
+        }
+      }
+
+      return result;
     }
 
     if (cmd.startsWith('RC')) {
-    result = await handleConfidentialRemark(cmd, userId);
-    previousCommandWasXI = false;
-    
-    // Registrar resultado
-    if (userId) {
+      result = await handleConfidentialRemark(cmd, userId);
+      previousCommandWasXI = false;
+
+      // Registrar resultado
+      if (userId) {
         if (!result.startsWith('Error')) {
-        await experienceService.recordSuccessfulCommand(userId, cmd, 'REMARK');
+          await experienceService.recordSuccessfulCommand(userId, cmd, 'REMARK');
         } else {
-        await experienceService.recordCommandError(userId, cmd, result);
+          await experienceService.recordCommandError(userId, cmd, result);
         }
-    }
-    
-    return result;
+      }
+
+      return result;
     }
 
     if (cmd.startsWith('RIR')) {
-    result = await handleItineraryRemark(cmd, userId);
-    previousCommandWasXI = false;
-    
-    // Registrar resultado
-    if (userId) {
+      result = await handleItineraryRemark(cmd, userId);
+      previousCommandWasXI = false;
+
+      // Registrar resultado
+      if (userId) {
         if (!result.startsWith('Error')) {
-        await experienceService.recordSuccessfulCommand(userId, cmd, 'REMARK');
+          await experienceService.recordSuccessfulCommand(userId, cmd, 'REMARK');
         } else {
-        await experienceService.recordCommandError(userId, cmd, result);
+          await experienceService.recordCommandError(userId, cmd, result);
         }
+      }
+
+      return result;
     }
-    
-    return result;
-    }
-    
+
     // Si llegamos aquí, el comando no fue reconocido
     result = `Comando no reconocido: ${cmd}`;
     previousCommandWasXI = false;
-    
+
     // Registrar comando no reconocido como error
     if (userId) {
       await experienceService.recordCommandError(userId, cmd, result);
     }
-    
+
     return result;
   } catch (error) {
     console.error('Error en commandParser:', error);
-    
+
     if (userId) {
       await experienceService.recordCommandError(userId, cmd, error.message);
     }
-    
+
     previousCommandWasXI = false; // Reiniciar el estado en caso de error
     return `Error al procesar el comando: ${error.message}`;
   }

@@ -53,6 +53,23 @@ class AirportDataService {
     return results.map(e => this._toServiceFormat(e));
   }
 
+  /** Search airports by partial name — used by DAC */
+  searchByAirportName(query) {
+    if (!this.initialized) { this.initialize(); return []; }
+    const q = query.toUpperCase().trim();
+    const results = [];
+
+    // Iterate through all city groups
+    for (const group of this.cityList) {
+      // Check if any airport in this group matches
+      const hasMatch = group.airports.some(a => a.name.toUpperCase().includes(q));
+      if (hasMatch) {
+        results.push(this._toServiceFormat(group));
+      }
+    }
+    return results;
+  }
+
   /** Get city/airport info by IATA code — used by DAC */
   getCityByCode(iata) {
     if (!this.initialized) { this.initialize(); return null; }

@@ -4,17 +4,17 @@ import PropTypes from 'prop-types';
 
 export default function TerminalLine({ line, colors }) {
   const { content, type } = line;
-  
+
   // Colores predeterminados si no se proporcionan
   const defaultColors = {
     input: '#080286',    // Azul
     output: '#000000',   // Negro
     error: '#FF0000'     // Rojo
   };
-  
+
   // Combinar colores proporcionados con predeterminados
   const finalColors = { ...defaultColors, ...colors };
-  
+
   // Determinar el color según el tipo de línea
   const getColor = () => {
     switch (type) {
@@ -28,14 +28,14 @@ export default function TerminalLine({ line, colors }) {
         return 'white';
     }
   };
-  
+
   // Estilo inline para el color del texto
   const lineStyle = {
     color: getColor(),
   };
-  
+
   return (
-    <div className="whitespace-pre-wrap break-all" style={lineStyle}>
+    <div className="whitespace-pre font-mono" style={lineStyle}>
       {type === 'input' ? `> ${content}` : content}
     </div>
   );

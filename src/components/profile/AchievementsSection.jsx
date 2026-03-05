@@ -59,9 +59,6 @@ export default function AchievementsSection({ currentUser }) {
         ) : (
           <>
             <ExperienceBar userData={userData} />
-
-            {/* Historial de XP */}
-            <XPHistorySection userId={currentUser.uid} />
           </>
         )}
       </div>

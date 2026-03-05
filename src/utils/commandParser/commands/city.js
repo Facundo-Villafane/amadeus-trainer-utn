@@ -32,16 +32,16 @@ async function initializeOpenFlightsData() {
 function findAirportCodesByAlias(cityName, searchTerm) {
   const cityAliases = airportAliases[cityName];
   if (!cityAliases) return null;
-  
+
   const matchingCodes = new Set();
-  
+
   // Buscar coincidencias en los alias
   Object.entries(cityAliases).forEach(([alias, code]) => {
     if (alias.toUpperCase().includes(searchTerm.toUpperCase())) {
       matchingCodes.add(code);
     }
   });
-  
+
   return Array.from(matchingCodes);
 }
 
@@ -50,13 +50,13 @@ export async function handleEncodeCity(cmd) {
   try {
     // Ensure OpenFlights data is initialized
     await initializeOpenFlightsData();
-    
+
     const cityName = cmd.slice(3).trim();
-    
+
     // Formatear la respuesta simulando la respuesta de Amadeus
     let response = `DAN${cityName.toUpperCase()}\n`;
     response += `A:APT B:BUS C:CITY G:GRD H:HELI O:OFF-PT R:RAIL S:ASSOC TOWN\n`;
-    
+
     // Try Firebase first
     try {
       const citiesQuery = query(
@@ -65,14 +65,14 @@ export async function handleEncodeCity(cmd) {
         where('name_uppercase', '<=', cityName.toUpperCase() + '\uf8ff'),
         limit(5)
       );
-      
+
       const querySnapshot = await getDocs(citiesQuery);
-      
+
       if (!querySnapshot.empty) {
         querySnapshot.forEach((doc) => {
           const city = doc.data();
           response += `${city.code.padEnd(4)}*C ${city.name.toUpperCase().padEnd(20)} /${city.country_code}\n`;
-          
+
           // Si hay aeropuertos asociados
           if (city.airports && Array.isArray(city.airports)) {
             city.airports.forEach(airport => {
@@ -80,20 +80,20 @@ export async function handleEncodeCity(cmd) {
             });
           }
         });
-        
+
         return response;
       }
     } catch (error) {
       console.warn('Firebase query failed:', error);
     }
-    
+
     // Try OpenFlights data
     const openFlightsCities = openFlightsDataService.searchCitiesByName(cityName);
-    
+
     if (openFlightsCities && openFlightsCities.length > 0) {
       openFlightsCities.forEach(city => {
         response += `${city.code.padEnd(4)}*C ${city.name.toUpperCase().padEnd(20)} /${city.countryCode}\n`;
-        
+
         // Si hay aeropuertos asociados
         if (city.airports && Array.isArray(city.airports)) {
           city.airports.forEach(airport => {
@@ -101,22 +101,22 @@ export async function handleEncodeCity(cmd) {
           });
         }
       });
-      
+
       return response;
     }
-    
+
     // Fallback to mock data if neither Firebase nor OpenFlights worked
-    const mockMatchedCities = mockCities.filter(city => 
+    const mockMatchedCities = mockCities.filter(city =>
       city.name_uppercase.includes(cityName.toUpperCase())
     );
-    
+
     if (mockMatchedCities.length === 0) {
       return `No se encontró información para la ciudad: ${cityName}`;
     }
-    
+
     mockMatchedCities.forEach(city => {
       response += `${city.code.padEnd(4)}*C ${city.name.toUpperCase().padEnd(20)} /${city.country_code}\n`;
-      
+
       // Si hay aeropuertos asociados
       if (city.airports && Array.isArray(city.airports)) {
         city.airports.forEach(airport => {
@@ -124,7 +124,7 @@ export async function handleEncodeCity(cmd) {
         });
       }
     });
-    
+
     return response;
   } catch (error) {
     console.error('Error al procesar el comando DAN:', error);
@@ -137,9 +137,9 @@ export async function handleDecodeCity(cmd) {
   try {
     // Ensure OpenFlights data is initialized
     await initializeOpenFlightsData();
-    
+
     const searchTerm = cmd.slice(3).trim().toUpperCase();
-    
+
     // Caso especial para Ezeiza
     if (searchTerm === 'EZEIZA') {
       return `DACEZEIZA
@@ -147,7 +147,7 @@ BUE  C BUENOS AIRES         /AR
 AIRPORTS:
 EZE  - Ministro Pistarini International Airport                   `;
     }
-    
+
     // Caso especial para Buenos Aires
     if (searchTerm === 'BUENOS AIRES') {
       return `DACBUENOS AIRES
@@ -157,7 +157,7 @@ EZE  - Ministro Pistarini International Airport
 AEP  - Jorge Newbery Airfield                                   
 FDO  - San Fernando Airport                                     `;
     }
-    
+
     // Caso especial para London
     if (searchTerm === 'LONDON') {
       return `DACLONDON
@@ -176,11 +176,11 @@ LST  - London Street Rail Station
 BUS:
 LON  - London Bus Terminal                                      `;
     }
-    
+
     // Primero intentar encontrar la ciudad exacta
     let city = null;
     let airports = [];
-    
+
     // Try Firebase first
     try {
       const citiesQuery = query(
@@ -188,9 +188,9 @@ LON  - London Bus Terminal                                      `;
         where('name_uppercase', '==', searchTerm),
         limit(1)
       );
-      
+
       const citiesSnapshot = await getDocs(citiesQuery);
-      
+
       if (!citiesSnapshot.empty) {
         city = citiesSnapshot.docs[0].data();
         airports = city.airports || [];
@@ -198,8 +198,8 @@ LON  - London Bus Terminal                                      `;
     } catch (error) {
       console.warn('Firebase query failed:', error);
     }
-    
-    // Si no se encontró en Firebase, intentar con OpenFlights
+
+    // Si no se encontró en Firebase, intentar con OpenFlights (por ciudad)
     if (!city) {
       const cities = openFlightsDataService.searchCitiesByName(searchTerm);
       if (cities && cities.length > 0) {
@@ -207,16 +207,25 @@ LON  - London Bus Terminal                                      `;
         airports = city.airports || [];
       }
     }
-    
+
+    // Si no se encontró por ciudad, intentar con OpenFlights (por nombre de aeropuerto)
+    if (!city) {
+      const airportMatches = openFlightsDataService.searchByAirportName(searchTerm);
+      if (airportMatches && airportMatches.length > 0) {
+        city = airportMatches[0];
+        airports = city.airports || [];
+      }
+    }
+
     // Si aún no se encontró, buscar en los alias
     if (!city) {
       // Buscar en todas las ciudades que tienen alias
       for (const [cityName, aliases] of Object.entries(airportAliases)) {
         // Primero verificar si el término de búsqueda coincide con algún alias
-        const matchingAlias = Object.entries(aliases).find(([alias, code]) => 
+        const matchingAlias = Object.entries(aliases).find(([alias, code]) =>
           alias.toUpperCase() === searchTerm
         );
-        
+
         if (matchingAlias) {
           const [_, airportCode] = matchingAlias;
           // Encontrar la ciudad en OpenFlights
@@ -224,7 +233,7 @@ LON  - London Bus Terminal                                      `;
           if (cities && cities.length > 0) {
             city = cities[0];
             // Filtrar solo el aeropuerto que coincide con el código encontrado
-            airports = (city.airports || []).filter(airport => 
+            airports = (city.airports || []).filter(airport =>
               airport.code === airportCode
             );
             break;
@@ -232,7 +241,7 @@ LON  - London Bus Terminal                                      `;
         }
       }
     }
-    
+
     // Si aún no se encontró, usar datos mock
     if (!city) {
       const matchedCity = mockCities.find(city => city.name_uppercase === searchTerm);
@@ -241,22 +250,22 @@ LON  - London Bus Terminal                                      `;
         airports = matchedCity.airports || [];
       }
     }
-    
+
     // Si se encontró la ciudad, formatear la respuesta
     if (city) {
       let response = `DAC${searchTerm}\n`;
       response += `${city.code.padEnd(4)} C ${city.name.toUpperCase().padEnd(20)} /${city.country_code || city.countryCode || 'AR'}\n`;
-      
+
       if (airports.length > 0) {
         response += `AIRPORTS:\n`;
         airports.forEach(airport => {
           response += `${airport.code.padEnd(4)} - ${airport.name.padEnd(40)}\n`;
         });
       }
-      
+
       return response;
     }
-    
+
     return `No se encontró información para: ${searchTerm}`;
   } catch (error) {
     console.error('Error al procesar el comando DAC:', error);

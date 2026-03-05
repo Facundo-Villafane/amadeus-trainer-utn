@@ -1,60 +1,72 @@
-      // Agregar más casos según sea necesario// src/utils/commandParser/commands/help.js
+// Agregar más casos según sea necesario// src/utils/commandParser/commands/help.js
 // Función para generar texto de ayuda general
 export function generateHelpText() {
-    return `
+  return `
   COMANDOS DISPONIBLES:
   
   AYUDA:
   HE                      Despliega este mensaje de ayuda
-  HE[COMANDO]             Ayuda específica sobre un comando
+  HE[COMANDO]             Ayuda específica sobre un comando (ej: HEAN, HEST)
   
   CODIFICACIÓN/DECODIFICACIÓN:
-  DAN[CIUDAD]             Codificar ciudad/aeropuerto
-  DAC[CÓDIGO]             Decodificar ciudad/aeropuerto
-  DNA[AEROLÍNEA]          Codificar aerolínea
+  DAN[CIUDAD]             Codificar nombre de ciudad/aeropuerto → código IATA
+  DNA[CÓDIGO]             Decodificar código IATA → nombre de ciudad/aeropuerto
+  DAL[AEROLÍNEA]          Codificar nombre de aerolínea → código IATA
+  DNE[CÓDIGO/MODELO]      Decodificar código IATA de equipo/avión → detalles
   
   DISPONIBILIDAD:
-  AN[FECHA][ORIGEN][DESTINO]          Disponibilidad de vuelos
-  SN[FECHA][ORIGEN][DESTINO]          Horarios de vuelos
-  TN[FECHA][ORIGEN][DESTINO]          Frecuencias de vuelos
+  AN[FECHA][ORIGEN][DESTINO]         Disponibilidad de vuelos
+  SN[FECHA][ORIGEN][DESTINO]         Horarios de vuelos
+  TN[FECHA][ORIGEN][DESTINO]         Frecuencias de vuelos
   
   PAGINACIÓN:
   MD o M                  Mostrar más resultados (página siguiente)
   U                       Volver a la página anterior
   
   PNR:
-  SS[ASIENTOS][CLASE][LÍNEA]          Seleccionar asientos
-  NM[CANTIDAD][APELLIDO]/[NOMBRE]     Agregar nombre
-  AP [CIUDAD] [TELÉFONO]              Agregar teléfono de contacto
-  APE-[CORREO]                        Agregar correo electrónico de contacto
-  OS [AEROLÍNEA] [MENSAJE] /P[#]      Agregar información especial (OSI)
-  SR[CÓDIGO]/P[#]                     Agregar solicitud de servicio especial
-  SRFOID[AEROLÍNEA]HK1-[TIPO][#]/P[#] Agregar documento de identidad
-  SM                                  Abrir mapa de asientos gráfico
-  ST[SEGMENTO][ASIENTO]/P[PASAJERO]   Asignar asiento (ej: ST14A/P1)
-  RM [TEXTO]                          Agregar comentario general
-  RC [TEXTO]                          Agregar comentario confidencial
-  RIR [TEXTO]                         Agregar comentario para el itinerario
-  RF[NOMBRE]                          Recibido de
-  TK[OPCIONES]                        Emisión de billetes
-  ET                                  Finalizar transacción
-  ER                                  Finalizar y recuperar PNR
-  RT[LOCALIZADOR]                     Recuperar PNR
-  XE[ELEMENTO(S)]                     Borrar elemento(s) del PNR
-  XI                                  Cancelar PNR (requiere confirmación)
+  SS[CANT][CLASE][LÍNEA]             Seleccionar segmento de vuelo
+  NM[CANT][APELLIDO]/[NOMBRE]        Agregar nombre de pasajero
+  AP [TELÉFONO]                      Agregar teléfono de contacto
+  APE-[CORREO]                       Agregar correo electrónico de contacto
+  OS [AEROLÍNEA] [MENSAJE]           Agregar información especial (OSI)
+  SR[CÓDIGO]/P[#]                    Solicitud de servicio especial (SSR)
+  SRFOID[AERO]HK1-[TIPO][#]/P[#]    Agregar documento de identidad (FOID)
+  SM                                 Mapa de asientos gráfico (modal)
+  SM[N]                              Mapa de asientos críptico del segmento N en terminal
+  ST                                 Asignar asiento aleatorio a todos los pax (seg 1)
+  ST/A/P[N]/S[N]                     Asignar asiento de pasillo
+  ST/W/P[N]/S[N]                     Asignar asiento de ventana
+  ST/[ASIENTO]/P[N]/S[N]             Asignar asiento específico (ej: ST/24A/P1/S1)
+  RM [TEXTO]                         Comentario general
+  RC [TEXTO]                         Comentario confidencial
+  RIR [TEXTO]                        Comentario para itinerario
+  RF[NOMBRE]                         Recibido de (obligatorio antes de ET)
+  TK[OPCIONES]                       Emisión de billetes (time limit)
+  ET                                 Finalizar transacción
+  ER                                 Finalizar y recuperar PNR
+  RT[LOCALIZADOR]                    Recuperar PNR guardado
+  RRN[CANT]                          Clonar itinerario de un PNR guardado
+  SP[N]                              Dividir PNR (separar pasajero N)
+  EF                                 Cerrar y archivar PNR asociado (en división)
+  IED / IBD                          Desplegar itinerario (Extendido / Básico)
+  IEP / IBP                          Imprimir itinerario
+  IEP-EML-[MAIL]                     Enviar itinerario por email
+  XE[ELEMENTO(S)]                    Borrar elemento(s) del PNR
+  XI                                 Cancelar PNR (requiere confirmación con RF)
   
-  Para más detalles sobre un comando específico, escriba HE seguido del comando (ejemplo: HEXE)
+  Para más detalles: HE seguido del comando. Ej: HEAN  HEST  HESM  HEXE
+  Para lista de códigos SSR: HE SSRCODES
   `;
-  }
-  
-  // Función para manejar el comando de ayuda (HE)
-  export function handleHelpCommand(cmd) {
-    const subCommand = cmd.slice(2).trim().toUpperCase();
-    
-    // Ayuda específica para cada comando
-    switch (subCommand) {
-      case 'AN':
-        return `
+}
+
+// Función para manejar el comando de ayuda (HE)
+export function handleHelpCommand(cmd) {
+  const subCommand = cmd.slice(2).trim().toUpperCase();
+
+  // Ayuda específica para cada comando
+  switch (subCommand) {
+    case 'AN':
+      return `
   AN - Despliegue de Disponibilidad Neutral
   
   Formato: AN[FECHA][ORIGEN][DESTINO][/OPCIONES]
@@ -67,9 +79,9 @@ export function generateHelpText() {
   
   Usa MD para ver más resultados y U para volver a la página anterior.
   `;
-      
-      case 'SN':
-        return `
+
+    case 'SN':
+      return `
   SN - Despliegue de Horarios Neutrales
   
   Formato: SN[FECHA][ORIGEN][DESTINO][/OPCIONES]
@@ -81,9 +93,9 @@ export function generateHelpText() {
   Muestra todos los vuelos incluyendo clases cerradas (indicadas con C).
   Usa MD para ver más resultados y U para volver a la página anterior.
   `;
-      
-      case 'TN':
-        return `
+
+    case 'TN':
+      return `
   TN - Despliegue de Tabla de Horarios (Frecuencias)
   
   Formato: TN[FECHA][ORIGEN][DESTINO][/OPCIONES]
@@ -95,25 +107,25 @@ export function generateHelpText() {
   Muestra los días de operación de los vuelos (1=lunes, 2=martes, etc. o D=diario).
   Usa MD para ver más resultados y U para volver a la página anterior.
   `;
-      
-      case 'MD':
-      case 'M':
-        return `
+
+    case 'MD':
+    case 'M':
+      return `
   MD - Comando Move Down
   
   Muestra la siguiente página de resultados después de ejecutar un comando AN, SN o TN.
   También puedes usar M como abreviatura.
   `;
-      
-      case 'U':
-        return `
+
+    case 'U':
+      return `
   U - Comando Move Up
   
   Vuelve a la página anterior después de haber avanzado con MD.
   `;
-      
-      case 'SS':
-        return `
+
+    case 'SS':
+      return `
   SS - Selección de Asientos (Venta de Segmentos)
   
   Formato: SS[CANTIDAD][CLASE][LÍNEA]
@@ -122,9 +134,9 @@ export function generateHelpText() {
   SS1Y1                 Selecciona 1 asiento en clase Y de la línea 1
   SS2J3                 Selecciona 2 asientos en clase J de la línea 3
   `;
-      
-      case 'NM':
-        return `
+
+    case 'NM':
+      return `
   NM - Nombre de Pasajero
   
   Formato: NM[CANTIDAD][APELLIDO]/[NOMBRE] [TÍTULO]
@@ -134,31 +146,77 @@ export function generateHelpText() {
   NM1PEREZ/ANA MRS      Agrega a la pasajera Ana Perez (Sra.)
   NM1SMITH/JOHN(CHD)    Agrega a un niño (John Smith)
   `;
-      
-      case 'DAC':
-        return `
+
+    case 'DAC':
+      return `
   DAC - Decodificación de Ciudad o Aeropuerto
-  
+
   Formato: DAC[CÓDIGO]
-  
+
   Ejemplos:
   DACBUE                Decodifica el código BUE (Buenos Aires)
   DACEZE                Decodifica el código EZE (Aeropuerto Internacional de Ezeiza)
+  DACMAD                Decodifica el código MAD (Madrid)
   `;
-      
-      case 'DAN':
-        return `
+
+    case 'DAN':
+      return `
   DAN - Codificación de Ciudad o Aeropuerto
-  
+
   Formato: DAN[NOMBRE]
+
+  Ejemplos:
+  DANBUENOSAIRES        Busca el código IATA de Buenos Aires
+  DANEZEIZA             Busca el código IATA del aeropuerto de Ezeiza
+  DANMADRID             Busca el código IATA de Madrid
+
+  Acepta búsqueda parcial: DANBUENOS devuelve resultados con "BUENOS" en el nombre.
+  `;
+
+    case 'DNA':
+      return `
+  DNA - Decodificación de Código IATA (Ciudad / Aeropuerto)
+
+  Formato: DNA[CÓDIGO]
+
+  Equivalente a DAC. Decodifica un código IATA a su nombre completo.
+
+  Ejemplos:
+  DNABUE                Buenos Aires — Ministro Pistarini (EZE) + Jorge Newbery (AEP)
+  DNAEZE                Aeropuerto Internacional Ministro Pistarini, Argentina
+  DNAMAD                Madrid — Adolfo Suárez Barajas (MAD)
+  `;
+
+    case 'DAL':
+      return `
+  DAL - Codificación de Aerolínea
+
+  Formato: DAL[NOMBRE]
+
+  Ejemplos:
+  DALAEROLINEAS         Codifica Aerolíneas Argentinas (AR)
+  DALIBERIA             Codifica Iberia (IB)
+  DALLATAM              Codifica LATAM Airlines (LA)
+
+  Acepta búsqueda parcial de nombre.
+  `;
+
+    case 'DNE':
+      return `
+  DNE - Decodificar Tipo de Avión (Equipo)
+  
+  Formato: DNE [CÓDIGO O MARCA/MODELO]
+  
+  Decodifica el código IATA de 3 letras de un equipo, o busca por fabricante y modelo.
   
   Ejemplos:
-  DANBUENOSAIRES        Codifica la ciudad de Buenos Aires
-  DANEZEIZA             Codifica el aeropuerto de Ezeiza
+  DNE 738               Muestra datos del Boeing 737-800
+  DNE 320               Decodifica el Airbus A320
+  DNE AIRBUS            Despliega un listado de modelos de Airbus disponibles
   `;
-      
-      case 'OS':
-        return `
+
+    case 'OS':
+      return `
   OS - Other Special Information (Información Especial Adicional)
   
   Formato: OS [AEROLÍNEA] [MENSAJE] /P[NÚMERO_PASAJERO]
@@ -176,8 +234,8 @@ export function generateHelpText() {
   Este comando es opcional pero importante para incluir información relevante para las aerolíneas.
   `;
 
-      case 'XE':
-        return `
+    case 'XE':
+      return `
   XE - Borrar elementos del PNR
   
   Formato: XE[ELEMENTO(S)]
@@ -194,9 +252,9 @@ export function generateHelpText() {
   
   Nota: No se puede deshacer esta acción.
   `;
-      
-      case 'XI':
-        return `
+
+    case 'XI':
+      return `
   XI - Cancelar el PNR completo
   
   Formato: XI
@@ -211,10 +269,10 @@ export function generateHelpText() {
   Una vez cancelado, el PNR no será recuperable con RT, pero los administradores
   aún podrán verlo marcado como cancelado en la interfaz de administración.
   `;
-      
-      case 'ET':
-      case 'ER':
-        return `
+
+    case 'ET':
+    case 'ER':
+      return `
   ET / ER - Finalizar Transacción
   
   ET                    Finaliza la transacción y guarda el PNR
@@ -223,9 +281,9 @@ export function generateHelpText() {
   La finalización de transacción genera un código de reserva (record locator)
   de 6 caracteres y confirma todos los segmentos.
   `;
-      
-      case 'RT':
-        return `
+
+    case 'RT':
+      return `
   RT - Recuperar PNR
   
   Formato: RT[LOCALIZADOR]
@@ -236,9 +294,9 @@ export function generateHelpText() {
   Permite recuperar un PNR guardado previamente para visualizarlo
   o continuar trabajando con él.
   `;
-      
-      case 'AP':
-        return `
+
+    case 'AP':
+      return `
   AP - Agregar Contacto Telefónico
   
   Formato: AP [CIUDAD] [TELÉFONO]-[TIPO]
@@ -254,9 +312,9 @@ export function generateHelpText() {
   
   Se requiere al menos un contacto para finalizar el PNR.
   `;
-      
-      case 'APE':
-        return `
+
+    case 'APE':
+      return `
   APE - Agregar Contacto Email
   
   Formato: APE-[CORREO]
@@ -266,9 +324,9 @@ export function generateHelpText() {
   
   El correo electrónico es opcional pero recomendado para notificaciones.
   `;
-      
-      case 'RF':
-        return `
+
+    case 'RF':
+      return `
   RF - Received From (Recibido De)
   
   Formato: RF [NOMBRE]
@@ -280,9 +338,9 @@ export function generateHelpText() {
   Este comando es obligatorio antes de finalizar un PNR.
   También se utiliza para confirmar la cancelación de un PNR después del comando XI.
   `;
-       
-      case 'TK':
-            return `
+
+    case 'TK':
+      return `
       TK - Emisión de billetes (Ticketing)
       
       Formato: TK[OPCIÓN]
@@ -294,29 +352,146 @@ export function generateHelpText() {
       
       Se requiere una opción de emisión para finalizar el PNR.
       `;
-      
-      case 'SR':
-        return `
+
+    case 'SR':
+      return `
   SR - Special Service Request (Solicitud de Servicio Especial)
-  
-  Formato: SR[CÓDIGO]/P[NÚMERO_PASAJERO]
-  
-  Ejemplos:
-  SRVGML/P2               Solicita comida vegetariana para el pasajero 2
-  SRWCHR/P1               Solicita silla de ruedas para el pasajero 1
-  
+
+  Formato 1 (SSR estándar):
+    SR[CÓDIGO]/P[PASAJERO]
+    Ejemplo: SRVGML/P2    Comida vegetariana para pax 2
+
+  Formato 2 (Contacto del pasajero):
+    SR CTCE [AERO] HK1-[EMAIL_CODIFICADO]/P[PASAJERO]
+    SR CTCM [AERO] HK1-[TELÉFONO]/P[PASAJERO]
+
+  Ejemplos CTCE/CTCM:
+    SR CTCE IB HK1-BELEN./PAZ//GMAIL.COM/P2
+    SR CTCM IB HK1-541155550000/P1
+
   Notas:
-  - Se crea un SSR para cada segmento del itinerario automáticamente
-  - Los pasajeros con infantes automáticamente tienen un SSR INFT
+  - El segmento S[N] es opcional en el formato simple, obligatorio en CTCE/CTCM
   - Use HE SSRCODES para ver la lista completa de códigos SSR válidos
-  
-  Este comando es opcional pero importante para incluir servicios especiales
-  para los pasajeros.
+  - Use HE CTCE para detalles del encoding de email
   `;
-      
-      case 'FOID':
-      case 'SRFOID':
-        return `
+
+    case 'CTCE':
+      return `
+  SR CTCE - Email de contacto del pasajero
+
+  Formato: SR CTCE [AEROLINEA] HK1-[EMAIL_CODIFICADO]/P[N]
+
+  Encoding del email (se escribe tal cual en la terminal):
+    @  se codifica como  //
+    _  se codifica como  ..
+    -  se codifica como  ./
+
+  Ejemplos:
+    belen.paz@gmail.com    →  SR CTCE IB HK1-BELEN./PAZ//GMAIL.COM/P1
+    john_doe@yahoo.com     →  SR CTCE IB HK1-JOHN..DOE//YAHOO.COM/P2
+    maria-garcia@iberia.es →  SR CTCE IB HK1-MARIA./GARCIA//IBERIA.ES/P1
+
+  Usar YY como aerolínea si son varias aerolíneas en el itinerario.
+  Solo un CTCE por pasajero (el nuevo reemplaza al anterior).
+  `;
+
+    case 'CTCM':
+      return `
+  SR CTCM - Teléfono de contacto del pasajero
+
+  Formato: SR CTCM [AEROLINEA] HK1-[TELEFONO]/P[N]
+
+  El teléfono es solo dígitos, sin + ni espacios.
+  Se usa el código de país seguido del número.
+
+  Ejemplos:
+    SR CTCM IB HK1-541155550000/P1   (Argentina: 54 + 11 + número)
+    SR CTCM YY HK1-3411234567/P2     (España: 34 + número)
+
+  Usar YY como aerolínea si son varias aerolíneas en el itinerario.
+  Solo un CTCM por pasajero (el nuevo reemplaza al anterior).
+  `;
+
+    case 'RRN':
+      return `
+  RRN - Duplicar / Clonar Itinerario
+
+  Este comando crea un nuevo PNR copiando únicamente los segmentos de vuelo
+  (itinerario) del PNR actualmente cargado en pantalla. Todos los demás datos
+  (pasajeros, contactos, asientos) se omiten. El PNR original queda ignorado.
+
+  Formatos:
+  RRN             Clona el itinerario solicitando 1 lugar (1 pasajero)
+  RRN/[CANT]      Clona el itinerario solicitando [CANT] lugares
+
+  Ejemplos:
+  RRN          → Crea una copia del vuelo para 1 pasajero y lo deja en estado DK
+  RRN/3        → Crea una copia del vuelo solicitando espacio para 3 pasajeros
+
+  Notas:
+  - Solo se puede usar luego de recuperar un PNR con RT o habiéndolo guardado.
+  - El nuevo PNR pasa a ser tu reserva activa.
+  - Deberás cargar nuevamente los nombres (NM), contactos (AP), firmar (RF)
+    y reservar (ER/ET) para generar el nuevo localizador.
+  `;
+
+    case 'SP':
+      return `
+  SP - Split PNR (División de Reserva)
+
+  Este comando sirve para separar uno o más pasajeros de un PNR existente y
+  crear un PNR nuevo (Asociado) solo para ellos.
+
+  Flujo completo de división:
+  1. RT[LOCALIZADOR]     → Abrir el PNR original (Parent)
+  2. SP[#PAX]            → Dividir. Ej: SP2 o SP1,3
+                           (La terminal mostrará -ASSOCIATE PNR-)
+  3. RF[FIRMA]           → Firmar el PNR asociado
+  4. EF                  → Cerrar el asociado y volver al original
+                           (La terminal mostrará -PARENT PNR-)
+  5. RF[FIRMA]           → Firmar el PNR original
+  6. ET                  → Finalizar la transacción. Se generará el nuevo
+                           localizador para el PNR asociado.
+
+  Notas:
+  - Solo se puede dividir un PNR previamente guardado.
+  - No podés separar a todos los pasajeros (siempre debe quedar al menos uno en el Parent).
+  `;
+
+    case 'IE':
+    case 'IB':
+    case 'IED':
+    case 'IBD':
+    case 'IEP':
+    case 'IBP':
+      return `
+  IE / IB - Generación de Itinerarios
+
+  Despliega, imprime o envía por correo el itinerario del PNR.
+  Los itinerarios pueden ser Extendidos (IE) o Básicos (IB).
+
+  Variantes de Despliegue (Display):
+  IED            Despliega en pantalla Itin. Extendido para todos
+  IBD            Despliega en pantalla Itin. Básico para todos
+
+  Variantes de Impresión (Print):
+  IEP            Imprime Itin. Extendido para todos
+  IBP            Imprime Itin. Básico para todos
+  IEP/P1         Imprime Itin. Extendido solo para Pax 1
+  IEPJ           Imprime Itin. Extendido (formato Journal/Todos)
+
+  Variantes de Correo (Email):
+  IEP-EMLA                  Envía itinerario a todos los correos cargados (AP/CTCE)
+  IEP-EML-mail@mail.com     Envía itinerario al correo especificado directamente
+  IEPJ-EMLA                 Envía a todos los correos en formato conjunto
+
+  Filtro de idioma (ejemplo simulado):
+  IEP/LPEN       Imprime en inglés (Language Print EN)
+  `;
+
+    case 'FOID':
+    case 'SRFOID':
+      return `
   SRFOID - Form of Identification (Documento de Identidad)
   
   Formato: SRFOID [AEROLÍNEA] HK1-[TIPO][NÚMERO]/P[PASAJERO]
@@ -339,9 +514,9 @@ export function generateHelpText() {
   Este comando es importante para añadir información del documento de identidad
   del pasajero, que puede ser requerido por las aerolíneas o para inmigración.
   `;
-      
-      case 'SSRCODES':
-        return `
+
+    case 'SSRCODES':
+      return `
   CÓDIGOS SSR VÁLIDOS:
   
   CÓDIGOS DE COMIDAS ESPECIALES:
@@ -392,39 +567,55 @@ export function generateHelpText() {
   MEDA - Caso médico                   PCTC - Datos de contacto de emergencia
   COUR - Mensajero comercial          
   `;
-      
-      case 'SM':
-        return `
-    SM - Mapa de Asientos (Seat Map)
-    
-    Formato: SM o SM[SEGMENTO]
-    
-    Ejemplos:
-    SM                    Abre el mapa de asientos para el primer segmento del PNR
-    SM2                   Abre el mapa de asientos para el segundo segmento del PNR
-    
-    Este comando abre una interfaz gráfica para seleccionar asientos de manera
-    visual para los pasajeros de su PNR.
-    `;
-      
-      case 'ST':
+
+    case 'SM':
       return `
-    ST - Asignación de Asientos (Seat Assignment)
+  SM - Mapa de Asientos (Seat Map)
 
-    Formato: ST/[ASIENTO]/P[PASAJERO]/S[SEGMENTO]
+  Formato:
+    SM         →  Abre el selector gráfico de asientos (modal visual)
+    SM[N]      →  Muestra el mapa críptico del segmento N en la terminal
 
-    Ejemplos:
-    ST/24L/P2/S1            Asigna el asiento 24L al pasajero 2 para el segmento 1
-    ST/15C/P1/S2            Asigna el asiento 15C al pasajero 1 para el segmento 2
+  Ejemplos:
+    SM         Abre el modal gráfico para seleccionar asientos del PNR
+    SM1        Muestra el mapa críptico del segmento 1 en texto
+    SM2        Muestra el mapa críptico del segmento 2 en texto
 
-    Este comando permite asignar asientos directamente mediante la terminal,
-    sin necesidad de usar la interfaz gráfica. Es una alternativa al comando SM.
+  Leyenda del mapa críptico:
+    *   Disponible
+    -   Ocupado
+    R   Reservado por la aerolínea
+    ^   Fila de salida de emergencia (disponible)
+    i   Restricción de infante
 
-    El asiento se registra como un SSR RQST en el PNR.
-    `;
-      
-      case 'RM':
-        return `
+  Nota: el número indica el segmento del PNR. Si el PNR tiene 1 segmento,
+  SM2 devolverá un error. Luego de ver el mapa críptico, puede usar ST
+  para asignar asientos específicos.
+  `;
+
+    case 'ST':
+      return `
+  ST - Asignación de Asiento (Seat Assignment)
+
+  Formatos:
+    ST                      Asigna asiento aleatorio a todos los pax (segmento 1)
+    ST/A/P[N]/S[N]          Asiento de pasillo (Aisle)
+    ST/W/P[N]/S[N]          Asiento de ventana (Window)
+    ST/[ASIENTO]/P[N]/S[N]  Asiento específico
+
+  Ejemplos:
+    ST                      Aleatorio para todos los pasajeros
+    ST/A/P1/S1              Pasillo para el pasajero 1, segmento 1
+    ST/W/P2/S1              Ventana para el pasajero 2, segmento 1
+    ST/24A/P1/S1            Asiento 24A, pasajero 1, segmento 1
+    ST/12C/P2/S2            Asiento 12C, pasajero 2, segmento 2
+
+  El segmento (S[N]) es siempre obligatorio en los formatos con barra.
+  El asiento se registra como SSR RQST en el PNR.
+  Alternativa visual: SM (abre el selector gráfico).
+  `;
+    case 'RM':
+      return `
   RM - Comentario General (Remark)
   
   Formato: RM [TEXTO]
@@ -436,9 +627,9 @@ export function generateHelpText() {
   Los comentarios RM son visibles para todos los agentes que acceden al PNR.
   Se muestran en el PNR como líneas numeradas, con el prefijo "RM" seguido del texto.
   `;
-      
-      case 'RC':
-        return `
+
+    case 'RC':
+      return `
   RC - Comentario Confidencial (Confidential Remark)
   
   Formato: RC [TEXTO]
@@ -451,9 +642,9 @@ export function generateHelpText() {
   En un sistema real, estos comentarios no se comparten con otras agencias.
   Se muestran en el PNR como líneas numeradas, con el prefijo "RC" seguido del texto.
   `;
-      
-      case 'RIR':
-        return `
+
+    case 'RIR':
+      return `
   RIR - Comentario para Itinerario (Remark for Itinerary/Receipt)
   
   Formato: RIR [TEXTO]
@@ -466,8 +657,8 @@ export function generateHelpText() {
   Son visibles para el pasajero y contienen información relevante para su viaje.
   Se muestran en el PNR como líneas numeradas, con el prefijo "RIR" seguido del texto.
   `;
-      
-      default:
-        return `No se encontró ayuda para el comando: ${subCommand}`;
-    }
+
+    default:
+      return `No se encontró ayuda para el comando: ${subCommand}`;
   }
+}

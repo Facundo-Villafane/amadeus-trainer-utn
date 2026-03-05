@@ -182,4 +182,19 @@ export const mockAirlines = [
     country: 'UNITED STATES'
   }
 ];
-  
+
+export const mockEquipment = [
+  { code: '738', type: 'N', manufacturer: 'BOEING', model: '737-800', engine: 'JET', seats: '123-186' },
+  { code: '73G', type: 'N', manufacturer: 'BOEING', model: '737-700', engine: 'JET', seats: '110-149' },
+  { code: '77W', type: 'W', manufacturer: 'BOEING', model: '777-300ER', engine: 'JET', seats: '350-396' },
+  { code: '789', type: 'W', manufacturer: 'BOEING', model: '787-9', engine: 'JET', seats: '280-296' },
+  { code: '319', type: 'N', manufacturer: 'AIRBUS', model: 'A319', engine: 'JET', seats: '112-134' },
+  { code: '320', type: 'N', manufacturer: 'AIRBUS', model: 'A320', engine: 'JET', seats: '123-180' },
+  { code: '32A', type: 'N', manufacturer: 'AIRBUS', model: 'A320 (SHARKLETS)', engine: 'JET', seats: '123-180' },
+  { code: '32N', type: 'N', manufacturer: 'AIRBUS', model: 'A320NEO', engine: 'JET', seats: '165-194' },
+  { code: '332', type: 'W', manufacturer: 'AIRBUS', model: 'A330-200', engine: 'JET', seats: '246-293' },
+  { code: '359', type: 'W', manufacturer: 'AIRBUS', model: 'A350-900', engine: 'JET', seats: '300-350' },
+  { code: 'E90', type: 'N', manufacturer: 'EMBRAER', model: '190', engine: 'JET', seats: '94-114' },
+  { code: 'E95', type: 'N', manufacturer: 'EMBRAER', model: '195', engine: 'JET', seats: '100-124' },
+  { code: 'AT7', type: 'N', manufacturer: 'ATR', model: '72', engine: 'PRP', seats: '68-78' },
+];  

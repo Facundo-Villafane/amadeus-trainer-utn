@@ -118,23 +118,48 @@ export async function handleAvailabilityCommand(cmd) {
       const aircraftCode = getAircraftIATACode(flight.equipment_code || flight.aircraft_type || '---');
       const duration = flight.duration_hours ? formatDuration(flight.duration_hours) : '----';
 
-      let flightLine = `${index} ${flight.airline_code} ${flight.flight_number} `;
+      const idxStr = String(index).padStart(2, ' ');
+      const carrierStr = `${flight.airline_code} ${flight.flight_number}`.padEnd(8, ' ');
 
+      let classesArr = [];
       if (flight.class_availability) {
         Object.entries(flight.class_availability).forEach(([classCode, seats]) => {
-          flightLine += `${classCode}${seats} `;
+          classesArr.push(`${classCode}${seats}`);
         });
       } else if (flight.available_classes) {
         flight.available_classes.forEach(cls => {
-          flightLine += `${cls.code}${cls.seats} `;
+          classesArr.push(`${cls.code}${cls.seats}`);
         });
       } else {
-        flightLine += 'Y9 B9 M9 ';
+        classesArr = ['Y9', 'B9', 'M9'];
       }
 
-      flightLine += ` ${flight.departure_airport_code} ${departureTerminal} ${flight.arrival_airport_code} ${arrivalTerminal} ${flight.departure_time} ${flight.arrival_time} E0/${aircraftCode} ${duration}`;
+      // Max 7 classes per line = 21 chars + 1 padding space
+      let classesFirstLine = classesArr.slice(0, 7).join(' ').padEnd(21, ' ') + '  ';
+      let classesSecondLine = classesArr.length > 7 ? classesArr.slice(7).join(' ') : null;
 
+      const routingStr = `${flight.departure_airport_code} ${departureTerminal} ${flight.arrival_airport_code} ${arrivalTerminal}`.padEnd(13, ' ');
+
+      // Format times to 4 chars without colon (e.g. 01:25 -> 0125)
+      const formatTime = (t) => t ? t.replace(':', '') : '----';
+      const depTimeStr = formatTime(flight.departure_time).padEnd(8, ' ');
+
+      // Determine if arrival is next day
+      let arrTimeBase = formatTime(flight.arrival_time);
+      if (flight.arrival_time && flight.departure_time && flight.arrival_time < flight.departure_time) {
+        arrTimeBase += '+1';
+      }
+      const arrTimeStr = arrTimeBase.padEnd(6, ' ');
+
+      const equipStr = `E0/${aircraftCode}`.padEnd(12, ' ');
+
+      let flightLine = ` ${idxStr}   ${carrierStr}${classesFirstLine}${routingStr}${depTimeStr}${arrTimeStr}${equipStr}${duration}`;
       flightLines.push(flightLine);
+
+      if (classesSecondLine) {
+        flightLines.push(`             ${classesSecondLine}`);
+      }
+
       index++;
     });
 
@@ -142,8 +167,7 @@ export async function handleAvailabilityCommand(cmd) {
       return `No se encontraron vuelos con clase ${flightClass} disponible para la ruta ${origin}-${destination}.`;
     }
 
-    const maxLineLength = Math.max(...flightLines.map(l => l.length), header.length + infoLine.length + 2);
-    const headerWithInfo = (header + ' ').padEnd(maxLineLength - infoLine.length, ' ') + infoLine;
+    const headerWithInfo = (header + ' ').padEnd(63, ' ') + infoLine;
 
     let response = `${headerWithInfo}\n`;
     response += flightLines.map(l => l + '\n').join('');

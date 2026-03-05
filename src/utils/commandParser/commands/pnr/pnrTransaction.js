@@ -7,6 +7,8 @@ import { formatERResponse } from './pnrUtils';
 import experienceService from '../../../../services/experienceService';
 import xpEventBus from '../../../../services/xpEventBus';
 
+import { handleFinalizeSplit } from './pnrSplit';
+
 /**
  * Maneja el fin de transacción (ET/ER)
  * @param {string} cmd - Comando ingresado por el usuario (ET o ER)
@@ -19,6 +21,11 @@ export async function handleEndTransaction(cmd, userId) {
     const currentPNR = getCurrentPNR();
     if (!currentPNR) {
       return "No hay un PNR en progreso que finalizar.";
+    }
+
+    // Interceptar si estamos finalizando un Split (estado PARENT)
+    if (currentPNR.splitState === 'PARENT') {
+      return await handleFinalizeSplit(cmd, userId);
     }
 
     // Verificar que el PNR tenga todos los elementos obligatorios
