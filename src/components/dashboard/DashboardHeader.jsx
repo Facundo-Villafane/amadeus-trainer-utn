@@ -14,22 +14,20 @@ import xpEventBus from '../../services/xpEventBus';
 // ── Notification Bell ─────────────────────────────────────────────────────────
 const MAX_NOTIF = 20;
 
+const NOTIF_TYPES = new Set(['xp_gain', 'xp_loss', 'level_up', 'achievement', 'cooldown', 'spam', 'challenge']);
+
 function eventIcon(type) {
-  if (type === 'xp_gain' || type === 'daily_streak') return <FiTrendingUp className="text-green-500 flex-shrink-0" size={14} />;
-  if (type === 'xp_loss') return <FiTrendingDown className="text-red-400 flex-shrink-0" size={14} />;
+  if (type === 'xp_gain') return <FiTrendingUp className="text-green-500 flex-shrink-0" size={14} />;
+  if (type === 'xp_loss' || type === 'spam') return <FiTrendingDown className="text-red-400 flex-shrink-0" size={14} />;
   if (type === 'level_up') return <FiZap className="text-amber-500 flex-shrink-0" size={14} />;
   if (type === 'achievement') return <FiAward className="text-purple-500 flex-shrink-0" size={14} />;
+  if (type === 'challenge') return <FiAward className="text-blue-500 flex-shrink-0" size={14} />;
   return <FiBell className="text-gray-400 flex-shrink-0" size={14} />;
 }
 
 function eventLabel(ev) {
-  if (ev.type === 'xp_gain') return `+${ev.amount} XP — ${ev.reason || ''}`;
-  if (ev.type === 'xp_loss') return `-${Math.abs(ev.amount)} XP — ${ev.reason || ev.error || ''}`;
-  if (ev.type === 'daily_streak') return `Racha diaria +${ev.amount} XP (día ${ev.streak})`;
-  if (ev.type === 'level_up') return `Subiste al nivel ${ev.level}: ${ev.title}`;
-  if (ev.type === 'achievement') return `Logro: ${ev.achievement?.name || ''}`;
-  if (ev.type === 'cooldown') return 'PNR en cooldown — sin XP';
-  return ev.type;
+  const parts = [ev.title, ev.subtitle].filter(Boolean);
+  return parts.join(' — ') || ev.type;
 }
 
 function NotificationBell() {
@@ -39,16 +37,13 @@ function NotificationBell() {
   const ref = useRef(null);
 
   useEffect(() => {
-    // Subscribe to all XP event types
-    const TYPES = ['xp_gain', 'xp_loss', 'level_up', 'achievement', 'daily_streak', 'cooldown'];
-    const unsubs = TYPES.map(type =>
-      xpEventBus.subscribe(type, (data) => {
-        const notif = { id: Date.now() + Math.random(), type, ts: new Date(), ...data };
-        setNotifications(prev => [notif, ...prev].slice(0, MAX_NOTIF));
-        setUnread(n => n + 1);
-      })
-    );
-    return () => unsubs.forEach(fn => fn?.());
+    const unsub = xpEventBus.subscribe((ev) => {
+      if (!NOTIF_TYPES.has(ev.type)) return;
+      const notif = { id: Date.now() + Math.random(), ts: new Date(), ...ev };
+      setNotifications(prev => [notif, ...prev].slice(0, MAX_NOTIF));
+      setUnread(n => n + 1);
+    });
+    return () => unsub();
   }, []);
 
   // Close on outside click

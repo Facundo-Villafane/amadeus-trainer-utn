@@ -1,0 +1,66 @@
+# Plan de Implementación: Módulo de Desafíos (Challenges)
+
+Esta propuesta abarca el desarrollo de la arquitectura completa para la sección de Desafíos, donde los estudiantes pondrán a prueba sus conocimientos resolviendo casos prácticos reales simulados en la terminal.
+
+## Arquitectura de Base de Datos (Firestore)
+
+Se crearán dos nuevas colecciones principales:
+
+### 1. `challenges` (Los enunciados creados por el Admin)
+- `title`: Título del desafío (Ej: "Familia con requerimientos especiales").
+- `description`: Descripción pública del caso con los detalles a resolver.
+- `category`: Categoría del desafío ([General](file:///d:/Dev/amadeus-trainer/src/utils/commandParser/commands/pnr/pnrRemarks.js#8-72), `Especial`, `Temporal`).
+- `commissionCodes`: Array de comisiones a las que aplica (Ej: `["C-2026-A", "ALL"]`).
+- `validationPrompt`: Prompt de evaluación oculto para la IA.
+- `timeLimitMinutes`: Tiempo máximo otorgado para resolverlo una vez aceptado.
+- `xpReward`: Puntos de Experiencia (XP) otorgados por completarlo exitosamente.
+- `createdAt` / `expiresAt` / `isActive`.
+
+### 2. `challenge_submissions` (Las entregas de los estudiantes)
+- `challengeId` y `userId`.
+- `status`: `pending_start` | `in_progress` | `evaluated`.
+- `startedAt`: Timestamp exacto de cuando el alumno hizo click en "Aceptar Desafío". (Crucial para validar que el PNR no pre-exista).
+- `recordLocator`: El PNR generado por el alumno.
+- `pnrDataSnapshot`: Copia JSON del estado del PNR al momento de entregarlo.
+- `feedback`: Texto de devolución detallado formateando segmentos y explicando aciertos/errores (Renderizado en UI tipo Chat).
+- `isPass`: Resultado de la evaluación.
+- `xpEarned`: XP obtenidos (0 si falló, `xpReward` si aprobó).
+
+---
+
+## Fases de Desarrollo
+
+### 1. Panel de Administración (Gestor de Desafíos)
+- Crear página [AdminChallenges.jsx](file:///d:/Dev/amadeus-trainer/src/pages/admin/AdminChallenges.jsx).
+- Integrar un formulario para crear/editar desafíos (Título, Descripción, Comisiones permitidas, Instrucciones para la IA).
+- Listado tipo tabla para ver todos los desafíos activos e históricos.
+- Panel para visualizar todas las entregas recibidas por los alumnos, permitiendo al profesor leer el PNR enviado y la devolución generada.
+
+### 2. Generador de Desafíos por IA (Mejora del Panel Admin)
+- Agregar un botón "Asistente IA" en el formulario de creación de desafíos ([AdminChallenges.jsx](file:///d:/Dev/amadeus-trainer/src/pages/admin/AdminChallenges.jsx)).
+- Al profesor proveer un prompt muy simple (Ej: "Quiero un caso difícil de un vuelo a Europa con un menor no acompañado"), el sistema enviará una petición a la API de Groq para que la IA genere automáticamente:
+  1. El Título del caso.
+  2. La Descripción súper detallada (con nombres de pasajeros, edades, DNI/Pasaportes ficticios, teléfonos, mails y servicios requeridos).
+  3. El `validationPrompt` técnico (qué debe chequear exactamente la IA evaluadora cuando el alumno envíe esto).
+  4. (Opcional, futuro) Una lista de vuelos manuales estructurados que requieran ser inyectados a la base de datos de vuelos si el desafío requiere rutas que no existen.
+
+### 3. Panel del Estudiante (Hub de Desafíos)
+- Crear página [StudentChallenges.jsx](file:///d:/Dev/amadeus-trainer/src/pages/StudentChallenges.jsx) accesible desde el Sidebar.
+- Segmentación por categorías: Pestañas para ver desafíos "Generales", "Temporales", "Especiales" y "Finalizados".
+- Filtro automático: El alumno solo verá los que apliquen a su comisión + los globales.
+- Tarjetas (Cards) para mostrar cada desafío (Estado: Pendiente, En Curso, Completado, XP posible, Límite de tiempo).
+- **Flujo de Resolución (Anti-Trampa)**:
+  1. El alumno abre el desafío y debe hacer click en **"Aceptar Desafío"**. Esto marca el `startedAt` e inicia un contador visual de tiempo.
+  2. El alumno ingresa a la Terminal, crea la reserva, y vuelve a la sección de desafíos.
+  3. Pega el RL. El sistema valida que el PNR asociado a ese RL tenga un campo `createdAt` MAYOR al `startedAt` del desafío. Si es más viejo, lo rechaza.
+- **UI de Feedback (Resultados)**: La respuesta de la IA se mostrará como un cuadro de diálogo detallado (estilo Chatbox), donde la IA formatea y desglosa qué segmentos del PNR estuvieron de acuerdo a la consigna y qué cosas faltaron. En caso de aprobarse, el sistema de Gamificación le sumará los XP al jugador.
+
+### 4. Motor de Validación y Devolución
+- Al enviar el RL válido, el sistema buscará el PNR en Firestore y extraerá su JSON.
+- **Motor de IA (Groq)**: Crearemos un servicio [challengeEvaluationService.js](file:///d:/Dev/amadeus-trainer/src/services/challengeEvaluationService.js).
+  - Integraremos la API de Groq usando el modelo más rápido y económico disponible (ej. `llama3-8b-8192` o `gemma-7b-it` según disponibilidad).
+  - El backend o frontend le enviará el `validationPrompt` provisto por el admin + el `pnrDataSnapshot` completo interpolado en un JSON string.
+  - La respuesta de la IA (JSON estructurado de preferencia) devolverá la corrección con un `feedback` en texto (para el alumno) y un flag booleano `isPass` (Aprobado/Desaprobado).
+
+## Configuraciones Necesarias
+- Añadir la variable de entorno `VITE_GROQ_API_KEY` o equivalente en el archivo `.env` para usar la API de Groq en las peticiones.

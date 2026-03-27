@@ -31,6 +31,7 @@ export default function DashboardSidebar({ userRole }) {
   const userNavigation = [
     { name: 'Inicio', href: '/home', icon: FiHome },
     { name: 'Terminal', href: '/dashboard', icon: FiMonitor },
+    { name: 'Desafíos', href: '/challenges', icon: FiAward, badge: 'BETA' },
     { name: 'Mi Perfil', href: '/profile', icon: FiUser },
     { name: 'Leaderboard', href: '/leaderboard', icon: FiAward },
     { name: 'Explorador de Vuelos', href: '/flights', icon: SlPlane },
@@ -41,6 +42,7 @@ export default function DashboardSidebar({ userRole }) {
 
   // Sub-menú de administración (solo para admins no espectadores)
   const adminNavigation = (isAdmin && !isSpectator) ? [
+    { name: 'Gestión de Desafíos', href: '/admin/challenges', icon: FiAward },
     { name: 'Gestión de Avisos', href: '/admin/announcements', icon: FiBarChart2 },
     { name: 'Gestión de Versiones', href: '/admin/release-notes', icon: FiBook },
     { name: 'Gestión de Bugs', href: '/admin/bug-reports', icon: FiAlertCircle },
@@ -85,6 +87,11 @@ export default function DashboardSidebar({ userRole }) {
                     aria-hidden="true"
                   />
                   {item.name}
+                  {item.badge && (
+                    <span className="ml-auto text-[10px] font-bold bg-yellow-400 text-yellow-900 px-1.5 py-0.5 rounded-full leading-none">
+                      {item.badge}
+                    </span>
+                  )}
                 </Link>
               ))}
 

@@ -25,6 +25,7 @@ import Leaderboard from './pages/Leaderboard';
 import Help from './pages/Help';
 import Settings from './pages/Settings'; // Nueva página de configuración
 import FlightExplorerPage from './pages/FlightExplorerPage';
+import StudentChallenges from './pages/StudentChallenges';
 
 // Páginas de administrador
 import AdminUsers from './pages/admin/Users';
@@ -37,6 +38,7 @@ import DataManagementPage from './pages/admin/DataManagementPage';
 import ReleaseNotesManagement from './pages/admin/ReleaseNotesManagement';
 import AnnouncementsManagement from './pages/admin/AnnouncementsManagement';
 import BugReportsManagement from './pages/admin/BugReportsManagement';
+import AdminChallenges from './pages/admin/AdminChallenges';
 import MyBugReports from './pages/MyBugReports';
 // Páginas de error
 import NotFound from './pages/NotFound';
@@ -229,6 +231,14 @@ export default function App() {
               </AuthenticatedOnlyRoute>
             }
           />
+          <Route
+            path="/challenges"
+            element={
+              <AuthenticatedOnlyRoute>
+                <StudentChallenges />
+              </AuthenticatedOnlyRoute>
+            }
+          />
 
           {/* Rutas de administrador */}
           <Route
@@ -310,6 +320,14 @@ export default function App() {
             element={
               <AdminRoute>
                 <BugReportsManagement />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/admin/challenges"
+            element={
+              <AdminRoute>
+                <AdminChallenges />
               </AdminRoute>
             }
           />

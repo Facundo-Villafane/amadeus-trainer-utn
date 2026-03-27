@@ -324,7 +324,11 @@ export default function Terminal() {
         style={terminalStyle}
         onClick={() => {
           if (behaviorSettings.autoFocus) {
-            inputRef.current?.focus();
+            // Permitir seleccionar texto sin robar el foco inmediatamente
+            const selection = window.getSelection();
+            if (!selection || selection.toString().length === 0) {
+              inputRef.current?.focus();
+            }
           }
         }}
       >
@@ -365,7 +369,10 @@ export default function Terminal() {
               if (behaviorSettings.autoFocus) {
                 // Focus lock for immersive mode, allowing a tiny gap to click other UI elements
                 setTimeout(() => {
-                  if (document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'BUTTON') {
+                  const selection = window.getSelection();
+                  const isTextSelected = selection && selection.toString().length > 0;
+
+                  if (!isTextSelected && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'BUTTON') {
                     inputRef.current?.focus();
                   }
                 }, 100);
