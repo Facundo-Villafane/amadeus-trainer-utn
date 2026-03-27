@@ -194,7 +194,7 @@ function UserProfileModal({ user, onClose, userRole, isSpectator, navigate }) {
 export default function Leaderboard() {
   const [leaderboard, setLeaderboard] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showLegacy, setShowLegacy] = useState(true);
+  const [showLegacy, setShowLegacy] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const { currentUser, userRole, logout, isSpectator } = useAuth();
   const navigate = useNavigate();
@@ -204,7 +204,7 @@ export default function Leaderboard() {
       try {
         setLoading(true);
         const data = await experienceService.getLeaderboard(50);
-        setLeaderboard(data.filter(u => u.role !== 'admin'));
+        setLeaderboard(data.filter(u => u.role !== 'admin' && !u.hideFromLeaderboard));
       } catch (e) {
         console.error('Leaderboard fetch error:', e);
       } finally {

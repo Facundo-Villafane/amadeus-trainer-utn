@@ -67,8 +67,7 @@ class BugReportsService {
     try {
       const q = query(
         collection(db, this.collectionName),
-        where('userId', '==', userId),
-        orderBy('createdAt', 'desc')
+        where('userId', '==', userId)
       );
 
       const snapshot = await getDocs(q);
@@ -79,6 +78,13 @@ class BugReportsService {
           id: doc.id,
           ...doc.data()
         });
+      });
+
+      // Sort client-side to avoid requiring a Firestore composite index
+      reports.sort((a, b) => {
+        const aTime = a.createdAt?.toMillis?.() ?? 0;
+        const bTime = b.createdAt?.toMillis?.() ?? 0;
+        return bTime - aTime;
       });
 
       return reports;

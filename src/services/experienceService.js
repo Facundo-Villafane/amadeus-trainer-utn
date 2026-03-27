@@ -1167,6 +1167,7 @@ class ExperienceService {
       snapshot.forEach(d => {
         const data = d.data();
         if (data.role === 'admin') return;
+        if (data.hideFromLeaderboard) return;
 
         const isLegacy = data.commissionCode
           ? inactiveCodes.has(data.commissionCode)

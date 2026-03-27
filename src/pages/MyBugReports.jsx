@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../hooks/useAuth';
 import { FiAlertCircle, FiClock, FiCheckCircle, FiLoader } from 'react-icons/fi';
+import toast from 'react-hot-toast';
 import bugReportsService from '../services/bugReportsService';
 import DashboardSidebar from '../components/dashboard/DashboardSidebar';
 import DashboardHeader from '../components/dashboard/DashboardHeader';
@@ -28,6 +29,7 @@ export default function MyBugReports() {
       setReports(data);
     } catch (error) {
       console.error('Error loading bug reports:', error);
+      toast.error('No se pudieron cargar tus reportes. Intentá de nuevo.');
     } finally {
       setLoading(false);
     }
