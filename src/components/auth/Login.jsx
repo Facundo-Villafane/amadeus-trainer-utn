@@ -1,6 +1,6 @@
 // src/components/auth/Login.jsx (modificado)
-import { useState } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router';
+import { useState, useEffect } from 'react';
+import { Link, useNavigate, useLocation, useSearchParams } from 'react-router';
 import { FaGoogle } from 'react-icons/fa';
 import { FiMail, FiLock, FiUser, FiKey, FiEye, FiEyeOff } from 'react-icons/fi';
 import { useAuth } from '../../hooks/useAuth';
@@ -25,11 +25,58 @@ export default function Login() {
   const [showCodeStep, setShowCodeStep] = useState(false);
   const [commissionData, setCommissionData] = useState(null);
   const [registrationMethod, setRegistrationMethod] = useState(null); // 'email' or 'google'
-  
+
   const { login, loginWithGoogle, signup, enterSpectatorMode } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   const from = location.state?.from?.pathname || '/home';
+
+  // ── Magic link: si la URL trae ?code=XXXX, verificar automáticamente ──────
+  useEffect(() => {
+    const codeParam = searchParams.get('code');
+    if (!codeParam) return;
+
+    const autoVerify = async () => {
+      try {
+        setLoading(true);
+        const commissionsQuery = query(
+          collection(db, 'commissions'),
+          where('code', '==', codeParam.toUpperCase()),
+          where('active', '==', true)
+        );
+        const snap = await getDocs(commissionsQuery);
+
+        if (snap.empty) {
+          setError('El código de invitación del link no es válido o ya no está activo.');
+          return;
+        }
+
+        const commission = snap.docs[0];
+        const data = commission.data();
+
+        if (data.maxStudents && data.currentStudents >= data.maxStudents) {
+          setError('Esta comisión ya alcanzó el límite de estudiantes.');
+          return;
+        }
+
+        // Código válido → entrar directo al modo registro con Google
+        setCommissionData({ id: commission.id, ...data });
+        setIsRegisterMode(true);
+        setShowCodeStep(false);
+        setRegistrationMethod('google');
+        toast.success(`Invitación válida — Comisión: ${data.name}`);
+      } catch (err) {
+        console.error('Error al verificar código del link:', err);
+        setError('Error al procesar el link de invitación.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    autoVerify();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Función para verificar el código de comisión
   const verifyCommissionCode = async () => {

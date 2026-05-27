@@ -181,7 +181,7 @@ LON  - London Bus Terminal                                      `;
     let city = null;
     let airports = [];
 
-    // Try Firebase first
+    // Try Firebase first (custom/admin-loaded data)
     try {
       const citiesQuery = query(
         collection(db, 'cities'),
@@ -199,16 +199,29 @@ LON  - London Bus Terminal                                      `;
       console.warn('Firebase query failed:', error);
     }
 
-    // Si no se encontró en Firebase, intentar con OpenFlights (por ciudad)
+    // Buscar por código IATA exacto (aeropuerto o ciudad multi-aeropuerto, ej: BUE, EZE, MAD)
+    // Esto va ANTES de cualquier búsqueda de texto para evitar falsos positivos como
+    // "BUE" → "Buenaventura" en lugar de "Buenos Aires".
     if (!city) {
-      const cities = openFlightsDataService.searchCitiesByName(searchTerm);
-      if (cities && cities.length > 0) {
-        city = cities[0];
+      const found = openFlightsDataService.getCityByCode(searchTerm);
+      if (found) {
+        city = found;
         airports = city.airports || [];
       }
     }
 
-    // Si no se encontró por ciudad, intentar con OpenFlights (por nombre de aeropuerto)
+    // Si no se encontró por código exacto, intentar búsqueda por nombre de ciudad
+    if (!city) {
+      const cities = openFlightsDataService.searchCitiesByName(searchTerm);
+      // Filtrar solo coincidencias exactas de nombre para evitar falsos positivos
+      const exactMatch = cities.find(c => c.name_uppercase === searchTerm);
+      if (exactMatch) {
+        city = exactMatch;
+        airports = city.airports || [];
+      }
+    }
+
+    // Si no se encontró por nombre exacto, intentar con OpenFlights (por nombre de aeropuerto)
     if (!city) {
       const airportMatches = openFlightsDataService.searchByAirportName(searchTerm);
       if (airportMatches && airportMatches.length > 0) {

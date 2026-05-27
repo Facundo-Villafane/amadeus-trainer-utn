@@ -6,6 +6,38 @@
  * Each entry in airports.json:
  * { city: string, country: string, airports: [{ iata: string, name: string }] }
  */
+
+/**
+ * Multi-airport city codes (Amadeus city codes that don't exist as individual airport IATA codes).
+ * Maps cityCode → { city: exact city name in airports.json, country: exact country name }
+ * Used by getCityByCode() so that DAC BUE finds Buenos Aires instead of partial-matching "Bue*".
+ */
+const CITY_CODE_MAP = {
+  // South America
+  'BUE': { city: 'Buenos Aires', country: 'Argentina' },
+  'RIO': { city: 'Rio de Janeiro', country: 'Brazil' },
+  'SAO': { city: 'Sao Paulo',     country: 'Brazil' },
+  // North America
+  'NYC': { city: 'New York',      country: 'United States' },
+  'WAS': { city: 'Washington',    country: 'United States' },
+  'CHI': { city: 'Chicago',       country: 'United States' },
+  'YTO': { city: 'Toronto',       country: 'Canada' },
+  'YMQ': { city: 'Montreal',      country: 'Canada' },
+  // Europe
+  'LON': { city: 'London',        country: 'United Kingdom' },
+  'PAR': { city: 'Paris',         country: 'France' },
+  'ROM': { city: 'Rome',          country: 'Italy' },
+  'MIL': { city: 'Milan',         country: 'Italy' },
+  'MOW': { city: 'Moscow',        country: 'Russia' },
+  'STO': { city: 'Stockholm',     country: 'Sweden' },
+  // Asia / Middle East
+  'TYO': { city: 'Tokyo',         country: 'Japan' },
+  'OSA': { city: 'Osaka',         country: 'Japan' },
+  'BJS': { city: 'Beijing',       country: 'China' },
+  'SHA': { city: 'Shanghai',      country: 'China' },
+  'SEL': { city: 'Seoul',         country: 'South Korea' },
+};
+
 class AirportDataService {
   constructor() {
     this.initialized = false;
@@ -70,12 +102,30 @@ class AirportDataService {
     return results;
   }
 
-  /** Get city/airport info by IATA code — used by DAC */
+  /** Get city/airport info by IATA code — used by DAC.
+   *  Handles both airport codes (EZE, MAD) and multi-airport city codes (BUE, NYC, LON).
+   */
   getCityByCode(iata) {
     if (!this.initialized) { this.initialize(); return null; }
-    const entry = this.iataIndex[iata.toUpperCase()];
-    if (!entry) return null;
-    return this._toServiceFormat(entry.group);
+    const code = iata.toUpperCase();
+
+    // 1. Exact airport IATA code (e.g. EZE, MAD, CDG)
+    const entry = this.iataIndex[code];
+    if (entry) return this._toServiceFormat(entry.group, code);
+
+    // 2. Multi-airport city code (e.g. BUE → Buenos Aires/Argentina)
+    const mapping = CITY_CODE_MAP[code];
+    if (mapping) {
+      const cityUpper = mapping.city.toUpperCase();
+      const groups = this.cityIndex[cityUpper];
+      if (groups) {
+        // Prefer the group whose country matches exactly
+        const match = groups.find(g => g.country === mapping.country) || groups[0];
+        return this._toServiceFormat(match, code);
+      }
+    }
+
+    return null;
   }
 
   /** Get airport by IATA — for internal use */
@@ -124,10 +174,13 @@ class AirportDataService {
     }
   }
 
-  /** Convert internal format → format expected by city.js */
-  _toServiceFormat(group) {
+  /** Convert internal format → format expected by city.js.
+   *  @param {object} group   - city group from airports.json
+   *  @param {string} [code]  - explicit city/airport code to use (e.g. 'BUE'); falls back to first airport IATA
+   */
+  _toServiceFormat(group, code) {
     return {
-      code: group.airports[0]?.iata || '',
+      code: code || group.airports[0]?.iata || '',
       name: group.city,
       name_uppercase: group.city.toUpperCase(),
       country: group.country,

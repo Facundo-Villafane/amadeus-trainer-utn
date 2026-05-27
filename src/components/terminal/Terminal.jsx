@@ -211,6 +211,15 @@ export default function Terminal() {
 
   // Modificar la función executeCommand para manejar errores de permisos
   const executeCommand = async (cmd) => {
+    // ── Comandos de limpieza de pantalla (interceptados antes del parser) ──
+    const cmdUpper = cmd.trim().toUpperCase();
+    if (cmdUpper === 'CL' || cmdUpper === 'IGN') {
+      setHistory([]);
+      setCommandHistory(prev => [cmd, ...prev.slice(0, 19)]);
+      setHistoryIndex(-1);
+      return;
+    }
+
     // Agregar el comando al historial de la terminal
     addLine(cmd, 'input');
 

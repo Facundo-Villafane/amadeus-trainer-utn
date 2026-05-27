@@ -6,7 +6,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useNavigate } from 'react-router';
 import DashboardSidebar from '../../components/dashboard/DashboardSidebar';
 import DashboardHeader from '../../components/dashboard/DashboardHeader';
-import { FiPlus, FiEdit2, FiTrash2, FiUsers, FiCopy, FiInfo, FiCheckCircle, FiXCircle } from 'react-icons/fi';
+import { FiPlus, FiEdit2, FiTrash2, FiUsers, FiCopy, FiInfo, FiCheckCircle, FiXCircle, FiLink } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 
 export default function Commissions() {
@@ -145,6 +145,17 @@ export default function Commissions() {
     });
   }
 
+  // Copiar link de invitación al portapapeles
+  function copyInviteLink(code) {
+    const link = `${window.location.origin}/login?code=${code}`;
+    navigator.clipboard.writeText(link).then(() => {
+      toast.success('Link de invitación copiado');
+    }).catch(err => {
+      console.error('Error al copiar link:', err);
+      toast.error('Error al copiar el link');
+    });
+  }
+
   // Reset formulario
   function resetForm() {
     setFormData({
@@ -245,14 +256,21 @@ export default function Commissions() {
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
+                          <div className="flex items-center gap-2">
                             <code className="text-sm font-mono bg-gray-100 px-2 py-1 rounded">{commission.code}</code>
                             <button
                               onClick={() => copyToClipboard(commission.code)}
-                              className="ml-2 text-gray-400 hover:text-gray-600"
+                              className="text-gray-400 hover:text-gray-600"
                               title="Copiar código"
                             >
                               <FiCopy className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => copyInviteLink(commission.code)}
+                              className="text-amadeus-primary hover:text-amadeus-secondary"
+                              title="Copiar link de invitación"
+                            >
+                              <FiLink className="h-4 w-4" />
                             </button>
                           </div>
                         </td>
