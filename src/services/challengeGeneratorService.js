@@ -68,7 +68,7 @@ TIPOS DE REGLAS DISPONIBLES (usa solo estos, con exactamente estos nombres de ca
 
 8. Elemento de ticketing:
    { "type": "has_ticketing", "description": "Debe tener TK (ticketing)" }
-   - Puedes agregar "type": "TL" | "OK" | "XL"
+   - Puedes agregar "ticketingType": "TL" | "OK" | "XL"
 
 9. Observación (remark):
    { "type": "has_remark", "description": "Debe tener al menos una observación (RM)" }
@@ -82,6 +82,10 @@ REGLAS IMPORTANTES:
 - Para "dos amigas a París" el origin sería "EZE" (Buenos Aires Ezeiza) y destination "CDG" (París).
 - Si el alumno necesita hacer ida y vuelta, agrega dos reglas segment_route (una por tramo).
 - El campo "description" de cada regla debe explicar en español qué se está verificando.
+- Cuando haga falta, puedes usar "passengerNumber" para validar un pasajero especifico.
+- Para SSR tambien puedes usar "segmentNumber", "airlineCode" y "messageContains".
+- Para FOID puedes usar "passengerNumber", "docType", "docNumber" y "airlineCode".
+- Para AP/APE puedes usar "passengerNumber" y "contains".
 - NO inventes tipos de reglas fuera de los 10 listados.
 `;
 
@@ -116,7 +120,7 @@ REGLAS IMPORTANTES:
         return {
             title: result.title || '',
             description: result.description || '',
-            validationRules: Array.isArray(result.validationRules) ? result.validationRules : []
+            validationRules: sanitizeValidationRules(result.validationRules)
         };
 
     } catch (error) {
@@ -124,3 +128,66 @@ REGLAS IMPORTANTES:
         throw new Error("No se pudo conectar con la IA para generar el desafío.");
     }
 };
+
+const ALLOWED_RULE_TYPES = new Set([
+    'segment_route',
+    'segment_count',
+    'passenger_count',
+    'ssr_exists',
+    'passenger_has_document',
+    'has_contact_phone',
+    'has_contact_email',
+    'has_ticketing',
+    'has_remark',
+    'osi_exists',
+]);
+
+const ALLOWED_FIELDS = {
+    segment_route: ['type', 'origin', 'destination', 'date', 'airlineCode', 'description'],
+    segment_count: ['type', 'min', 'max', 'description'],
+    passenger_count: ['type', 'min', 'max', 'passengerType', 'description'],
+    ssr_exists: ['type', 'code', 'passengerNumber', 'segmentNumber', 'airlineCode', 'contains', 'messageContains', 'description'],
+    passenger_has_document: ['type', 'docType', 'docNumber', 'passengerNumber', 'airlineCode', 'contains', 'description'],
+    has_contact_phone: ['type', 'passengerNumber', 'city', 'contactType', 'contains', 'description'],
+    has_contact_email: ['type', 'passengerNumber', 'airlineCode', 'contains', 'description'],
+    has_ticketing: ['type', 'ticketingType', 'type_value', 'description'],
+    has_remark: ['type', 'contains', 'description'],
+    osi_exists: ['type', 'airlineCode', 'passengerNumber', 'contains', 'description'],
+};
+
+function sanitizeValidationRules(rules) {
+    if (!Array.isArray(rules)) return [];
+
+    return rules
+        .filter(rule => rule && ALLOWED_RULE_TYPES.has(rule.type))
+        .map(rule => {
+            const cleanRule = {};
+
+            ALLOWED_FIELDS[rule.type].forEach(field => {
+                if (rule[field] !== undefined && rule[field] !== null && rule[field] !== '') {
+                    cleanRule[field] = rule[field];
+                }
+            });
+
+            if (rule.type === 'has_ticketing' && rule.type_value && !cleanRule.ticketingType) {
+                cleanRule.ticketingType = rule.type_value;
+                delete cleanRule.type_value;
+            }
+
+            ['origin', 'destination', 'date', 'airlineCode', 'code', 'docType', 'passengerType', 'ticketingType'].forEach(field => {
+                if (typeof cleanRule[field] === 'string') {
+                    cleanRule[field] = cleanRule[field].trim().toUpperCase();
+                }
+            });
+
+            ['min', 'max', 'passengerNumber', 'segmentNumber'].forEach(field => {
+                if (cleanRule[field] !== undefined) {
+                    const number = Number(cleanRule[field]);
+                    if (Number.isFinite(number)) cleanRule[field] = number;
+                    else delete cleanRule[field];
+                }
+            });
+
+            return cleanRule;
+        });
+}

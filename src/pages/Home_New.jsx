@@ -1,7 +1,7 @@
 // src/pages/Home_New.jsx
 import { useNavigate } from 'react-router';
 import { useAuth } from '../hooks/useAuth';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import {
@@ -22,6 +22,7 @@ import DashboardSidebar from '../components/dashboard/DashboardSidebar';
 import DashboardHeader from '../components/dashboard/DashboardHeader';
 import ReleaseNotesList from '../components/releaseNotes/ReleaseNotesList';
 import AnnouncementsList from '../components/announcements/AnnouncementsList';
+import experienceService from '../services/experienceService';
 
 export default function HomeNew() {
   const { currentUser, userRole, isSpectator, logout } = useAuth();
@@ -29,15 +30,7 @@ export default function HomeNew() {
   const [userStats, setUserStats] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (currentUser) {
-      loadUserStats();
-    } else {
-      setLoading(false);
-    }
-  }, [currentUser]);
-
-  const loadUserStats = async () => {
+  const loadUserStats = useCallback(async () => {
     try {
       const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
       if (userDoc.exists()) {
@@ -48,7 +41,15 @@ export default function HomeNew() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentUser]);
+
+  useEffect(() => {
+    if (currentUser) {
+      loadUserStats();
+    } else {
+      setLoading(false);
+    }
+  }, [currentUser, loadUserStats]);
 
   async function handleLogout() {
     try {
@@ -160,6 +161,11 @@ export default function HomeNew() {
   };
 
   const quickAccessLinks = getQuickAccessLinks();
+  const totalCommands = userStats?.commandsExecuted || 0;
+  const successfulCommands = userStats?.successfulCommands || 0;
+  const accuracy = totalCommands > 0 ? (successfulCommands / totalCommands) * 100 : 0;
+  const totalXp = userStats?.xp || 0;
+  const level = experienceService.calculateLevel(totalXp);
 
   return (
     <div className="flex h-screen bg-gray-100">
@@ -187,7 +193,13 @@ export default function HomeNew() {
             </div>
 
             {/* User Stats - Solo para usuarios autenticados no espectadores */}
-            {currentUser && !isSpectator && userStats && (
+            {currentUser && !isSpectator && loading && (
+              <div className="bg-white rounded-lg shadow p-6 mb-8 text-sm text-gray-500">
+                Cargando estadísticas...
+              </div>
+            )}
+
+            {currentUser && !isSpectator && !loading && userStats && (
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
                 <div className="bg-white rounded-lg shadow p-6">
                   <div className="flex items-center">
@@ -197,7 +209,7 @@ export default function HomeNew() {
                     <div className="ml-4">
                       <p className="text-sm text-gray-600">Nivel</p>
                       <p className="text-2xl font-bold text-gray-900">
-                        {userStats.level || 1}
+                        {level}
                       </p>
                     </div>
                   </div>
@@ -211,7 +223,7 @@ export default function HomeNew() {
                     <div className="ml-4">
                       <p className="text-sm text-gray-600">XP Total</p>
                       <p className="text-2xl font-bold text-gray-900">
-                        {userStats.totalXP || 0}
+                        {totalXp}
                       </p>
                     </div>
                   </div>
@@ -225,7 +237,7 @@ export default function HomeNew() {
                     <div className="ml-4">
                       <p className="text-sm text-gray-600">Comandos</p>
                       <p className="text-2xl font-bold text-gray-900">
-                        {userStats.totalCommands || 0}
+                        {totalCommands}
                       </p>
                     </div>
                   </div>
@@ -239,7 +251,7 @@ export default function HomeNew() {
                     <div className="ml-4">
                       <p className="text-sm text-gray-600">Precisión</p>
                       <p className="text-2xl font-bold text-gray-900">
-                        {userStats.accuracy ? `${userStats.accuracy.toFixed(1)}%` : '0%'}
+                        {accuracy ? `${accuracy.toFixed(1)}%` : '0%'}
                       </p>
                     </div>
                   </div>

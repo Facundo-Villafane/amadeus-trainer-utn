@@ -35,7 +35,7 @@ export async function handleSplit(cmd) {
             return 'No hay un PNR finalizado en curso. Solo se pueden dividir PNRs ya guardados.';
         }
 
-        if (parentPNR.passengers.length <= 1) {
+        if (!parentPNR.passengers || parentPNR.passengers.length <= 1) {
             return 'No se puede dividir un PNR con un solo pasajero.';
         }
 
@@ -85,7 +85,7 @@ export async function handleSplit(cmd) {
         const associatePNR = {
             ...JSON.parse(JSON.stringify(parentPNR)), // Deep copy primitive data
             passengers: associatePax,
-            contacts: parentPNR.contacts.filter(c => !c.passengerNumber || mapPaxRef(c.passengerNumber, true) !== null).map(c => ({ ...c, passengerNumber: c.passengerNumber ? mapPaxRef(c.passengerNumber, true) : null })),
+            contacts: (parentPNR.contacts || []).filter(c => !c.passengerNumber || mapPaxRef(c.passengerNumber, true) !== null).map(c => ({ ...c, passengerNumber: c.passengerNumber ? mapPaxRef(c.passengerNumber, true) : null })),
             emailContacts: parentPNR.emailContacts?.filter(c => !c.passengerNumber || mapPaxRef(c.passengerNumber, true) !== null).map(c => ({ ...c, passengerNumber: c.passengerNumber ? mapPaxRef(c.passengerNumber, true) : null })) || [],
             ssrElements: parentPNR.ssrElements?.filter(c => !c.passengerNumber || mapPaxRef(c.passengerNumber, true) !== null).map(c => ({ ...c, passengerNumber: c.passengerNumber ? mapPaxRef(c.passengerNumber, true) : null })) || [],
             osiElements: parentPNR.osiElements?.filter(c => !c.passengerNumber || mapPaxRef(c.passengerNumber, true) !== null).map(c => ({ ...c, passengerNumber: c.passengerNumber ? mapPaxRef(c.passengerNumber, true) : null })) || [],
@@ -97,7 +97,7 @@ export async function handleSplit(cmd) {
                 originalPNRId: parentPNR.id,
                 originalLocator: parentPNR.recordLocator,
                 parentPax: remainingPax,
-                parentContacts: parentPNR.contacts.filter(c => !c.passengerNumber || mapPaxRef(c.passengerNumber, false) !== null).map(c => ({ ...c, passengerNumber: c.passengerNumber ? mapPaxRef(c.passengerNumber, false) : null })),
+                parentContacts: (parentPNR.contacts || []).filter(c => !c.passengerNumber || mapPaxRef(c.passengerNumber, false) !== null).map(c => ({ ...c, passengerNumber: c.passengerNumber ? mapPaxRef(c.passengerNumber, false) : null })),
                 parentEmailContacts: parentPNR.emailContacts?.filter(c => !c.passengerNumber || mapPaxRef(c.passengerNumber, false) !== null).map(c => ({ ...c, passengerNumber: c.passengerNumber ? mapPaxRef(c.passengerNumber, false) : null })) || [],
                 parentSsrElements: parentPNR.ssrElements?.filter(c => !c.passengerNumber || mapPaxRef(c.passengerNumber, false) !== null).map(c => ({ ...c, passengerNumber: c.passengerNumber ? mapPaxRef(c.passengerNumber, false) : null })) || [],
                 parentOsiElements: parentPNR.osiElements?.filter(c => !c.passengerNumber || mapPaxRef(c.passengerNumber, false) !== null).map(c => ({ ...c, passengerNumber: c.passengerNumber ? mapPaxRef(c.passengerNumber, false) : null })) || [],
@@ -120,7 +120,7 @@ export async function handleSplit(cmd) {
  * Handle EF Command (End & File Associate PNR)
  * Switches context back to Parent PNR.
  */
-export async function handleCloseAssociate(cmd) {
+export async function handleCloseAssociate() {
     const currentPNR = getCurrentPNR();
     if (!currentPNR || currentPNR.splitState !== 'ASSOCIATE') {
         return 'Comando EF solo se puede usar para cerrar un PNR Asociado durante una división (SP).';
@@ -175,7 +175,6 @@ export async function handleFinalizeSplit(cmd, userId) {
     currentPNR.status = 'CONFIRMED';
 
     // Add Remarks to both crossing reference
-    const dateMarker = new Date().toISOString().substring(8, 10) + new Date().toLocaleString('en-US', { month: 'short' }).toUpperCase();
     const parentRefRemark = { type: 'RM', message: `SP TO ${associateLocator}`, addedAt: new Date() };
     const associateRefRemark = { type: 'RM', message: `SP FROM ${parentLocator}`, addedAt: new Date() };
 
@@ -204,7 +203,7 @@ export async function handleFinalizeSplit(cmd, userId) {
         }
 
         // 2. Insert Associate
-        const newAssocRef = await addDoc(collection(db, 'pnrs'), {
+        await addDoc(collection(db, 'pnrs'), {
             ...associatePNR,
             userId: userId || 'unknown',
             createdAt: serverTimestamp(),

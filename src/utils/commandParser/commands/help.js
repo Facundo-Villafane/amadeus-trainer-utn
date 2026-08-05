@@ -51,6 +51,7 @@ export function generateHelpText() {
   IED / IBD                          Desplegar itinerario (Extendido / Básico)
   IEP / IBP                          Imprimir itinerario
   IEP-EML-[MAIL]                     Enviar itinerario por email
+  [N]/[CAMBIO]                       Modificar elemento del PNR (ej: 4/3)
   XE[ELEMENTO(S)]                    Borrar elemento(s) del PNR
   XI                                 Cancelar PNR (requiere confirmación con RF)
   
@@ -232,6 +233,26 @@ export function handleHelpCommand(cmd) {
   - Un PNR puede contener hasta 127 elementos OSI
   
   Este comando es opcional pero importante para incluir información relevante para las aerolíneas.
+  `;
+
+    case 'MOD':
+    case 'MODIFY':
+    case 'MODIFICAR':
+      return `
+  Modificar un elemento del PNR
+
+  Formato: [NRO_ELEMENTO]/[CAMBIO]
+
+  Ejemplos:
+  4/3                         Cambia el segmento 4 a 3 lugares (DK3/HK3)
+  5/BUE 1135877344-O/P1       Modifica un contacto AP
+  6/usuario@ejemplo.com/P1    Modifica un contacto APE
+  2/(INF/DIEGO/20JAN22)       Agrega un infante al pasajero 2
+
+  Notas:
+  - El número de elemento es el que aparece en el PNR.
+  - Los nombres de pasajeros no son modificables; solo se admite agregar INF.
+  - Para cancelar elementos use XE.
   `;
 
     case 'XE':

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, query, getDocs, doc, setDoc, deleteDoc, serverTimestamp, updateDoc, increment } from 'firebase/firestore';
+import { collection, query, getDocs, doc, setDoc, deleteDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import DashboardSidebar from '../../components/dashboard/DashboardSidebar';
 import DashboardHeader from '../../components/dashboard/DashboardHeader';
@@ -7,6 +7,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { FiPlus, FiEdit2, FiTrash2, FiUsers, FiClock, FiStar, FiChevronDown, FiChevronUp, FiCpu, FiPlay, FiInbox, FiCheckCircle, FiXCircle, FiEye, FiAlertTriangle, FiShield } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import { generateChallengeContent } from '../../services/challengeGeneratorService';
+import experienceService from '../../services/experienceService';
 
 export default function AdminChallenges() {
     const { currentUser, userRole, logout } = useAuth();
@@ -72,10 +73,85 @@ export default function AdminChallenges() {
         passenger_has_document: { type: 'passenger_has_document', docType: '', description: '' },
         has_contact_phone:      { type: 'has_contact_phone', description: 'Debe tener teléfono de contacto (AP)' },
         has_contact_email:      { type: 'has_contact_email', description: 'Debe tener email de contacto (APE)' },
-        has_ticketing:          { type: 'has_ticketing', type_value: '', description: '' },
+        has_ticketing:          { type: 'has_ticketing', ticketingType: '', description: '' },
         has_remark:             { type: 'has_remark', description: 'Debe tener al menos una observación (RM)' },
         osi_exists:             { type: 'osi_exists', contains: '', description: '' },
     };
+
+    const UNIT_3_TEMPLATES = [
+        {
+            title: 'Unidad 3 - Contactos y Ticketing',
+            category: 'General',
+            xpReward: 120,
+            timeLimitMinutes: 25,
+            description: 'Creá una reserva para PEREZ/JUAN con un vuelo EZE-MAD. La reserva debe tener teléfono de contacto, email y elemento de ticketing con límite de tiempo. Cerrá el PNR y entregá el localizador.',
+            validationRules: [
+                { type: 'passenger_count', min: 1, max: 1, description: 'Debe haber exactamente 1 pasajero' },
+                { type: 'segment_route', origin: 'EZE', destination: 'MAD', description: 'Debe existir un segmento EZE-MAD' },
+                { type: 'has_contact_phone', passengerNumber: 1, description: 'Debe tener teléfono AP para P1' },
+                { type: 'has_contact_email', passengerNumber: 1, description: 'Debe tener email APE o CTCE para P1' },
+                { type: 'has_ticketing', ticketingType: 'TL', description: 'Debe tener ticketing TKTL' },
+            ],
+        },
+        {
+            title: 'Unidad 3 - SSR y FOID',
+            category: 'Especial',
+            xpReward: 150,
+            timeLimitMinutes: 30,
+            description: 'Creá una reserva para dos pasajeros en la ruta EZE-MIA. El pasajero 2 requiere silla de ruedas y el pasajero 1 debe tener documento FOID cargado. Agregá contacto telefónico y email.',
+            validationRules: [
+                { type: 'passenger_count', min: 2, max: 2, description: 'Debe haber exactamente 2 pasajeros' },
+                { type: 'segment_route', origin: 'EZE', destination: 'MIA', description: 'Debe existir un segmento EZE-MIA' },
+                { type: 'ssr_exists', code: 'WCHR', passengerNumber: 2, description: 'Debe existir SSR WCHR para P2' },
+                { type: 'passenger_has_document', passengerNumber: 1, docType: 'PP', description: 'P1 debe tener FOID de pasaporte' },
+                { type: 'has_contact_phone', description: 'Debe tener teléfono de contacto' },
+                { type: 'has_contact_email', description: 'Debe tener email de contacto' },
+            ],
+        },
+        {
+            title: 'Unidad 3 - Observaciones y OSI',
+            category: 'Especial',
+            xpReward: 130,
+            timeLimitMinutes: 25,
+            description: 'Creá una reserva EZE-SCL para un pasajero VIP. Debe tener un OSI con texto VIP y una observación interna RM. Agregá contacto y ticketing.',
+            validationRules: [
+                { type: 'passenger_count', min: 1, max: 1, description: 'Debe haber exactamente 1 pasajero' },
+                { type: 'segment_route', origin: 'EZE', destination: 'SCL', description: 'Debe existir un segmento EZE-SCL' },
+                { type: 'osi_exists', contains: 'VIP', description: 'Debe existir OSI con texto VIP' },
+                { type: 'has_remark', contains: 'VIP', description: 'Debe existir una observación relacionada al pasajero VIP' },
+                { type: 'has_ticketing', description: 'Debe tener elemento TK' },
+            ],
+        },
+        {
+            title: 'Unidad 3 - Modificación de Elementos',
+            category: 'Temporal',
+            xpReward: 160,
+            timeLimitMinutes: 35,
+            description: 'Creá una reserva EZE-BOG para un pasajero. Luego modificá los elementos necesarios para que el PNR final tenga teléfono asociado a P1, email asociado a P1 y un infante agregado al pasajero adulto. Cerrá y entregá el localizador.',
+            validationRules: [
+                { type: 'passenger_count', min: 1, max: 1, description: 'Debe haber 1 pasajero adulto principal' },
+                { type: 'passenger_count', passengerType: 'INF', min: 1, max: 1, description: 'Debe haber 1 infante asociado' },
+                { type: 'segment_route', origin: 'EZE', destination: 'BOG', description: 'Debe existir un segmento EZE-BOG' },
+                { type: 'has_contact_phone', passengerNumber: 1, description: 'Debe tener AP asociado a P1' },
+                { type: 'has_contact_email', passengerNumber: 1, description: 'Debe tener APE o CTCE asociado a P1' },
+                { type: 'ssr_exists', code: 'INFT', passengerNumber: 1, description: 'Debe existir SSR INFT para P1' },
+            ],
+        },
+        {
+            title: 'Unidad 3 - Asiento e Itinerario',
+            category: 'General',
+            xpReward: 140,
+            timeLimitMinutes: 30,
+            description: 'Creá una reserva EZE-LIM para un pasajero, agregá contacto, ticketing y asigná un asiento específico. Luego verificá el itinerario antes de entregar el localizador.',
+            validationRules: [
+                { type: 'passenger_count', min: 1, max: 1, description: 'Debe haber exactamente 1 pasajero' },
+                { type: 'segment_route', origin: 'EZE', destination: 'LIM', description: 'Debe existir un segmento EZE-LIM' },
+                { type: 'ssr_exists', code: 'RQST', passengerNumber: 1, messageContains: 'A', description: 'Debe existir una asignación de asiento para P1' },
+                { type: 'has_contact_phone', description: 'Debe tener teléfono de contacto' },
+                { type: 'has_ticketing', description: 'Debe tener elemento TK' },
+            ],
+        },
+    ];
 
     const categories = ['General', 'Especial', 'Temporal'];
 
@@ -156,7 +232,6 @@ export default function AdminChallenges() {
         try {
             const wasPass = selectedSubmission.isPass;
             const challenge = challenges.find(c => c.id === selectedSubmission.challengeId);
-            const xpReward = challenge?.xpReward || 0;
             const userId = selectedSubmission.userId;
 
             const updateData = {
@@ -173,16 +248,22 @@ export default function AdminChallenges() {
             }
 
             // XP adjustment
-            if (!wasPass && newIsPass && xpReward > 0) {
+            if (!wasPass && newIsPass) {
                 // Fail → Pass: grant XP
-                updateData.xpEarned = xpReward;
-                await updateDoc(doc(db, 'users', userId), { xp: increment(xpReward) });
-                toast.success(`+${xpReward} XP otorgados al alumno`);
+                const reward = await experienceService.awardChallengeCompletion(userId, challenge, selectedSubmission.id);
+                updateData.xpEarned = reward.xpGained || 0;
+                toast.success(`+${updateData.xpEarned} XP otorgados al alumno`);
             } else if (wasPass && !newIsPass && selectedSubmission.xpEarned > 0) {
                 // Pass → Fail: revoke XP
                 const toRevoke = selectedSubmission.xpEarned;
+                await experienceService.revokeChallengeCompletion(
+                    userId,
+                    challenge,
+                    toRevoke,
+                    `Corrección manual: desafío rechazado (${challenge?.title || selectedSubmission.challengeId})`,
+                    selectedSubmission.id
+                );
                 updateData.xpEarned = 0;
-                await updateDoc(doc(db, 'users', userId), { xp: increment(-toRevoke) });
                 toast.success(`${toRevoke} XP revocados al alumno`);
             }
 
@@ -263,6 +344,17 @@ export default function AdminChallenges() {
         });
     };
 
+    const normalizeRulesForSave = (rules) => {
+        return rules.map(rule => {
+            if (rule.type !== 'has_ticketing') return rule;
+
+            const ticketingType = rule.ticketingType || rule.type_value || '';
+            const normalizedRule = { ...rule, ticketingType };
+            delete normalizedRule.type_value;
+            return normalizedRule;
+        });
+    };
+
     const removeRule = (index) => {
         setFormData(prev => ({
             ...prev,
@@ -299,6 +391,25 @@ export default function AdminChallenges() {
         }
     };
 
+    const applyUnit3Template = (templateIndex) => {
+        if (templateIndex === '') return;
+
+        const template = UNIT_3_TEMPLATES[Number(templateIndex)];
+        if (!template) return;
+
+        setFormData(prev => ({
+            ...prev,
+            title: template.title,
+            description: template.description,
+            category: template.category,
+            xpReward: template.xpReward,
+            timeLimitMinutes: template.timeLimitMinutes,
+            validationRules: template.validationRules.map(rule => ({ ...rule })),
+        }));
+
+        toast.success('Plantilla de Unidad 3 cargada. Podés ajustarla antes de guardar.');
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
 
@@ -321,7 +432,7 @@ export default function AdminChallenges() {
                 commissionCodes: commArray.length > 0 ? commArray : ['ALL'],
                 xpReward: Number(formData.xpReward),
                 timeLimitMinutes: Number(formData.timeLimitMinutes),
-                validationRules: formData.validationRules,
+                validationRules: normalizeRulesForSave(formData.validationRules),
                 isActive: formData.isActive,
                 updatedAt: serverTimestamp()
             };
@@ -402,7 +513,7 @@ export default function AdminChallenges() {
                         <div className="flex justify-between items-center mb-6">
                             <div>
                                 <h1 className="text-2xl font-semibold text-gray-900">Gestor de Desafíos</h1>
-                                <p className="text-sm text-gray-500 mt-1">Crea simulaciones de agencia para evaluar a los alumnos con IA.</p>
+                                <p className="text-sm text-gray-500 mt-1">Crea simulaciones de agencia con evaluacion automatica y feedback asistido por IA.</p>
                             </div>
                             {mainTab === 'challenges' && (
                                 <button
@@ -674,6 +785,28 @@ export default function AdminChallenges() {
                                         </div>
                                     </div>
 
+                                    <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                                        <div className="flex items-center justify-between gap-3">
+                                            <div>
+                                                <h4 className="font-bold text-blue-900 text-sm">Banco Unidad 3</h4>
+                                                <p className="text-xs text-blue-700 mt-1">Cargá una plantilla alineada con elementos opcionales, SSR, OSI, modificación e itinerario.</p>
+                                            </div>
+                                            <select
+                                                defaultValue=""
+                                                onChange={(e) => {
+                                                    applyUnit3Template(e.target.value);
+                                                    e.target.value = '';
+                                                }}
+                                                className="min-w-56 border border-blue-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
+                                            >
+                                                <option value="">Elegir plantilla...</option>
+                                                {UNIT_3_TEMPLATES.map((template, index) => (
+                                                    <option key={template.title} value={index}>{template.title}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    </div>
+
                                     <div className="space-y-4">
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700">Título del Caso / Desafío</label>
@@ -823,21 +956,37 @@ export default function AdminChallenges() {
                                                             {rule.type === 'ssr_exists' && (<>
                                                                 <input type="text" maxLength={4} value={rule.code || ''} onChange={e => updateRule(i, 'code', e.target.value.toUpperCase())} placeholder="Código SSR (WCHR)" className="text-xs border border-gray-200 rounded px-2 py-1 font-mono uppercase focus:outline-none focus:ring-1 focus:ring-indigo-400" />
                                                                 <div className="flex items-center gap-1"><span className="text-xs text-gray-500">PAX#:</span><input type="number" min={1} value={rule.passengerNumber || ''} onChange={e => updateRule(i, 'passengerNumber', e.target.value ? Number(e.target.value) : undefined)} placeholder="Opcional" className="w-20 text-xs border border-gray-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-indigo-400" /></div>
+                                                                <div className="flex items-center gap-1"><span className="text-xs text-gray-500">SEG#:</span><input type="number" min={1} value={rule.segmentNumber || ''} onChange={e => updateRule(i, 'segmentNumber', e.target.value ? Number(e.target.value) : undefined)} placeholder="Opcional" className="w-20 text-xs border border-gray-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-indigo-400" /></div>
+                                                                <input type="text" maxLength={2} value={rule.airlineCode || ''} onChange={e => updateRule(i, 'airlineCode', e.target.value.toUpperCase())} placeholder="Aerolinea (IB)" className="text-xs border border-gray-200 rounded px-2 py-1 font-mono uppercase focus:outline-none focus:ring-1 focus:ring-indigo-400" />
+                                                                <input type="text" value={rule.messageContains || ''} onChange={e => updateRule(i, 'messageContains', e.target.value)} placeholder="Texto/asiento/doc que debe contener" className="col-span-2 text-xs border border-gray-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-indigo-400" />
                                                             </>)}
 
-                                                            {rule.type === 'passenger_has_document' && (
-                                                                <div className="col-span-2 flex items-center gap-1"><span className="text-xs text-gray-500">Tipo doc:</span>
+                                                            {rule.type === 'passenger_has_document' && (<>
+                                                                <div className="flex items-center gap-1"><span className="text-xs text-gray-500">Tipo doc:</span>
                                                                     <select value={rule.docType || ''} onChange={e => updateRule(i, 'docType', e.target.value)} className="text-xs border border-gray-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-indigo-400">
                                                                         <option value="">Cualquier tipo</option>
                                                                         <option value="PP">PP (Pasaporte)</option>
                                                                         <option value="NI">NI (DNI)</option>
                                                                     </select>
                                                                 </div>
-                                                            )}
+                                                                <div className="flex items-center gap-1"><span className="text-xs text-gray-500">PAX#:</span><input type="number" min={1} value={rule.passengerNumber || ''} onChange={e => updateRule(i, 'passengerNumber', e.target.value ? Number(e.target.value) : undefined)} placeholder="Opcional" className="w-20 text-xs border border-gray-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-indigo-400" /></div>
+                                                                <input type="text" value={rule.docNumber || ''} onChange={e => updateRule(i, 'docNumber', e.target.value.toUpperCase())} placeholder="Numero doc (opcional)" className="text-xs border border-gray-200 rounded px-2 py-1 font-mono uppercase focus:outline-none focus:ring-1 focus:ring-indigo-400" />
+                                                                <input type="text" maxLength={2} value={rule.airlineCode || ''} onChange={e => updateRule(i, 'airlineCode', e.target.value.toUpperCase())} placeholder="Aerolinea (YY/IB)" className="text-xs border border-gray-200 rounded px-2 py-1 font-mono uppercase focus:outline-none focus:ring-1 focus:ring-indigo-400" />
+                                                            </>)}
+
+                                                            {rule.type === 'has_contact_phone' && (<>
+                                                                <div className="flex items-center gap-1"><span className="text-xs text-gray-500">PAX#:</span><input type="number" min={1} value={rule.passengerNumber || ''} onChange={e => updateRule(i, 'passengerNumber', e.target.value ? Number(e.target.value) : undefined)} placeholder="Opcional" className="w-20 text-xs border border-gray-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-indigo-400" /></div>
+                                                                <input type="text" value={rule.contains || ''} onChange={e => updateRule(i, 'contains', e.target.value)} placeholder="Telefono contiene..." className="text-xs border border-gray-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-indigo-400" />
+                                                            </>)}
+
+                                                            {rule.type === 'has_contact_email' && (<>
+                                                                <div className="flex items-center gap-1"><span className="text-xs text-gray-500">PAX#:</span><input type="number" min={1} value={rule.passengerNumber || ''} onChange={e => updateRule(i, 'passengerNumber', e.target.value ? Number(e.target.value) : undefined)} placeholder="Opcional" className="w-20 text-xs border border-gray-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-indigo-400" /></div>
+                                                                <input type="text" value={rule.contains || ''} onChange={e => updateRule(i, 'contains', e.target.value)} placeholder="Email contiene..." className="text-xs border border-gray-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-indigo-400" />
+                                                            </>)}
 
                                                             {rule.type === 'has_ticketing' && (
                                                                 <div className="col-span-2 flex items-center gap-1"><span className="text-xs text-gray-500">Tipo TK:</span>
-                                                                    <select value={rule.type_value || ''} onChange={e => updateRule(i, 'type_value', e.target.value)} className="text-xs border border-gray-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-indigo-400">
+                                                                    <select value={rule.ticketingType || rule.type_value || ''} onChange={e => updateRule(i, 'ticketingType', e.target.value)} className="text-xs border border-gray-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-indigo-400">
                                                                         <option value="">Cualquier tipo</option>
                                                                         <option value="TL">TL (Límite de tiempo)</option>
                                                                         <option value="OK">OK (Emitir inmediato)</option>
@@ -960,7 +1109,7 @@ export default function AdminChallenges() {
                                 {/* AI Feedback */}
                                 <div>
                                     <h4 className="text-sm font-semibold text-gray-700 mb-2 flex items-center">
-                                        <FiCpu className="mr-2 text-purple-500" /> Devolución de la IA
+                                        <FiCpu className="mr-2 text-purple-500" /> Feedback asistido
                                     </h4>
                                     <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">
                                         {selectedSubmission.feedback || 'Sin feedback registrado.'}

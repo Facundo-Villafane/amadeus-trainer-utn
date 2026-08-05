@@ -5,7 +5,7 @@ import { handleTimetableCommand } from './commands/timetable';
 import { handleMoveDown, handleMoveUp } from './commands/navigation';
 import { generateHelpText, handleHelpCommand } from './commands/help';
 import { handleEncodeCity, handleDecodeCity } from './commands/city';
-import { handleEncodeAirline } from './commands/airline';
+import { handleEncodeAirline, handleDecodeAirline } from './commands/airline';
 import { handleDecodeEquipment } from './commands/equipment';
 import { handleTicketing } from './commands/pnr/pnrTicketing';
 import {
@@ -32,6 +32,7 @@ import { handleSeatmapCommand, handleAssignSeatCommand } from './commands/seatma
 import { handleRRNCommand } from './commands/pnr/pnrClone';
 import { handleSplit, handleCloseAssociate } from './commands/pnr/pnrSplit';
 import { handleItineraryCommand } from './commands/pnr/pnrItinerary';
+import { handleModifyElement } from './commands/pnr/pnrModifyElement';
 
 // Variable para rastrear si el comando anterior fue XI (para confirmación con RF)
 let previousCommandWasXI = false;
@@ -62,6 +63,7 @@ export async function commandParser(command, userId) {
     else if (cmd.startsWith('TK')) commandType = 'TK';
     else if (cmd === 'ET' || cmd === 'ER') commandType = 'ET_ER';
     else if (cmd.startsWith('XE')) commandType = 'XE';
+    else if (/^\d+\/.+/.test(cmd)) commandType = 'MODIFY_ELEMENT';
     else if (cmd === 'XI') commandType = 'XI';
     else if (cmd.startsWith('OS')) commandType = 'OS';
     else if (cmd.startsWith('SR') && !cmd.startsWith('SRFOID')) commandType = 'SR';
@@ -71,6 +73,12 @@ export async function commandParser(command, userId) {
     else if (cmd.startsWith('RM')) commandType = 'REMARK';
     else if (cmd.startsWith('RC')) commandType = 'REMARK';
     else if (cmd.startsWith('RIR')) commandType = 'REMARK';
+    else if (cmd.startsWith('RRN')) commandType = 'RRN';
+    else if (cmd.startsWith('SP')) commandType = 'SP';
+    else if (cmd === 'EF') commandType = 'EF';
+    else if (cmd.startsWith('IE') || cmd.startsWith('IB')) commandType = 'ITINERARY';
+    else if (cmd.startsWith('DAL')) commandType = 'DECODE_ENCODE';
+    else if (cmd.startsWith('DAC') || cmd.startsWith('DAN') || cmd.startsWith('DNA')) commandType = 'DECODE_ENCODE';
     else if (cmd.startsWith('DNE')) commandType = 'DECODE_EQP';
     else if (cmd === 'HELP' || cmd.startsWith('HE')) commandType = 'HELP';
     else if (cmd === 'MD' || cmd === 'M' || cmd === 'U') commandType = 'NAVIGATION';
@@ -206,8 +214,26 @@ export async function commandParser(command, userId) {
       return result;
     }
 
-    if (cmd.startsWith('DNA')) {
+    if (cmd.startsWith('DAL')) {
       result = await handleEncodeAirline(cmd);
+
+      // Registrar resultado
+      if (userId) {
+        if (!result.startsWith('Error') && !result.includes('No se encontr')) {
+          await experienceService.recordSuccessfulCommand(userId, cmd, 'DECODE_ENCODE');
+        } else {
+          await experienceService.recordCommandError(userId, cmd, result);
+        }
+      }
+
+      return result;
+    }
+
+    if (cmd.startsWith('DNA')) {
+      const dnaArgument = cmd.slice(3).trim();
+      result = dnaArgument.length === 2
+        ? await handleDecodeAirline(cmd)
+        : await handleDecodeCity(cmd.replace(/^DNA/i, 'DAC'));
 
       // Registrar resultado
       if (userId) {
@@ -390,6 +416,22 @@ export async function commandParser(command, userId) {
       return result;
     }
 
+    if (/^\d+\/.+/.test(cmd)) {
+      result = await handleModifyElement(cmd);
+      previousCommandWasXI = false;
+
+      // Registrar resultado
+      if (userId) {
+        if (!result.startsWith('Error') && !result.startsWith('Formato') && !result.includes('no admite')) {
+          await experienceService.recordSuccessfulCommand(userId, cmd, commandType);
+        } else {
+          await experienceService.recordCommandError(userId, cmd, result);
+        }
+      }
+
+      return result;
+    }
+
     if (cmd.startsWith('RT')) {
       result = await handleRetrievePNR(cmd, userId);
       previousCommandWasXI = false;
@@ -500,7 +542,7 @@ export async function commandParser(command, userId) {
       return result;
     }
 
-    if (/^(IE|IB)[DPJ]?(?:\/P\d+)?(?:-EML(?:A|-[^\s]+)?)?$/.test(cmd)) {
+    if (/^(?:I[EB](?:D|P|PJ)?(?:\/P\d+|\/LP[A-Z]{2})?(?:-EML(?:A|-[^\s]+)?)?)$/.test(cmd)) {
       result = await handleItineraryCommand(cmd, userId);
       previousCommandWasXI = false;
       if (userId) {

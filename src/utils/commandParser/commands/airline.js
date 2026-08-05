@@ -1,5 +1,5 @@
 // src/utils/commandParser/commands/airline.js
-// Handles DNA (encode airline by name) and airline decode commands.
+// Handles DAL (encode airline by name) and DNA airline decode commands.
 // Data source: public/data/airlines.json (pre-built from OpenFlights airlines.dat)
 // Falls back to Firestore → mock data if JSON is unavailable.
 
@@ -86,12 +86,13 @@ const FALLBACK_AIRLINES = [
 // ── Command Handlers ───────────────────────────────────────────────────────
 
 /**
- * DNA <airline name> — encode airline name to IATA code
+ * DAL <airline name> - encode airline name to IATA code
  */
 export async function handleEncodeAirline(cmd) {
+  const prefix = cmd.slice(0, 3).toUpperCase();
   try {
     const airlineName = cmd.slice(3).trim();
-    if (!airlineName) return 'DNA: Ingrese el nombre de la aerolínea.';
+    if (!airlineName) return `${prefix}: Ingrese el nombre de la aerolínea.`;
 
     // 1. Try Firestore first (custom/override entries)
     try {
@@ -103,7 +104,7 @@ export async function handleEncodeAirline(cmd) {
       );
       const snap = await getDocs(q);
       if (!snap.empty) {
-        let response = `DNA${airlineName.toUpperCase()}\n`;
+        let response = `${prefix}${airlineName.toUpperCase()}\n`;
         snap.forEach(doc => {
           const a = doc.data();
           response += `${a.code}  ${a.name.toUpperCase()}\n`;
@@ -119,10 +120,10 @@ export async function handleEncodeAirline(cmd) {
     const results = searchByName(airlineName);
 
     if (results.length === 0) {
-      return `DNA${airlineName.toUpperCase()}\nNo se encontró ninguna aerolínea con ese nombre.`;
+      return `${prefix}${airlineName.toUpperCase()}\nNo se encontró ninguna aerolínea con ese nombre.`;
     }
 
-    let response = `DNA${airlineName.toUpperCase()}\n`;
+    let response = `${prefix}${airlineName.toUpperCase()}\n`;
     for (const a of results) {
       response += `${a.iata.padEnd(3)} ${a.name.toUpperCase()}`;
       if (a.country) response += ` (${a.country})`;
@@ -131,7 +132,7 @@ export async function handleEncodeAirline(cmd) {
     return response;
 
   } catch (error) {
-    console.error('Error en DNA:', error);
+    console.error(`Error en ${prefix}:`, error);
     return `Error al procesar el comando: ${error.message}`;
   }
 }

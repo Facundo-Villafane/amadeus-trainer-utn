@@ -30,8 +30,12 @@ export function formatPNRResponse(pnr) {
       response += `${index + 1}.${passenger.lastName}/${passenger.firstName} ${passenger.title}`;
       if (passenger.type === 'CHD') {
         response += `(CHD/${passenger.dateOfBirth || ''})`;
-      } else if (passenger.type === 'INF' && passenger.infant) {
-        response += `(INF${passenger.infant.lastName}/${passenger.infant.firstName}/${passenger.infant.dateOfBirth || ''})`;
+      } else if (passenger.infant) {
+        if (passenger.infant.inheritedLastName) {
+          response += `(INF/${passenger.infant.firstName}/${passenger.infant.dateOfBirth || ''})`;
+        } else {
+          response += `(INF${passenger.infant.lastName}/${passenger.infant.firstName}/${passenger.infant.dateOfBirth || ''})`;
+        }
       }
       response += `\n`;
     });
@@ -253,8 +257,12 @@ export function formatERResponse(pnr) {
       response += `${passengerNumber}.${passenger.lastName}/${passenger.firstName} ${passenger.title}`;
       if (passenger.type === 'CHD') {
         response += `(CHD/${passenger.dateOfBirth || ''})`;
-      } else if (passenger.type === 'INF' && passenger.infant) {
-        response += `(INF${passenger.infant.lastName}/${passenger.infant.firstName}/${passenger.infant.dateOfBirth || ''})`;
+      } else if (passenger.infant) {
+        if (passenger.infant.inheritedLastName) {
+          response += `(INF/${passenger.infant.firstName}/${passenger.infant.dateOfBirth || ''})`;
+        } else {
+          response += `(INF${passenger.infant.lastName}/${passenger.infant.firstName}/${passenger.infant.dateOfBirth || ''})`;
+        }
       }
       response += `\n`;
       lastElementNumber = passengerNumber;

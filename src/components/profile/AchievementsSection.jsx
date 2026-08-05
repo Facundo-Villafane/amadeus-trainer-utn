@@ -59,6 +59,7 @@ export default function AchievementsSection({ currentUser }) {
         ) : (
           <>
             <ExperienceBar userData={userData} />
+            <XPHistorySection userId={currentUser.uid} />
           </>
         )}
       </div>
@@ -94,7 +95,7 @@ export default function AchievementsSection({ currentUser }) {
             onClick={() => setShowSecretAchievements(!showSecretAchievements)}
             className="flex items-center text-sm text-gray-600 hover:text-gray-800"
           >
-
+            {showSecretAchievements ? 'Ocultar secretos' : 'Mostrar secretos'}
           </button>
         </div>
 
@@ -209,6 +210,8 @@ function XPHistorySection({ userId }) {
             command_error: 'Error de comando',
             daily_streak: 'Racha diaria',
             level_up: 'Subida de nivel',
+            challenge_completion: 'Desafío superado',
+            challenge_revoke: 'Desafío revocado',
           }[entry.type] || 'Otro';
 
           return (
@@ -334,7 +337,9 @@ function AchievementCard({ achievement, isUnlocked }) {
 // Get achievement stats
 function getAchievementStats(userData) {
   const total = Object.keys(experienceService.ACHIEVEMENTS).length;
-  const unlocked = userData.achievements ? userData.achievements.length : 0;
+  const unlocked = userData.achievements
+    ? userData.achievements.filter(id => experienceService.ACHIEVEMENTS[id]).length
+    : 0;
   const percentage = Math.round((unlocked / total) * 100);
 
   // Contar por rareza

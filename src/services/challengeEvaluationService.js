@@ -48,13 +48,17 @@ Tu única tarea es redactar un feedback claro, constructivo y motivador en espa�
 Normas estrictas:
 - NO inventes reglas ni resultados adicionales a los que se te dan.
 - NO menciones campos técnicos del PNR que no aparezcan en el reporte.
+- Si hay una sugerencia de comando, incluila de forma breve y práctica.
 - Si el alumno aprobó todo, felicitalo y menciona brevemente qué hizo bien.
 - Si falló algo, explicá claramente qué faltó y cómo debería haberlo hecho en Amadeus.
 - Devuelve SOLO el JSON: { "feedback": "texto aquí" }
 `;
 
     const passedList = report.passed.map(r => `✅ ${r.description}`).join('\n');
-    const failedList = report.failed.map(r => `❌ ${r.description}`).join('\n');
+    const failedList = report.failed.map(r => {
+        const suggestion = buildCommandSuggestion(r);
+        return `❌ ${r.description}${suggestion ? `\n   Sugerencia: ${suggestion}` : ''}`;
+    }).join('\n');
 
     const userPrompt = `
 Resultado de la evaluación automática:
@@ -131,11 +135,54 @@ function buildFallbackFeedback(report) {
 
     if (report.failed.length > 0) {
         lines.push('\nRequisitos no cumplidos:');
-        report.failed.forEach(r => lines.push(`  ❌ ${r.description}`));
+        report.failed.forEach(r => {
+            const suggestion = buildCommandSuggestion(r);
+            lines.push(`  ❌ ${r.description}`);
+            if (suggestion) lines.push(`     Sugerencia: ${suggestion}`);
+        });
     }
 
     return {
         isPass: report.isPass,
         feedback: lines.join('\n')
     };
+}
+
+function buildCommandSuggestion(entry) {
+    const rule = entry.rule || {};
+
+    switch (entry.type) {
+        case 'segment_route': {
+            const route = [rule.origin || 'ORIGEN', rule.destination || 'DESTINO'].join('');
+            return `Buscá disponibilidad con AN${rule.date || 'FECHA'}${route} y vendé el segmento con SS.`;
+        }
+        case 'segment_count':
+            return 'Revisá el itinerario con RT y agregá o cancelá segmentos con SS, XE o XI.';
+        case 'passenger_count':
+            return `Agregá pasajeros con NM. Ejemplo: NM${rule.min || 1}APELLIDO/NOMBRE.`;
+        case 'ssr_exists': {
+            const pax = rule.passengerNumber ? `/P${rule.passengerNumber}` : '/P1';
+            return `Agregá el servicio con SR${rule.code || 'XXXX'}${pax}.`;
+        }
+        case 'passenger_has_document': {
+            const pax = rule.passengerNumber ? `/P${rule.passengerNumber}` : '/P1';
+            return `Cargá FOID con SRFOID YY HK1-${rule.docType || 'PP'}NUMERO${pax}.`;
+        }
+        case 'has_contact_phone': {
+            const pax = rule.passengerNumber ? `/P${rule.passengerNumber}` : '';
+            return `Agregá teléfono con AP BUE 1133334444-O${pax}.`;
+        }
+        case 'has_contact_email': {
+            const pax = rule.passengerNumber ? `/P${rule.passengerNumber}` : '';
+            return `Agregá email con APE-alumno//mail.com${pax}.`;
+        }
+        case 'has_ticketing':
+            return `Agregá ticketing con TK${rule.ticketingType || 'TL'}${rule.ticketingType === 'TL' ? '15NOV' : ''}.`;
+        case 'has_remark':
+            return 'Agregá una observación con RM TEXTO, RC TEXTO o RIR TEXTO.';
+        case 'osi_exists':
+            return `Agregá OSI con OS ${rule.airlineCode || 'YY'} ${rule.contains || 'TEXTO'}.`;
+        default:
+            return '';
+    }
 }

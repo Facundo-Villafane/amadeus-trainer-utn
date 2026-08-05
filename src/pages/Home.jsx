@@ -33,7 +33,7 @@ const T = {
     features: [
       { icon: 'FiTerminal', title: 'La misma sintaxis, ambiente seguro', body: 'Mozart Trainer usa los mismos comandos Amadeus del sistema real — no simplificados, no adaptados. Cuando llegues al trabajo, ya sabes exactamente qué tipear.' },
       { icon: 'FiUsers', title: 'El docente ve todo, en tiempo real', body: 'Cada comando, cada PNR, cada error queda registrado. El docente puede revisar el historial completo de cada alumno desde el panel de administración, sin necesidad de evaluar en clase.' },
-      { icon: 'FiZap', title: 'Siempre hay vuelos para practicar', body: 'Si no hay vuelos cargados para la fecha que buscás, el sistema genera disponibilidades sintéticas realistas con carrier ZZ. Nunca te quedás sin material para practicar.' },
+      { icon: 'FiZap', title: 'Siempre hay vuelos para practicar', body: 'Si hay pocos vuelos cargados para la fecha que buscás, el sistema genera disponibilidades sintéticas realistas con códigos de aerolíneas reales. Nunca te quedás sin material para practicar.' },
       { icon: 'FiShield', title: 'XP que solo premia práctica real', body: 'El sistema de antifarm detecta y penaliza repetición mecánica: cooldown entre PNRs, detección de spam en 30 segundos, corte de XP después de 5 comandos idénticos seguidos.' },
     ],
     gamLabel: 'Gamificación',
@@ -78,7 +78,7 @@ const T = {
     features: [
       { icon: 'FiTerminal', title: 'Real syntax, safe environment', body: 'Mozart Trainer uses the exact same Amadeus command syntax as the live system — not simplified, not adapted. When you start working, you already know what to type.' },
       { icon: 'FiUsers', title: 'Instructor visibility, in real time', body: 'Every command, PNR, and error is logged. Instructors can review each student\'s full history from the admin panel — no need to evaluate in class.' },
-      { icon: 'FiZap', title: 'Flights always available to practice', body: 'If no flights exist for the date you search, the system generates realistic synthetic availability with carrier ZZ. You never run out of material.' },
+      { icon: 'FiZap', title: 'Flights always available to practice', body: 'If too few flights exist for the date you search, the system generates realistic synthetic availability with real airline codes. You never run out of material.' },
       { icon: 'FiShield', title: 'XP that rewards genuine practice', body: 'The anti-farming system detects mechanical repetition: PNR cooldown, 30-second spam detection, XP cutoff after 5 identical commands in a row.' },
     ],
     gamLabel: 'Gamification',

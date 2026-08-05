@@ -1,71 +1,185 @@
 // src/utils/commandParser/syntheticFlights.js
 //
-// Genera vuelos "fantasma" (ghost flights) cuando la búsqueda AN devuelve
-// menos de MIN_FLIGHTS resultados reales.
-// Los vuelos sintéticos usan la aerolínea ficticia XT ("Amadeus Trainer").
-// NUNCA se guardan en Firestore — existen solo en memoria durante la respuesta.
+// Generates in-memory training flights when AN availability has too few real
+// results. These flights are synthetic, but use real IATA airline codes so the
+// practice screen is easier for students to recognize and discuss.
 
-const SYNTHETIC_AIRLINE = 'XT';
-const MIN_FLIGHTS = 10; // completar hasta este número si hay menos
+const MIN_FLIGHTS = 10;
 
-// Tabla de duración aproximada entre regiones (en horas)
-// Clave: "REGION_ORIGEN-REGION_DESTINO"
-const DURATION_TABLE = {
-    // América del Sur ↔ Europa
-    'SA-EU': 12.5, 'EU-SA': 13.0,
-    // América del Sur ↔ Norteamérica
-    'SA-NA': 9.5, 'NA-SA': 10.0,
-    // América del Sur ↔ América del Sur
-    'SA-SA': 3.5,
-    // Europa ↔ Europa
-    'EU-EU': 2.5,
-    // Europa ↔ Norteamérica
-    'EU-NA': 9.0, 'NA-EU': 8.5,
-    // Europa ↔ Asia/Medio Oriente
-    'EU-AS': 11.0, 'AS-EU': 11.5,
-    // Norteamérica ↔ Norteamérica
-    'NA-NA': 4.0,
-    // Asia ↔ Asia
-    'AS-AS': 5.0,
-    // Por defecto
-    'default': 8.0,
+const CITY_GROUPS = {
+    EZE: 'BUE',
+    AEP: 'BUE',
 };
 
-// Mapa de aeropuertos conocidos a regiones (extensible)
+const ROUTE_CARRIERS = {
+    'BUE-MAD': ['AR', 'IB'],
+    'BUE-BCN': ['AR', 'IB'],
+    'BUE-MIA': ['AR', 'AA'],
+    'BUE-JFK': ['AR', 'AA', 'DL'],
+    'BUE-LAX': ['AR', 'AA', 'DL', 'UA'],
+    'BUE-SCL': ['AR', 'LA', 'H2'],
+    'BUE-LIM': ['LA', 'AR'],
+    'BUE-BOG': ['AV', 'AR'],
+    'BUE-GRU': ['AR', 'LA', 'G3'],
+    'BUE-GIG': ['AR', 'LA', 'G3'],
+    'BUE-MVD': ['AR', 'LA'],
+    'BUE-ASU': ['AR', 'LA'],
+    'BUE-PTY': ['CM', 'AR'],
+    'MAD-BUE': ['IB', 'AR'],
+    'BCN-BUE': ['IB', 'AR'],
+    'MIA-BUE': ['AA', 'AR'],
+    'JFK-BUE': ['AA', 'DL', 'AR'],
+    'LAX-BUE': ['AA', 'DL', 'UA', 'AR'],
+    'SCL-BUE': ['LA', 'AR', 'H2'],
+    'LIM-BUE': ['LA', 'AR'],
+    'BOG-BUE': ['AV', 'AR'],
+    'GRU-BUE': ['LA', 'G3', 'AR'],
+    'GIG-BUE': ['LA', 'G3', 'AR'],
+    'MVD-BUE': ['AR', 'LA'],
+    'ASU-BUE': ['AR', 'LA'],
+    'PTY-BUE': ['CM', 'AR'],
+    'MAD-LHR': ['IB', 'BA'],
+    'MAD-CDG': ['IB', 'AF', 'UX'],
+    'MAD-FCO': ['IB', 'AZ', 'UX'],
+    'MAD-BCN': ['IB', 'UX', 'VY'],
+    'MAD-MIA': ['IB', 'AA'],
+    'LHR-MAD': ['BA', 'IB'],
+    'CDG-MAD': ['AF', 'IB', 'UX'],
+    'FCO-MAD': ['AZ', 'IB', 'UX'],
+    'BCN-MAD': ['IB', 'UX', 'VY'],
+    'MIA-MAD': ['AA', 'IB'],
+};
+
+const REGION_CARRIERS = {
+    'SA-EU': ['AR', 'IB', 'UX', 'AF', 'KL', 'AZ'],
+    'EU-SA': ['IB', 'AR', 'UX', 'AF', 'KL', 'AZ'],
+    'SA-NA': ['AR', 'AA', 'DL', 'UA', 'AV', 'CM'],
+    'NA-SA': ['AA', 'DL', 'UA', 'AR', 'AV', 'CM'],
+    'SA-SA': ['AR', 'LA', 'AV', 'CM', 'G3', 'H2'],
+    'EU-EU': ['IB', 'BA', 'AF', 'LH', 'KL', 'AZ', 'UX', 'VY'],
+    'EU-NA': ['BA', 'AA', 'DL', 'UA', 'LH', 'AF', 'KL', 'IB'],
+    'NA-EU': ['AA', 'DL', 'UA', 'BA', 'LH', 'AF', 'KL', 'IB'],
+    'EU-AS': ['EK', 'QR', 'TK', 'EY', 'SQ'],
+    'AS-EU': ['EK', 'QR', 'TK', 'EY', 'SQ'],
+    'NA-NA': ['AA', 'DL', 'UA', 'AC', 'AS', 'B6'],
+    'AS-AS': ['SQ', 'CX', 'NH', 'JL', 'TG', 'KE'],
+    default: ['AR', 'IB', 'LA', 'AA', 'AF', 'LH'],
+};
+
+export const TRAINING_AIRLINE_NAMES = {
+    AR: 'Aerolineas Argentinas',
+    IB: 'Iberia',
+    LA: 'LATAM Airlines',
+    AA: 'American Airlines',
+    DL: 'Delta Air Lines',
+    UA: 'United Airlines',
+    H2: 'Sky Airline',
+    AV: 'Avianca',
+    G3: 'GOL Linhas Aereas',
+    CM: 'Copa Airlines',
+    BA: 'British Airways',
+    AF: 'Air France',
+    UX: 'Air Europa',
+    AZ: 'ITA Airways',
+    VY: 'Vueling',
+    KL: 'KLM',
+    LH: 'Lufthansa',
+    EK: 'Emirates',
+    QR: 'Qatar Airways',
+    TK: 'Turkish Airlines',
+    EY: 'Etihad Airways',
+    SQ: 'Singapore Airlines',
+    AC: 'Air Canada',
+    AS: 'Alaska Airlines',
+    B6: 'JetBlue',
+    CX: 'Cathay Pacific',
+    NH: 'All Nippon Airways',
+    JL: 'Japan Airlines',
+    TG: 'Thai Airways',
+    KE: 'Korean Air',
+};
+
+const FLIGHT_NUMBER_RANGES = {
+    AR: [1000, 1999],
+    IB: [6000, 6999],
+    LA: [4000, 4999],
+    AA: [900, 2999],
+    DL: [100, 2999],
+    UA: [100, 2999],
+    H2: [500, 999],
+    AV: [100, 999],
+    G3: [7000, 7999],
+    CM: [100, 999],
+    BA: [200, 999],
+    AF: [1000, 1999],
+    UX: [1000, 1999],
+    AZ: [600, 999],
+    VY: [6000, 6999],
+    KL: [700, 999],
+    LH: [400, 999],
+    EK: [100, 999],
+    QR: [100, 999],
+    TK: [1000, 1999],
+    EY: [100, 999],
+    SQ: [100, 999],
+    AC: [700, 1999],
+    AS: [1, 999],
+    B6: [1, 999],
+    CX: [200, 999],
+    NH: [100, 999],
+    JL: [1, 999],
+    TG: [900, 999],
+    KE: [1, 999],
+};
+
+const DURATION_TABLE = {
+    'SA-EU': 12.5, 'EU-SA': 13.0,
+    'SA-NA': 9.5, 'NA-SA': 10.0,
+    'SA-SA': 3.5,
+    'EU-EU': 2.5,
+    'EU-NA': 9.0, 'NA-EU': 8.5,
+    'EU-AS': 11.0, 'AS-EU': 11.5,
+    'NA-NA': 4.0,
+    'AS-AS': 5.0,
+    default: 8.0,
+};
+
 const AIRPORT_REGION = {
-    // Argentina / Cono Sur
     EZE: 'SA', AEP: 'SA', COR: 'SA', MDZ: 'SA', BRC: 'SA',
     SCL: 'SA', GIG: 'SA', GRU: 'SA', MVD: 'SA', ASU: 'SA',
-    // Europa
+    BOG: 'SA', LIM: 'SA', PTY: 'SA',
     MAD: 'EU', BCN: 'EU', LHR: 'EU', CDG: 'EU', FCO: 'EU',
     AMS: 'EU', FRA: 'EU', MXP: 'EU', LIS: 'EU', ZRH: 'EU',
     VIE: 'EU', MUC: 'EU', OSL: 'EU', ARN: 'EU', CPH: 'EU',
-    // Norteamérica
     JFK: 'NA', MIA: 'NA', LAX: 'NA', ORD: 'NA', YYZ: 'NA',
-    MEX: 'NA', CUN: 'NA', BOG: 'NA', LIM: 'NA', PTY: 'NA',
-    // Asia / Medio Oriente
+    MEX: 'NA', CUN: 'NA',
     DXB: 'AS', DOH: 'AS', SIN: 'AS', HKG: 'AS', NRT: 'AS',
     BKK: 'AS', IST: 'AS', TLV: 'AS',
-    // África
     JNB: 'AF', CAI: 'AF',
 };
 
-/** Devuelve la región de un aeropuerto (o 'XX' si no se conoce) */
-function getRegion(iata) {
-    return AIRPORT_REGION[iata?.toUpperCase()] || 'XX';
+function normalizeAirportCode(code) {
+    return String(code || '').toUpperCase();
 }
 
-/** Duración estimada entre origen y destino */
+function normalizeAirlineCode(code) {
+    return String(code || '').toUpperCase();
+}
+
+function cityGroup(code) {
+    const normalized = normalizeAirportCode(code);
+    return CITY_GROUPS[normalized] || normalized;
+}
+
+function getRegion(iata) {
+    return AIRPORT_REGION[normalizeAirportCode(iata)] || 'XX';
+}
+
 function estimateDuration(origin, destination) {
     const key = `${getRegion(origin)}-${getRegion(destination)}`;
-    return DURATION_TABLE[key] || DURATION_TABLE['default'];
+    return DURATION_TABLE[key] || DURATION_TABLE.default;
 }
 
-/**
- * Generador de números pseudo-aleatorios determinístico (LCG simple).
- * Dado el mismo seed siempre produce la misma secuencia → los mismos vuelos
- * para la misma búsqueda.
- */
 function makePrng(seed) {
     let s = seed;
     return () => {
@@ -74,7 +188,6 @@ function makePrng(seed) {
     };
 }
 
-/** Convierte string a número para usar como seed */
 function stringToSeed(str) {
     let h = 5381;
     for (let i = 0; i < str.length; i++) {
@@ -83,20 +196,17 @@ function stringToSeed(str) {
     return Math.abs(h);
 }
 
-/** Formatea un número de minutos como "HH:MM" */
 function minutesToTime(totalMinutes) {
     const h = Math.floor(totalMinutes / 60) % 24;
     const m = totalMinutes % 60;
     return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 }
 
-/** Calcula la hora de llegada dado salida + duración en horas */
 function calcArrivalTime(depMinutes, durationHours) {
     const arrMinutes = (depMinutes + Math.round(durationHours * 60)) % (24 * 60);
     return minutesToTime(arrMinutes);
 }
 
-/** Calcula la fecha de llegada (puede ser +1 día) */
 function calcArrivalDate(isoDate, depMinutes, durationHours) {
     if (!isoDate) return isoDate;
     const totalArr = depMinutes + Math.round(durationHours * 60);
@@ -107,44 +217,84 @@ function calcArrivalDate(isoDate, depMinutes, durationHours) {
     return d.toISOString().split('T')[0];
 }
 
+function routeCarrierPool(origin, destination) {
+    const originCode = normalizeAirportCode(origin);
+    const destinationCode = normalizeAirportCode(destination);
+    const originCity = cityGroup(originCode);
+    const destinationCity = cityGroup(destinationCode);
+    const keys = [
+        `${originCode}-${destinationCode}`,
+        `${originCity}-${destinationCode}`,
+        `${originCode}-${destinationCity}`,
+        `${originCity}-${destinationCity}`,
+    ];
+
+    for (const key of keys) {
+        if (ROUTE_CARRIERS[key]) return ROUTE_CARRIERS[key];
+    }
+
+    const regionKey = `${getRegion(originCode)}-${getRegion(destinationCode)}`;
+    return REGION_CARRIERS[regionKey] || REGION_CARRIERS.default;
+}
+
+export function getSyntheticCarrierPool(origin, destination, preferredAirline = null) {
+    const preferred = preferredAirline ? normalizeAirlineCode(preferredAirline) : null;
+    const pool = routeCarrierPool(origin, destination);
+
+    if (!preferred) return pool;
+    return pool.includes(preferred) ? [preferred] : [];
+}
+
+export function formatTrainingAirlineList(codes) {
+    const uniqueCodes = [...new Set(codes.map(normalizeAirlineCode).filter(Boolean))];
+    return uniqueCodes
+        .map(code => `${code} ${TRAINING_AIRLINE_NAMES[code] || 'carrier'}`)
+        .join(', ');
+}
+
+function pickFlightNumber(airlineCode, rand) {
+    const [min, max] = FLIGHT_NUMBER_RANGES[airlineCode] || [100, 8999];
+    return String(Math.floor(rand() * (max - min + 1)) + min);
+}
+
+function pickAircraft(rand) {
+    const aircraft = ['738', '789', '77W', '320', '321', '333', '744', '32A', '359', '77L'];
+    return aircraft[Math.floor(rand() * aircraft.length)];
+}
+
 /**
- * Genera vuelos sintéticos para completar hasta MIN_FLIGHTS.
- *
- * @param {string} origin   - Código IATA origen
- * @param {string} destination - Código IATA destino
- * @param {string|null} isoDate - Fecha ISO (YYYY-MM-DD) o null
- * @param {number} realCount - Cuántos vuelos reales ya hay
- * @returns {Array} Array de objetos flight sintéticos
+ * @param {string} origin
+ * @param {string} destination
+ * @param {string|null} isoDate
+ * @param {number} realCount
+ * @param {{ preferredAirline?: string|null }} options
+ * @returns {Array}
  */
-export function generateSyntheticFlights(origin, destination, isoDate, realCount) {
+export function generateSyntheticFlights(origin, destination, isoDate, realCount, options = {}) {
     const needed = Math.max(0, MIN_FLIGHTS - realCount);
     if (needed === 0) return [];
 
-    const seed = stringToSeed(`${origin}-${destination}-${isoDate || 'nodate'}`);
+    const carrierPool = getSyntheticCarrierPool(origin, destination, options.preferredAirline);
+    if (carrierPool.length === 0) return [];
+
+    const seed = stringToSeed(`${origin}-${destination}-${isoDate || 'nodate'}-${options.preferredAirline || 'any'}`);
     const rand = makePrng(seed);
     const duration = estimateDuration(origin, destination);
 
     const flights = [];
-
-    // Distribuir salidas a lo largo del día (06:00 → 23:00)
-    const startMinute = 6 * 60;   // 06:00
-    const endMinute = 23 * 60;  // 23:00
+    const startMinute = 6 * 60;
+    const endMinute = 23 * 60;
     const spread = endMinute - startMinute;
 
     for (let i = 0; i < needed; i++) {
-        // Hora de salida pseudo-aleatoria pero distribuida
+        const airlineCode = carrierPool[Math.floor(rand() * carrierPool.length)];
         const depMinutes = Math.round(startMinute + (rand() * spread));
         const depTime = minutesToTime(depMinutes);
-
-        // Pequeña variación en duración (±30 min) para que no sean idénticos
         const variedDuration = duration + (rand() * 1.0 - 0.5);
         const arrTime = calcArrivalTime(depMinutes, variedDuration);
         const arrDate = calcArrivalDate(isoDate, depMinutes, variedDuration);
+        const flightNum = pickFlightNumber(airlineCode, rand);
 
-        // Número de vuelo: XT + 4 dígitos determinísticos
-        const flightNum = String(Math.floor(rand() * 9000) + 1000);
-
-        // Disponibilidad de clases (realista: J < C < Y << M)
         const classAvail = {
             J: Math.floor(rand() * 5) + 1,
             C: Math.floor(rand() * 8) + 2,
@@ -155,10 +305,10 @@ export function generateSyntheticFlights(origin, destination, isoDate, realCount
         };
 
         flights.push({
-            airline_code: SYNTHETIC_AIRLINE,
+            airline_code: airlineCode,
             flight_number: flightNum,
-            departure_airport_code: origin,
-            arrival_airport_code: destination,
+            departure_airport_code: normalizeAirportCode(origin),
+            arrival_airport_code: normalizeAirportCode(destination),
             departure_date: isoDate,
             arrival_date: arrDate,
             departure_time: depTime,
@@ -168,16 +318,11 @@ export function generateSyntheticFlights(origin, destination, isoDate, realCount
             class_availability: classAvail,
             departure_terminal: '',
             arrival_terminal: '',
-            synthetic: true,   // marca para distinguirlos si se necesita
+            synthetic: true,
+            trainingOnly: true,
+            source: 'TRAINING_SYNTHETIC',
         });
     }
 
-    // Ordenar por hora de salida
     return flights.sort((a, b) => a.departure_time.localeCompare(b.departure_time));
-}
-
-/** Elegir un tipo de avión plausible */
-function pickAircraft(rand) {
-    const aircraft = ['738', '789', '77W', '320', '321', '333', '744', '32A', '359', '77L'];
-    return aircraft[Math.floor(rand() * aircraft.length)];
 }

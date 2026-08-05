@@ -1,17 +1,9 @@
 import { getCurrentPNR } from './pnrState';
-import { convertToAmadeusDate } from './dateUtils';
 
 // Helper: Formato de mes (ESP)
 const MONTHS_ES = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
 const MONTHS_FULL_ES = ['ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO', 'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'];
 const DAYS_ES = ['DOM', 'LUN', 'MAR', 'MIE', 'JUE', 'VIE', 'SAB'];
-
-function formatDateFull(dateStr) {
-    try {
-        const d = new Date(dateStr);
-        return `${d.getDate()} ${MONTHS_FULL_ES[d.getMonth()]} ${d.getFullYear()}`;
-    } catch { return dateStr || ''; }
-}
 
 function formatShortDate(dateStr) {
     try {
@@ -109,7 +101,7 @@ function getPaxInfoBlocks(pnr, paxIndex) {
  */
 function buildBasicSegment(seg) {
     const deptDate = formatShortDate(seg.departureDate);
-    const arrDate = formatShortDate(seg.arrivalDate);
+    const arrDate = formatShortDate(seg.arrivalDate || seg.departureDate);
     const day = formatDayShort(seg.departureDate);
 
     let out = `VUELO       ${seg.airline_code} ${seg.flight_number} - ${seg.airline_code}                    ${day} ${deptDate}\n`;
@@ -126,9 +118,11 @@ function buildBasicSegment(seg) {
  */
 function buildExtendedSegment(seg, pnr, paxIndex) {
     const deptDate = formatShortDate(seg.departureDate);
-    const arrDate = formatShortDate(seg.arrivalDate);
+    const arrDate = formatShortDate(seg.arrivalDate || seg.departureDate);
     const day = formatDayShort(seg.departureDate);
     const duration = seg.duration || '00:00'; // mocked duration if missing
+    const origData = getAirportInfo(seg.origin);
+    const destData = getAirportInfo(seg.destination);
 
     // Convert 1305 to 13:05
     const formatTime = (t) => t && t.length === 4 ? `${t.substring(0, 2)}:${t.substring(2, 4)}` : t;
@@ -227,7 +221,7 @@ function generateItineraryForPax(pnr, paxIndex, type = 'EXTENDED') {
 /**
  * Main command handler for IE/IB commands
  */
-export async function handleItineraryCommand(cmd, userId) {
+export async function handleItineraryCommand(cmd) {
     try {
         const currentPNR = getCurrentPNR();
         if (!currentPNR) {
@@ -243,6 +237,7 @@ export async function handleItineraryCommand(cmd, userId) {
         }
 
         const command = cmd.toUpperCase().trim();
+        const normalizedCommand = command.replace(/\/LP[A-Z]{2}/, '');
 
         // Parse the command
         // IED, IBD (Display)
@@ -259,8 +254,8 @@ export async function handleItineraryCommand(cmd, userId) {
         let output = '';
 
         // ── Email Handling (IEP-EML) ──
-        if (command.includes('-EML')) {
-            if (command.includes('-EMLA')) {
+        if (normalizedCommand.includes('-EML')) {
+            if (normalizedCommand.includes('-EMLA')) {
                 // Enviar a los emails cargados (APE/CTCE)
                 const emails = [];
                 if (currentPNR.emailContacts) {
@@ -284,7 +279,7 @@ export async function handleItineraryCommand(cmd, userId) {
                 return `ITINERARIO CORREO ELECT. ENVIADO – NUMERO ENVIADO ${uniqueEmails.length}`;
             }
 
-            const emlMatch = command.match(/-EML-(.+)$/);
+            const emlMatch = normalizedCommand.match(/-EML-(.+)$/);
             if (emlMatch) {
                 // Enviar al email escrito en la terminal
                 const emailTarget = emlMatch[1].trim();
@@ -299,12 +294,12 @@ export async function handleItineraryCommand(cmd, userId) {
         // Determine which pax to generate for
         let targetPaxIndices = [];
 
-        if (command === 'IED' || command === 'IBD' || command === 'IEPJ' || command === 'IBPJ' || command === 'IEP' || command === 'IBP') {
+        if (normalizedCommand === 'IED' || normalizedCommand === 'IBD' || normalizedCommand === 'IEPJ' || normalizedCommand === 'IBPJ' || normalizedCommand === 'IEP' || normalizedCommand === 'IBP') {
             // All passengers
             targetPaxIndices = currentPNR.passengers.map((_, i) => i);
-        } else if (command.includes('/P')) {
+        } else if (normalizedCommand.includes('/P')) {
             // Specific passenger
-            const paxMatch = command.match(/\/P(\d+)/);
+            const paxMatch = normalizedCommand.match(/\/P(\d+)/);
             if (paxMatch) {
                 const pNum = parseInt(paxMatch[1], 10);
                 if (pNum > 0 && pNum <= currentPNR.passengers.length) {
@@ -330,7 +325,7 @@ export async function handleItineraryCommand(cmd, userId) {
         output = output.replace(/\n\n$/, '');
 
         // For print commands, add a print confirmation footer
-        if (command.includes('P') && !command.includes('-EML')) {
+        if (normalizedCommand.includes('P') && !normalizedCommand.includes('-EML')) {
             output += '\n\nITINERARIO ENVIADO A LA IMPRESORA';
         }
 

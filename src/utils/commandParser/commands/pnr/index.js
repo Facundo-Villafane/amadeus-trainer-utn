@@ -10,6 +10,7 @@ import { getCurrentPNR, clearCurrentPNR, setCurrentPNR } from './pnrState';
 import { handleDeleteElements, handleCancelPNRWithConfirmation, confirmCancelPNR } from './pnrDeleteElements';
 import { handleAddOSI, handleAddSSR, handleAddFOID, validSSRCodes } from './pnrSupplementary';
 import { handleTicketing } from './pnrTicketing';
+import { handleModifyElement } from './pnrModifyElement';
 import { 
   handleGeneralRemark, 
   handleConfidentialRemark, 
@@ -38,6 +39,9 @@ export {
   
   // Ticketing
   handleTicketing,
+
+  // Modificación de elementos
+  handleModifyElement,
   
   // Comandos para eliminar elementos
   handleDeleteElements,

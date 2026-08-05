@@ -1,7 +1,7 @@
 // src/pages/Docs.jsx
 // Technical documentation — sidebar layout (ReadTheDocs / Docusaurus style)
-import { useState, useEffect, useRef } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router';
+import { useState } from 'react';
+import { Link } from 'react-router';
 import {
     FiTerminal, FiDatabase, FiCode, FiLayers, FiZap,
     FiMail, FiChevronDown, FiChevronRight, FiBook,
@@ -86,7 +86,7 @@ const SECTIONS = {
                     <li>PNRs are saved to Firestore and visible to your instructor</li>
                 </ol>
                 <h3>Synthetic flights</h3>
-                <p>On dates with no manually loaded flights, the system generates synthetic availability so you always find results to practice with. Synthetic carriers use the prefix <code>ZZ</code> and are clearly labeled.</p>
+                <p>On dates with too few manually loaded flights, the system generates training-only synthetic availability so you always find results to practice with. These simulated flights use real IATA carrier codes where the route is plausible, and are clearly labeled.</p>
                 <Callout type="warning" title="Practice environment">
                     Nothing you do here affects real airline inventory. The environment is completely isolated from production systems.
                 </Callout>
@@ -399,7 +399,7 @@ ROW  A  B  C    D  E  F
                 <h3>commandParser</h3>
                 <p>A flat <code>async function commandParser(cmd, userId)</code> that routes commands to their handlers and calls <code>experienceService</code> methods. Returns a plain string response — all XP events flow out-of-band via the event bus.</p>
                 <h3>Synthetic flights</h3>
-                <p>If Firestore returns 0 flights for a queried date, <code>generateSyntheticFlights()</code> produces realistic fake entries using the <code>ZZ</code> carrier prefix. Seeded by the route+date hash for consistency.</p>
+                <p>If Firestore returns too few flights for a queried date, <code>generateSyntheticFlights()</code> produces realistic training entries with route-aware real IATA airline codes. Results are seeded by route, date, and airline filter for consistency.</p>
             </div>
         ),
     },

@@ -5,6 +5,7 @@ import {
   increment,
   arrayUnion,
   getDoc,
+  runTransaction,
   collection,
   query,
   orderBy,
@@ -85,6 +86,7 @@ class ExperienceService {
     DAILY_STREAK: 10,   // per day (max 7 consecutive)
     // PNR_FAST_CREATION: removed — was the main farming exploit
     ACHIEVEMENT_MULTIPLIER: 1,
+    CHALLENGE_COMPLETED: 100,
   };
 
   // ── Anti-farming state ────────────────────────────────────────────────────────
@@ -206,6 +208,36 @@ class ExperienceService {
       icon: ICON.STAR,
       xp: 500,
       rarity: 'LEGENDARY',
+      secret: false,
+    },
+    FIRST_CHALLENGE: {
+      id: 'FIRST_CHALLENGE',
+      name: 'Primer Desafío',
+      hint: 'Completá tu primer desafío evaluado.',
+      description: 'Superaste tu primer desafío práctico.',
+      icon: ICON.FLAG,
+      xp: 25,
+      rarity: 'COMMON',
+      secret: false,
+    },
+    CHALLENGE_5: {
+      id: 'CHALLENGE_5',
+      name: 'Ritmo de Agencia',
+      hint: 'Los desafíos también suman oficio.',
+      description: 'Superaste 5 desafíos prácticos.',
+      icon: ICON.ACTIVITY,
+      xp: 75,
+      rarity: 'RARE',
+      secret: false,
+    },
+    CHALLENGE_10: {
+      id: 'CHALLENGE_10',
+      name: 'Operador/a de Retos',
+      hint: 'La práctica sostenida se nota.',
+      description: 'Superaste 10 desafíos prácticos.',
+      icon: ICON.SHIELD,
+      xp: 150,
+      rarity: 'EPIC',
       secret: false,
     },
 
@@ -679,21 +711,46 @@ class ExperienceService {
   async _applyXP(userId, delta, reason, type) {
     try {
       const userRef = doc(db, 'users', userId);
-      const userDoc = await getDoc(userRef);
-      const userData = userDoc.data() || {};
-      const currentXP = userData.xp || 0;
+      const result = await runTransaction(db, async (transaction) => {
+        const userDoc = await transaction.get(userRef);
+        const userData = userDoc.data() || {};
+        const currentXP = userData.xp || 0;
 
-      // Enforce floor at 0
-      const effectiveDelta = delta < 0 ? Math.max(-currentXP, delta) : delta;
-      if (effectiveDelta === 0 && delta !== 0) return { currentXP, newXP: 0, delta: 0 };
+        // Enforce floor at 0
+        const effectiveDelta = delta < 0 ? Math.max(-currentXP, delta) : delta;
+        const newXP = currentXP + effectiveDelta;
+        const oldLevel = this.calculateLevel(currentXP);
+        const newLevel = this.calculateLevel(newXP);
+        const updates = {
+          xp: newXP,
+          level: newLevel,
+          levelTitle: this.getLevelTitle(newLevel),
+        };
 
-      await updateDoc(userRef, { xp: increment(effectiveDelta) });
-      await this.addXpHistoryEntry(userId, effectiveDelta, reason, type);
+        transaction.update(userRef, updates);
 
-      const newXP = currentXP + effectiveDelta;
-      const levelInfo = await this.checkLevelUp(userId, currentXP, effectiveDelta);
+        return {
+          currentXP,
+          newXP,
+          delta: effectiveDelta,
+          levelInfo: { leveledUp: newLevel > oldLevel, oldLevel, newLevel },
+        };
+      });
 
-      return { currentXP, newXP, delta: effectiveDelta, levelInfo };
+      if (result.delta !== 0) {
+        await this.addXpHistoryEntry(userId, result.delta, reason, type);
+      }
+
+      if (result.levelInfo.leveledUp) {
+        await this.addXpHistoryEntry(userId, 0, `¡Subiste al nivel ${result.levelInfo.newLevel}!`, 'level_up');
+
+        // Level milestone achievements
+        if (result.levelInfo.newLevel >= 3) await this.checkAndUnlockAchievement(userId, 'QUICK_LEARNER');
+        if (result.levelInfo.newLevel >= 10) await this.checkAndUnlockAchievement(userId, 'LEVEL_10');
+        if (result.levelInfo.newLevel >= 20) await this.checkAndUnlockAchievement(userId, 'LEVEL_20');
+      }
+
+      return result;
     } catch (e) {
       console.error('_applyXP error:', e);
       return null;
@@ -1032,6 +1089,8 @@ class ExperienceService {
 
       // Apply XP and emit events
       let currentXP = (await getDoc(userRef)).data()?.xp || 0;
+      let newXP = currentXP;
+      let appliedXpDelta = 0;
       let levelInfo = { leveledUp: false, oldLevel: this.calculateLevel(currentXP), newLevel: this.calculateLevel(currentXP) };
 
       if (spamPenalty) {
@@ -1051,6 +1110,8 @@ class ExperienceService {
         );
         levelInfo = res?.levelInfo || levelInfo;
         currentXP = res?.currentXP || currentXP;
+        newXP = res?.newXP ?? newXP;
+        appliedXpDelta = res?.delta || 0;
 
         if (res?.delta > 0) {
           xpEventBus.emitPNRCompleted(res.delta);
@@ -1064,8 +1125,8 @@ class ExperienceService {
       this.hadPNRError = false;
 
       return {
-        xpGained: xpDelta,
-        newXP: currentXP + xpDelta,
+        xpGained: appliedXpDelta,
+        newXP,
         oldLevel: levelInfo.oldLevel,
         newLevel: levelInfo.newLevel,
         levelUp: levelInfo.leveledUp,
@@ -1097,27 +1158,58 @@ class ExperienceService {
     if (!userId || !achievementId) return false;
     try {
       const userRef = doc(db, 'users', userId);
-      const userDoc = await getDoc(userRef);
-      const userData = userDoc.data() || {};
-      const achieved = userData.achievements || [];
-
-      if (achieved.includes(achievementId)) return false;
-
       const achievement = this.ACHIEVEMENTS[achievementId];
       if (!achievement) return false;
 
-      const updates = { achievements: arrayUnion(achievementId) };
-      if (achievement.xp > 0) updates.xp = increment(achievement.xp);
-      await updateDoc(userRef, updates);
+      const result = await runTransaction(db, async (transaction) => {
+        const userDoc = await transaction.get(userRef);
+        const userData = userDoc.data() || {};
+        const achieved = userData.achievements || [];
 
-      if (achievement.xp > 0) {
-        await this.addXpHistoryEntry(userId, achievement.xp, `Logro desbloqueado: ${achievement.name}`, 'achievement');
+        if (achieved.includes(achievementId)) {
+          return { unlocked: false };
+        }
+
         const currentXP = userData.xp || 0;
-        await this.checkLevelUp(userId, currentXP, achievement.xp);
-      }
+        const xpDelta = achievement.xp || 0;
+        const newXP = Math.max(0, currentXP + xpDelta);
+        const oldLevel = this.calculateLevel(currentXP);
+        const newLevel = this.calculateLevel(newXP);
+        const updates = {
+          achievements: [...achieved, achievementId],
+          newAchievements: arrayUnion(achievement),
+        };
 
-      // Store for notification
-      await updateDoc(userRef, { newAchievements: arrayUnion(achievement) });
+        if (xpDelta > 0) {
+          updates.xp = newXP;
+          updates.level = newLevel;
+          updates.levelTitle = this.getLevelTitle(newLevel);
+        }
+
+        transaction.update(userRef, updates);
+
+        return {
+          unlocked: true,
+          xpDelta,
+          currentXP,
+          newXP,
+          levelInfo: { leveledUp: newLevel > oldLevel, oldLevel, newLevel },
+        };
+      });
+
+      if (!result.unlocked) return false;
+
+      if (result.xpDelta > 0) {
+        await this.addXpHistoryEntry(userId, result.xpDelta, `Logro desbloqueado: ${achievement.name}`, 'achievement');
+
+        if (result.levelInfo.leveledUp) {
+          await this.addXpHistoryEntry(userId, 0, `¡Subiste al nivel ${result.levelInfo.newLevel}!`, 'level_up');
+
+          if (result.levelInfo.newLevel >= 3) await this.checkAndUnlockAchievement(userId, 'QUICK_LEARNER');
+          if (result.levelInfo.newLevel >= 10) await this.checkAndUnlockAchievement(userId, 'LEVEL_10');
+          if (result.levelInfo.newLevel >= 20) await this.checkAndUnlockAchievement(userId, 'LEVEL_20');
+        }
+      }
 
       // Emit achievement toast via event bus
       xpEventBus.emitAchievement(achievement);
@@ -1143,6 +1235,167 @@ class ExperienceService {
     if (!userId || !amount || amount <= 0) return { success: false };
     const result = await this._applyXP(userId, amount, reason, 'admin_bonus');
     return result ? { success: true, ...result } : { success: false };
+  }
+
+  async awardChallengeCompletion(userId, challenge, submissionId = null) {
+    if (!userId || !challenge?.id) return { success: false, xpGained: 0 };
+
+    try {
+      const userRef = doc(db, 'users', userId);
+      const configuredReward = challenge.xpReward ?? this.XP_VALUES.CHALLENGE_COMPLETED;
+      const parsedReward = Number(configuredReward);
+      const xpReward = Number.isFinite(parsedReward) ? Math.max(0, parsedReward) : this.XP_VALUES.CHALLENGE_COMPLETED;
+
+      const result = await runTransaction(db, async (transaction) => {
+        const userDoc = await transaction.get(userRef);
+        const userData = userDoc.data() || {};
+        const completedChallengeIds = userData.completedChallengeIds || [];
+
+        if (completedChallengeIds.includes(challenge.id)) {
+          return { success: true, duplicate: true, xpGained: 0, levelInfo: null, totalChallenges: userData.challengesCompleted || 0 };
+        }
+
+        const currentXP = userData.xp || 0;
+        const newXP = currentXP + xpReward;
+        const oldLevel = this.calculateLevel(currentXP);
+        const newLevel = this.calculateLevel(newXP);
+        const completedSubmissionIds = userData.completedChallengeSubmissionIds || [];
+        const updates = {
+          challengesCompleted: (userData.challengesCompleted || 0) + 1,
+          completedChallengeIds: [...completedChallengeIds, challenge.id],
+          completedChallengeSubmissionIds: submissionId
+            ? [...new Set([...completedSubmissionIds, submissionId])]
+            : completedSubmissionIds,
+          lastActivity: Date.now(),
+          xp: newXP,
+          level: newLevel,
+          levelTitle: this.getLevelTitle(newLevel),
+        };
+
+        transaction.update(userRef, updates);
+
+        return {
+          success: true,
+          duplicate: false,
+          xpGained: xpReward,
+          currentXP,
+          newXP,
+          totalChallenges: updates.challengesCompleted,
+          levelInfo: { leveledUp: newLevel > oldLevel, oldLevel, newLevel },
+        };
+      });
+
+      if (result.duplicate) {
+        return result;
+      }
+
+      if (result.xpGained > 0) {
+        await this.addXpHistoryEntry(
+          userId,
+          result.xpGained,
+          `Desafío superado: ${challenge.title || challenge.id}`,
+          'challenge_completion'
+        );
+
+        if (result.levelInfo?.leveledUp) {
+          await this.addXpHistoryEntry(userId, 0, `¡Subiste al nivel ${result.levelInfo.newLevel}!`, 'level_up');
+
+          if (result.levelInfo.newLevel >= 3) await this.checkAndUnlockAchievement(userId, 'QUICK_LEARNER');
+          if (result.levelInfo.newLevel >= 10) await this.checkAndUnlockAchievement(userId, 'LEVEL_10');
+          if (result.levelInfo.newLevel >= 20) await this.checkAndUnlockAchievement(userId, 'LEVEL_20');
+        }
+      }
+
+      const totalChallenges = result.totalChallenges;
+      const unlockedAchievements = [];
+
+      if (totalChallenges >= 1) {
+        const unlocked = await this.checkAndUnlockAchievement(userId, 'FIRST_CHALLENGE');
+        if (unlocked) unlockedAchievements.push(this.ACHIEVEMENTS.FIRST_CHALLENGE);
+      }
+      if (totalChallenges >= 5) {
+        const unlocked = await this.checkAndUnlockAchievement(userId, 'CHALLENGE_5');
+        if (unlocked) unlockedAchievements.push(this.ACHIEVEMENTS.CHALLENGE_5);
+      }
+      if (totalChallenges >= 10) {
+        const unlocked = await this.checkAndUnlockAchievement(userId, 'CHALLENGE_10');
+        if (unlocked) unlockedAchievements.push(this.ACHIEVEMENTS.CHALLENGE_10);
+      }
+
+      if (result.levelInfo?.leveledUp) {
+        xpEventBus.emitLevelUp(result.levelInfo.oldLevel, result.levelInfo.newLevel, this.getLevelTitle(result.levelInfo.newLevel));
+      }
+
+      return {
+        success: true,
+        xpGained: result.xpGained,
+        levelInfo: result.levelInfo,
+        achievements: unlockedAchievements,
+      };
+    } catch (error) {
+      console.error('awardChallengeCompletion error:', error);
+      return { success: false, xpGained: 0 };
+    }
+  }
+
+  async revokeChallengeCompletion(userId, challenge, amount, reason = 'Corrección manual de desafío', submissionId = null) {
+    if (!userId || !amount || amount <= 0) return { success: false, xpRevoked: 0 };
+
+    try {
+      const userRef = doc(db, 'users', userId);
+      const result = await runTransaction(db, async (transaction) => {
+        const userDoc = await transaction.get(userRef);
+        const userData = userDoc.data() || {};
+        const currentXP = userData.xp || 0;
+        const requestedDelta = -Math.abs(Number(amount));
+        const effectiveDelta = Math.max(-currentXP, requestedDelta);
+        const newXP = currentXP + effectiveDelta;
+        const oldLevel = this.calculateLevel(currentXP);
+        const newLevel = this.calculateLevel(newXP);
+        const completedChallengeIds = userData.completedChallengeIds || [];
+        const completedSubmissionIds = userData.completedChallengeSubmissionIds || [];
+        const challengeWasCompleted = challenge?.id ? completedChallengeIds.includes(challenge.id) : false;
+        const submissionWasCompleted = submissionId ? completedSubmissionIds.includes(submissionId) : false;
+
+        transaction.update(userRef, {
+          xp: newXP,
+          level: newLevel,
+          levelTitle: this.getLevelTitle(newLevel),
+          challengeXpRevoked: (userData.challengeXpRevoked || 0) + Math.abs(effectiveDelta),
+          challengesCompleted: challengeWasCompleted
+            ? Math.max(0, (userData.challengesCompleted || 0) - 1)
+            : (userData.challengesCompleted || 0),
+          completedChallengeIds: challengeWasCompleted
+            ? completedChallengeIds.filter(id => id !== challenge.id)
+            : completedChallengeIds,
+          completedChallengeSubmissionIds: submissionWasCompleted
+            ? completedSubmissionIds.filter(id => id !== submissionId)
+            : completedSubmissionIds,
+          lastActivity: Date.now(),
+        });
+
+        return {
+          currentXP,
+          newXP,
+          delta: effectiveDelta,
+          levelInfo: { leveledUp: newLevel > oldLevel, oldLevel, newLevel },
+        };
+      });
+
+      if (result.delta !== 0) {
+        await this.addXpHistoryEntry(userId, result.delta, reason, 'challenge_revoke');
+      }
+
+    return {
+      success: true,
+      xpRevoked: Math.abs(result.delta),
+      challengeId: challenge?.id || null,
+      levelInfo: result.levelInfo,
+    };
+    } catch (error) {
+      console.error('revokeChallengeCompletion error:', error);
+      return { success: false, xpRevoked: 0 };
+    }
   }
 
   // ── Leaderboard ───────────────────────────────────────────────────────────────

@@ -7,6 +7,7 @@ import { useAuth } from '../hooks/useAuth';
 import { FiAward, FiClock, FiCheckCircle, FiXCircle, FiPlay, FiCpu } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import { evaluateChallengeSubmission } from '../services/challengeEvaluationService';
+import experienceService from '../services/experienceService';
 import xpEventBus from '../services/xpEventBus';
 
 export default function StudentChallenges() {
@@ -156,13 +157,19 @@ export default function StudentChallenges() {
                 return;
             }
 
-            toast.loading('La IA de Groq está evaluando tu reserva...', { id: 'eval' });
+            toast.loading('Estamos evaluando tu reserva...', { id: 'eval' });
 
-            // 2. Mandar a la IA a evaluar
+            // 2. Evaluar con motor de reglas y generar feedback asistido
             const aiResponse = await evaluateChallengeSubmission(selectedChallenge, pnrData);
 
-            // 3. Guardar en Base de Datos
-            const xpEarned = aiResponse.isPass ? (selectedChallenge.xpReward || 50) : 0;
+            // 3. Otorgar XP real si aprobo
+            const challengeReward = aiResponse.isPass
+                ? await experienceService.awardChallengeCompletion(currentUser.uid, selectedChallenge, sub.id)
+                : { xpGained: 0 };
+            if (aiResponse.isPass && !challengeReward.success) {
+                throw new Error('No se pudo registrar la recompensa del desafío.');
+            }
+            const xpEarned = challengeReward.xpGained || 0;
 
             await setDoc(doc(db, 'challenge_submissions', sub.id), {
                 ...sub,
@@ -189,8 +196,8 @@ export default function StudentChallenges() {
 
             toast.success(aiResponse.isPass ? '¡Desafío Aprobado!' : 'Desafío Fallido', { id: 'eval' });
 
-            // Si aprobó, emitir evento de XP
-            if (aiResponse.isPass) {
+            // Si aprobó, emitir evento visible de XP
+            if (aiResponse.isPass && xpEarned > 0) {
                 xpEventBus.emit({
                     type: 'challenge',
                     title: `+${xpEarned} XP`,
@@ -390,16 +397,16 @@ export default function StudentChallenges() {
                                                                     disabled={isSubmitting}
                                                                     className="inline-flex justify-center items-center py-2 px-6 border border-transparent rounded-md shadow-sm text-sm font-bold text-white bg-green-600 hover:bg-green-700 focus:outline-none disabled:opacity-50 transition-colors"
                                                                 >
-                                                                    {isSubmitting ? 'Evaluando...' : 'Entregar y Evaluar con IA'}
+                                                                    {isSubmitting ? 'Evaluando...' : 'Entregar reto'}
                                                                 </button>
                                                             </div>
-                                                            <p className="text-xs text-gray-500 mt-2">La reserva será sometida a evaluación por la Inteligencia Artificial analizando los segmentos cargados.</p>
+                                                            <p className="text-xs text-gray-500 mt-2">La reserva sera evaluada automaticamente segun las reglas del desafio. La devolucion puede estar asistida por IA.</p>
                                                         </form>
                                                     </div>
                                                 );
                                             }
 
-                                            // ESTADO 3: Evaluado (Corrección de la IA tipo Chat)
+                                            // ESTADO 3: Evaluado (feedback asistido)
                                             if (sub.status === 'evaluated') {
                                                 return (
                                                     <div className="mt-4">
@@ -411,14 +418,14 @@ export default function StudentChallenges() {
                                                             {sub.isPass && <span className="ml-auto font-bold text-yellow-600 bg-white px-2 py-1 rounded shadow-sm">+{sub.xpEarned} XP</span>}
                                                         </div>
 
-                                                        {/* Chatbox style IA feedback */}
+                                                        {/* Chatbox style assisted feedback */}
                                                         <div className="bg-white border rounded-b-lg p-5 shadow-inner">
                                                             <div className="flex items-start mb-4">
                                                                 <div className="flex-shrink-0 bg-blue-100 rounded-full p-2 mr-3 border border-blue-200">
                                                                     <FiCpu className="text-blue-700" size={20} />
                                                                 </div>
                                                                 <div className="bg-gray-100 p-4 rounded-2xl rounded-tl-none text-sm text-gray-800 w-full whitespace-pre-wrap leading-relaxed border border-gray-200 shadow-sm">
-                                                                    <span className="font-bold text-xs text-gray-500 block mb-2 uppercase tracking-wide">Asistente Evaluador Groq</span>
+                                                                    <span className="font-bold text-xs text-gray-500 block mb-2 uppercase tracking-wide">Feedback asistido</span>
                                                                     {sub.feedback}
                                                                 </div>
                                                             </div>

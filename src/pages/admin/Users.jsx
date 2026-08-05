@@ -9,8 +9,9 @@ import DashboardSidebar from '../../components/dashboard/DashboardSidebar';
 import DashboardHeader from '../../components/dashboard/DashboardHeader';
 import { useAuth } from '../../hooks/useAuth';
 import { db } from '../../services/firebase';
-import { collection, getDocs, updateDoc, doc, increment, arrayUnion, serverTimestamp } from 'firebase/firestore';
+import { collection, getDocs, updateDoc, doc, serverTimestamp } from 'firebase/firestore';
 import toast from 'react-hot-toast';
+import experienceService from '../../services/experienceService';
 
 const Users = () => {
   const [users, setUsers] = useState([]);
@@ -147,53 +148,29 @@ const Users = () => {
     }
 
     try {
-      const userRef = doc(db, 'users', selectedUser.id);
-      
-      // Calcular el nivel actual y el nuevo nivel (suponiendo que cada nivel requiere 100*nivel XP)
-      const currentXp = selectedUser.xp || 0;
-      const newXp = currentXp + xpAmount;
-      const currentLevel = selectedUser.level || 1;
-      
-      // Calcular el nuevo nivel basado en la XP total
-      let newLevel = 1;
-      let xpForNextLevel = 100;
-      while (newXp >= xpForNextLevel) {
-        newLevel++;
-        xpForNextLevel += 100 * newLevel;
+      const result = await experienceService.grantXP(
+        selectedUser.id,
+        xpAmount,
+        `${xpNote} (otorgado por ${currentUser.email || currentUser.uid})`
+      );
+
+      if (!result.success) {
+        throw new Error('No se pudo aplicar la bonificación de XP.');
       }
-      
-      const updates = { 
-        xp: increment(xpAmount),
-        updatedAt: serverTimestamp(),
-        // Agregar un registro de la bonificación de XP
-        xpHistory: arrayUnion({
-          amount: xpAmount,
-          reason: xpNote,
-          addedAt: new Date().toISOString(),
-          addedBy: currentUser.uid,
-          type: 'admin_bonus'
-        })
-      };
-      
-      // Si el usuario subió de nivel, actualizar también el nivel
-      if (newLevel > currentLevel) {
-        updates.level = newLevel;
-      }
-      
-      await updateDoc(userRef, updates);
       
       // Actualizar el estado local
       setUsers(users => users.map(u => u.id === selectedUser.id ? { 
         ...u, 
-        xp: newXp,
-        level: newLevel > currentLevel ? newLevel : u.level
+        xp: result.newXP,
+        level: result.levelInfo?.newLevel || u.level,
+        levelTitle: experienceService.getLevelTitle(result.levelInfo?.newLevel || u.level || 1)
       } : u));
       
       toast.success(`Se añadieron ${xpAmount} XP a ${selectedUser.displayName || selectedUser.email}`);
       
       // Si el usuario subió de nivel, mostrar una notificación adicional
-      if (newLevel > currentLevel) {
-        toast.success(`¡${selectedUser.displayName || selectedUser.email} ha subido al nivel ${newLevel}!`);
+      if (result.levelInfo?.leveledUp) {
+        toast.success(`¡${selectedUser.displayName || selectedUser.email} ha subido al nivel ${result.levelInfo.newLevel}!`);
       }
       
       setShowXpModal(false);
