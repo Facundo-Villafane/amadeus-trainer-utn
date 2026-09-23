@@ -15,4 +15,23 @@ const paginationState = {
     currentIndex: 1        // Contador para la numeración continua
   };
   
-  export default paginationState;
+/**
+ * Restablece el estado de paginación a sus valores por defecto.
+ * Debe llamarse al cerrar sesión para que el próximo usuario en el mismo
+ * navegador/pestaña no herede resultados de búsqueda ajenos.
+ */
+export function resetPaginationState() {
+  paginationState.currentCommand = '';
+  paginationState.commandType = '';
+  paginationState.dateStr = null;
+  paginationState.origin = null;
+  paginationState.destination = null;
+  paginationState.options = null;
+  paginationState.lastVisible = null;
+  paginationState.previousPages = [];
+  paginationState.pageSize = 5;
+  paginationState.currentResults = [];
+  paginationState.currentIndex = 1;
+}
+
+export default paginationState;

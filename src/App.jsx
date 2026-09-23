@@ -1,5 +1,5 @@
 // src/App.jsx
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense, lazy } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router';
 import { Toaster } from 'react-hot-toast';
 import AuthProvider from './contexts/AuthProvider';
@@ -8,40 +8,45 @@ import AutoLogout from './components/AutoLogout';
 import XpToastContainer, { LevelUpModal } from './components/gamification/XpToast';
 import xpEventBus from './services/xpEventBus';
 
+// Cada página se carga en su propio chunk: la app inicial no necesita traer
+// las herramientas de administración, formularios de datos, etc. de una sola vez.
 
 // Páginas públicas
-import Home from './pages/Home';
-import Docs from './pages/Docs';
-import Login from './components/auth/Login';
-import Signup from './components/auth/Signup';
+const Home = lazy(() => import('./pages/Home'));
+const Docs = lazy(() => import('./pages/Docs'));
+const Login = lazy(() => import('./components/auth/Login'));
+const Signup = lazy(() => import('./components/auth/Signup'));
 
 // Páginas privadas
-import HomeNew from './pages/Home_New';
-import Dashboard from './pages/Dashboard';
-import CommandHistory from './pages/CommandHistory';
-import UserProfile from './pages/UserProfile';
-import MyPNRs from './pages/MyPNRs';
-import Leaderboard from './pages/Leaderboard';
-import Help from './pages/Help';
-import Settings from './pages/Settings'; // Nueva página de configuración
-import FlightExplorerPage from './pages/FlightExplorerPage';
-import StudentChallenges from './pages/StudentChallenges';
+const HomeNew = lazy(() => import('./pages/Home_New'));
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const UserProfile = lazy(() => import('./pages/UserProfile'));
+const Leaderboard = lazy(() => import('./pages/Leaderboard'));
+const Help = lazy(() => import('./pages/Help'));
+const Settings = lazy(() => import('./pages/Settings')); // Nueva página de configuración
+const FlightExplorerPage = lazy(() => import('./pages/FlightExplorerPage'));
+const StudentChallenges = lazy(() => import('./pages/StudentChallenges'));
+const MyBugReports = lazy(() => import('./pages/MyBugReports'));
 
 // Páginas de administrador
-import AdminUsers from './pages/admin/Users';
-import AdminSettings from './pages/admin/Settings';
-import AdminFlights from './pages/admin/Flights';
-import AdminCommissions from './pages/admin/Commissions';
-import UserCommandHistoryPage from './pages/admin/UserCommandHistory';
-import UserPNRsPage from './pages/admin/UserPNRsPage';
-import DataManagementPage from './pages/admin/DataManagementPage';
-import ReleaseNotesManagement from './pages/admin/ReleaseNotesManagement';
-import AnnouncementsManagement from './pages/admin/AnnouncementsManagement';
-import BugReportsManagement from './pages/admin/BugReportsManagement';
-import AdminChallenges from './pages/admin/AdminChallenges';
-import MyBugReports from './pages/MyBugReports';
+const AdminUsers = lazy(() => import('./pages/admin/Users'));
+const AdminSettings = lazy(() => import('./pages/admin/Settings'));
+const AdminFlights = lazy(() => import('./pages/admin/Flights'));
+const AdminCommissions = lazy(() => import('./pages/admin/Commissions'));
+const UserCommandHistoryPage = lazy(() => import('./pages/admin/UserCommandHistory'));
+const UserPNRsPage = lazy(() => import('./pages/admin/UserPNRsPage'));
+const DataManagementPage = lazy(() => import('./pages/admin/DataManagementPage'));
+const ReleaseNotesManagement = lazy(() => import('./pages/admin/ReleaseNotesManagement'));
+const AnnouncementsManagement = lazy(() => import('./pages/admin/AnnouncementsManagement'));
+const BugReportsManagement = lazy(() => import('./pages/admin/BugReportsManagement'));
+const AdminChallenges = lazy(() => import('./pages/admin/AdminChallenges'));
+
 // Páginas de error
-import NotFound from './pages/NotFound';
+const NotFound = lazy(() => import('./pages/NotFound'));
+
+function PageLoadingFallback() {
+  return <div className="flex h-screen items-center justify-center">Cargando...</div>;
+}
 
 // Componente para rutas protegidas
 function PrivateRoute({ children }) {
@@ -140,6 +145,7 @@ export default function App() {
       <XpToastManager />
       <AutoLogout>
         <Toaster position="top-right" />
+        <Suspense fallback={<PageLoadingFallback />}>
         <Routes>
           {/* Rutas públicas */}
           <Route path="/" element={<Home />} />
@@ -335,6 +341,7 @@ export default function App() {
           {/* Ruta 404 */}
           <Route path="*" element={<NotFound />} />
         </Routes>
+        </Suspense>
       </AutoLogout>
     </AuthProvider>
   );

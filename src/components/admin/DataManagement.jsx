@@ -1,5 +1,4 @@
 // src/components/admin/DataManagement.jsx
-import { useState } from 'react';
 import { Tab } from '@headlessui/react';
 import AirlinesManager from './dataManagement/AirlinesManager';
 import CitiesManager from './dataManagement/CitiesManager';

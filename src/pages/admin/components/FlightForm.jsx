@@ -58,7 +58,7 @@ export default function FlightForm({
         arrival_time: calculatedArrivalTime
       }));
     }
-  }, [formData.departure_time, formData.duration_hours]); // Dependencias: recalcular cuando cambien estos valores
+  }, [formData.departure_time, formData.duration_hours, formData.arrival_time, setFormData]); // Dependencias: recalcular cuando cambien estos valores
 
   return (
     <div className="fixed z-10 inset-0 overflow-y-auto">

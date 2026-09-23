@@ -1,6 +1,6 @@
 // src/utils/flightDataProcessor.js
 
-import { normalizeLegacyDateToISO } from './flightUtils';
+import { normalizeLegacyDateToISO, calculateArrival } from './flightUtils';
 
 /**
  * Procesa los datos de vuelos para completar información faltante
@@ -30,8 +30,6 @@ export function processFlightData(flights) {
 
     // Calcular arrival_date y arrival_time basados en departure y duration
     if (processedFlight.departure_date && processedFlight.departure_time && processedFlight.duration_hours) {
-      // Importar dinámicamente para no crear dependencia circular
-      const { calculateArrival } = require('./flightUtils');
       const { arrival_date, arrival_time } = calculateArrival(
         processedFlight.departure_date,
         processedFlight.departure_time,

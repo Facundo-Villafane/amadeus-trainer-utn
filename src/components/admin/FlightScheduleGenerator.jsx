@@ -50,8 +50,8 @@ export default function FlightScheduleGenerator({ flight, onClose, onComplete })
 
     // Obtener array de números de días seleccionados
     const selectedDayNumbers = Object.entries(selectedDays)
-      .filter(([_, selected]) => selected)
-      .map(([day, _]) => dayMap[day]);
+      .filter(([, selected]) => selected)
+      .map(([day]) => dayMap[day]);
 
     if (selectedDayNumbers.length === 0) return [];
 

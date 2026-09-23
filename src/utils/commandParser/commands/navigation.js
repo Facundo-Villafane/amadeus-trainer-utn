@@ -3,7 +3,6 @@ import { collection, query, where, getDocs, orderBy, limit, startAfter } from 'f
 import { db } from '../../../services/firebase';
 import { generateHeader } from '../formatters';
 import { formatDuration, getAircraftIATACode } from '../helpers';
-import { parseANCommand, parseSNCommand, parseTNCommand } from '../parserUtils';
 import paginationState from '../paginationState';
 
 // Función para manejar el comando "Move Down" (MD o M)

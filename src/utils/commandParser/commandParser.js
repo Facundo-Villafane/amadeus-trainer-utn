@@ -605,7 +605,7 @@ export async function commandParser(command, userId) {
     }
 
     if (cmd.startsWith('ST')) {
-      result = await handleAssignSeatCommand(cmd, userId);
+      result = await handleAssignSeatCommand(cmd);
       previousCommandWasXI = false;
       return result;
     }

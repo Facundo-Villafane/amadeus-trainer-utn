@@ -1,5 +1,5 @@
 // src/pages/admin/Flights.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router';
 import {
   collection, getDocs, addDoc, updateDoc, deleteDoc, doc,
@@ -52,11 +52,13 @@ function FlightModal({ flight: initialFlight, onClose, onSaved }) {
 
   const isEditing = Boolean(initialFlight?.id);
 
-  // Auto-calcular arrival cuando cambian departure_date, departure_time o duration_hours
+  // Auto-calcular arrival cuando cambian departure_date, departure_time o duration_hours.
+  // Se accede a form.x directamente (sin desestructurar el objeto completo) para que el
+  // efecto solo dependa de esos tres campos primitivos — si dependiera de "form" entero,
+  // el setForm de abajo generaría una nueva referencia en cada corrida y crearía un loop infinito.
   useEffect(() => {
-    const { departure_date, departure_time, duration_hours } = form;
-    if (departure_date && departure_time && duration_hours) {
-      const { arrival_date, arrival_time } = calculateArrival(departure_date, departure_time, Number(duration_hours));
+    if (form.departure_date && form.departure_time && form.duration_hours) {
+      const { arrival_date, arrival_time } = calculateArrival(form.departure_date, form.departure_time, Number(form.duration_hours));
       setForm(prev => ({ ...prev, arrival_date, arrival_time }));
     }
   }, [form.departure_date, form.departure_time, form.duration_hours]);
@@ -583,18 +585,14 @@ export default function AdminFlights() {
   const [uniqueOrigins, setUniqueOrigins] = useState([]);
   const [uniqueDestinations, setUniqueDestinations] = useState([]);
 
-  const { currentUser, userRole, logout } = useAuth();
+  const { userRole, logout } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
     if (userRole !== 'admin') navigate('/dashboard');
   }, [userRole, navigate]);
 
-  useEffect(() => { fetchFilterOptions(); }, []);
-  useEffect(() => { countTotalFlights(); }, [filters, showPast]);
-  useEffect(() => { fetchFlights(); }, [currentPage, pageSize, filters, showPast]);
-
-  async function fetchFilterOptions() {
+  const fetchFilterOptions = useCallback(async () => {
     try {
       const snap = await getDocs(query(collection(db, 'flights'), orderBy('airline_code')));
       const airlines = new Set(), origins = new Set(), destinations = new Set();
@@ -610,9 +608,9 @@ export default function AdminFlights() {
     } catch (error) {
       console.error('Error al obtener opciones de filtro:', error);
     }
-  }
+  }, []);
 
-  async function countTotalFlights() {
+  const countTotalFlights = useCallback(async () => {
     try {
       let q = query(collection(db, 'flights'));
       if (!showPast) q = query(q, where('departure_date', '>=', today));
@@ -624,9 +622,9 @@ export default function AdminFlights() {
     } catch (error) {
       console.error('Error al contar vuelos:', error);
     }
-  }
+  }, [filters, showPast]);
 
-  async function fetchFlights() {
+  const fetchFlights = useCallback(async () => {
     try {
       setLoading(true);
       let q = query(collection(db, 'flights'));
@@ -658,7 +656,11 @@ export default function AdminFlights() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [filters, showPast, pageSize]);
+
+  useEffect(() => { fetchFilterOptions(); }, [fetchFilterOptions]);
+  useEffect(() => { countTotalFlights(); }, [countTotalFlights]);
+  useEffect(() => { fetchFlights(); }, [currentPage, fetchFlights]);
 
   const goToNextPage = () => {
     setPageHistory(prev => [...prev, { page: currentPage, firstVisible, lastVisible }]);

@@ -152,7 +152,6 @@ function generateCrypticSeatmap(pnr, segmentIndex) {
     for (let ci = 0; ci < cols.length; ci++) {
       const col = cols[ci];
       const key = `${row}-${col}`;
-      const seatId = `${row}${col}`;
       const state = grid[key];
 
       let ch;
@@ -196,7 +195,7 @@ function generateCrypticSeatmap(pnr, segmentIndex) {
 //   ST/W/P{n}/S{n}           → window seat
 //   ST/{SEAT}/P{n}/S{n}      → specific seat (e.g. ST/24L/P1/S1)
 
-export async function handleAssignSeatCommand(cmd, userId) {
+export async function handleAssignSeatCommand(cmd) {
   try {
     const currentPNR = getCurrentPNR();
     if (!currentPNR) return 'No hay un PNR en progreso. Primero debe seleccionar un vuelo con SS.';

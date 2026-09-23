@@ -1,5 +1,5 @@
 // src/components/releaseNotes/ReleaseNotesList.jsx
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { FiAlertCircle } from 'react-icons/fi';
 import releaseNotesService from '../../services/releaseNotesService';
 import ReleaseNotesCard from './ReleaseNotesCard';
@@ -12,11 +12,7 @@ export default function ReleaseNotesList({ limitCount = 5 }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    loadReleaseNotes();
-  }, [limitCount]);
-
-  const loadReleaseNotes = async () => {
+  const loadReleaseNotes = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -28,7 +24,11 @@ export default function ReleaseNotesList({ limitCount = 5 }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [limitCount]);
+
+  useEffect(() => {
+    loadReleaseNotes();
+  }, [loadReleaseNotes]);
 
   if (loading) {
     return (

@@ -103,8 +103,8 @@ export default function EnhancedFlightScheduleGenerator({ flight, onClose, onCom
 
     // Obtener array de números de días seleccionados
     const selectedDayNumbers = Object.entries(selectedDays)
-      .filter(([_, selected]) => selected)
-      .map(([day, _]) => dayMap[day]);
+      .filter(([, selected]) => selected)
+      .map(([day]) => dayMap[day]);
 
     if (selectedDayNumbers.length === 0) return [];
 
@@ -195,8 +195,8 @@ export default function EnhancedFlightScheduleGenerator({ flight, onClose, onCom
 
           // Añadir información de frecuencia
           const daysOfOperation = Object.entries(selectedDays)
-            .filter(([_, selected]) => selected)
-            .map(([day, _]) => day.charAt(0).toUpperCase())
+            .filter(([, selected]) => selected)
+            .map(([day]) => day.charAt(0).toUpperCase())
             .join('');
 
           newFlightData.days_of_operation = daysOfOperation || 'D'; // D = Diario si no hay días específicos

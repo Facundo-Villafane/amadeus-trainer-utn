@@ -1,6 +1,6 @@
 // src/components/admin/dataManagement/AirportsManager.jsx
 import { useState, useEffect } from 'react';
-import { collection, addDoc, query, getDocs, updateDoc, doc, deleteDoc } from 'firebase/firestore';
+import { collection, addDoc, getDocs, updateDoc, doc, deleteDoc } from 'firebase/firestore';
 import { db } from '../../../services/firebase';
 import { FiUpload, FiPlus, FiEdit, FiTrash, FiSearch } from 'react-icons/fi';
 import toast from 'react-hot-toast';

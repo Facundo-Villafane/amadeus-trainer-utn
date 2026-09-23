@@ -8,7 +8,6 @@ import {
 } from 'react-icons/fi';
 import PropTypes from 'prop-types';
 import { useAuth } from '../../hooks/useAuth';
-import { useLatestVersion } from '../../hooks/useLatestVersion';
 import xpEventBus from '../../services/xpEventBus';
 
 // ── Notification Bell ─────────────────────────────────────────────────────────
@@ -114,7 +113,6 @@ function classNames(...classes) {
 
 export default function DashboardHeader({ user, onLogout }) {
   const { isSpectator } = useAuth();
-  const { version } = useLatestVersion();
 
   return (
     <header className="bg-white shadow">

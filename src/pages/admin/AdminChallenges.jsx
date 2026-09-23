@@ -4,9 +4,8 @@ import { db } from '../../services/firebase';
 import DashboardSidebar from '../../components/dashboard/DashboardSidebar';
 import DashboardHeader from '../../components/dashboard/DashboardHeader';
 import { useAuth } from '../../hooks/useAuth';
-import { FiPlus, FiEdit2, FiTrash2, FiUsers, FiClock, FiStar, FiChevronDown, FiChevronUp, FiCpu, FiPlay, FiInbox, FiCheckCircle, FiXCircle, FiEye, FiAlertTriangle, FiShield } from 'react-icons/fi';
+import { FiPlus, FiEdit2, FiTrash2, FiUsers, FiClock, FiStar, FiChevronDown, FiChevronUp, FiCpu, FiInbox, FiCheckCircle, FiXCircle, FiEye, FiAlertTriangle, FiShield } from 'react-icons/fi';
 import toast from 'react-hot-toast';
-import { generateChallengeContent } from '../../services/challengeGeneratorService';
 import experienceService from '../../services/experienceService';
 
 export default function AdminChallenges() {
@@ -32,10 +31,6 @@ export default function AdminChallenges() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingChallenge, setEditingChallenge] = useState(null);
     const [isDeleting, setIsDeleting] = useState(false);
-
-    // AI Assistant states
-    const [isGeneratingAI, setIsGeneratingAI] = useState(false);
-    const [aiPrompt, setAiPrompt] = useState('');
 
     // Rules editor state
     const [newRuleType, setNewRuleType] = useState('segment_route');
@@ -307,7 +302,6 @@ export default function AdminChallenges() {
             validationRules: [],
             isActive: true
         });
-        setAiPrompt('');
         setIsModalOpen(true);
     };
 
@@ -323,7 +317,6 @@ export default function AdminChallenges() {
             validationRules: Array.isArray(challenge.validationRules) ? challenge.validationRules : [],
             isActive: challenge.isActive !== false
         });
-        setAiPrompt('');
         setIsModalOpen(true);
     };
 
@@ -360,35 +353,6 @@ export default function AdminChallenges() {
             ...prev,
             validationRules: prev.validationRules.filter((_, i) => i !== index)
         }));
-    };
-
-    const handleGenerateAI = async () => {
-        if (!aiPrompt) {
-            toast.error('Por favor, ingresa una idea para generar el desafío.');
-            return;
-        }
-
-        try {
-            setIsGeneratingAI(true);
-            toast.loading('La IA de Groq está ideando tu desafío...', { id: 'ai-gen' });
-
-            const result = await generateChallengeContent(aiPrompt);
-
-            setFormData(prev => ({
-                ...prev,
-                title: result.title || prev.title,
-                description: result.description || prev.description,
-                validationRules: result.validationRules?.length > 0 ? result.validationRules : prev.validationRules
-            }));
-
-            toast.success('¡Desafío generado exitosamente!', { id: 'ai-gen' });
-            setAiPrompt('');
-        } catch (error) {
-            console.error('AI Generation Error:', error);
-            toast.error(error.message || 'Hubo un error al generar el desafío con IA.', { id: 'ai-gen' });
-        } finally {
-            setIsGeneratingAI(false);
-        }
     };
 
     const applyUnit3Template = (templateIndex) => {
@@ -513,7 +477,7 @@ export default function AdminChallenges() {
                         <div className="flex justify-between items-center mb-6">
                             <div>
                                 <h1 className="text-2xl font-semibold text-gray-900">Gestor de Desafíos</h1>
-                                <p className="text-sm text-gray-500 mt-1">Crea simulaciones de agencia con evaluacion automatica y feedback asistido por IA.</p>
+                                <p className="text-sm text-gray-500 mt-1">Crea simulaciones de agencia con evaluación y feedback automáticos.</p>
                             </div>
                             {mainTab === 'challenges' && (
                                 <button
@@ -750,41 +714,6 @@ export default function AdminChallenges() {
                                         {editingChallenge ? 'Editar Desafío' : 'Crear Nuevo Desafío'}
                                     </h3>
 
-                                    {/* AI Assistant Box */}
-                                    <div className="mb-6 p-4 bg-purple-50 rounded-lg border border-purple-200">
-                                        <div className="flex items-center mb-2">
-                                            <FiCpu className="text-purple-600 mr-2" size={20} />
-                                            <h4 className="font-bold text-purple-900 text-sm">Asistente IA (Generador de Casos)</h4>
-                                        </div>
-                                        <p className="text-xs text-purple-700 mb-3">
-                                            Escribe una idea simple y Groq completará automáticamente el título, el caso práctico ficticio y las reglas técnicas de evaluación.
-                                        </p>
-                                        <div className="flex gap-2">
-                                            <input
-                                                type="text"
-                                                value={aiPrompt}
-                                                onChange={(e) => setAiPrompt(e.target.value)}
-                                                disabled={isGeneratingAI}
-                                                placeholder="Ej: Emisión vuelo MIA con silla de ruedas y un bebé..."
-                                                className="flex-1 border border-purple-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-purple-500 focus:border-purple-500 text-sm disabled:opacity-50"
-                                                onKeyDown={(e) => {
-                                                    if (e.key === 'Enter') {
-                                                        e.preventDefault();
-                                                        handleGenerateAI();
-                                                    }
-                                                }}
-                                            />
-                                            <button
-                                                type="button"
-                                                onClick={handleGenerateAI}
-                                                disabled={isGeneratingAI || !aiPrompt.trim()}
-                                                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none disabled:opacity-50 shadow-sm"
-                                            >
-                                                {isGeneratingAI ? 'Generando...' : <><FiPlay className="mr-1" /> Auto-completar</>}
-                                            </button>
-                                        </div>
-                                    </div>
-
                                     <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
                                         <div className="flex items-center justify-between gap-3">
                                             <div>
@@ -908,7 +837,7 @@ export default function AdminChallenges() {
                                             <div className="divide-y divide-gray-100">
                                                 {formData.validationRules.length === 0 && (
                                                     <p className="text-xs text-gray-400 text-center py-4">
-                                                        Sin reglas. Usá el Asistente IA o agregá una manualmente.
+                                                        Sin reglas. Usá una plantilla o agregá una manualmente.
                                                     </p>
                                                 )}
                                                 {formData.validationRules.map((rule, i) => (

@@ -1,5 +1,5 @@
 // src/components/admin/dataManagement/forms/AirlineForm.jsx
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { FiX, FiSave } from 'react-icons/fi';
 import PropTypes from 'prop-types';
 

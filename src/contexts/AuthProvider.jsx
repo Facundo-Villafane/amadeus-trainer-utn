@@ -11,6 +11,8 @@ import {
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, googleProvider, db } from '../services/firebase';
 import { AuthContext } from './authContext';
+import { clearCurrentPNR } from '../utils/commandParser/commands/pnr/pnrState';
+import { resetPaginationState } from '../utils/commandParser/paginationState';
 
 // Componente proveedor que envuelve a la aplicación
 export function AuthProvider({ children }) {
@@ -97,7 +99,12 @@ export function AuthProvider({ children }) {
       
       // Limpiar modo espectador
       exitSpectatorMode();
-      
+
+      // Limpiar estado en memoria del terminal (PNR en curso, paginación de búsquedas)
+      // para que el próximo usuario en esta misma pestaña no lo herede
+      clearCurrentPNR();
+      resetPaginationState();
+
       // Cerrar sesión en Firebase
       return await signOut(auth);
     } catch (error) {

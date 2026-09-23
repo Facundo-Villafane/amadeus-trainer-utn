@@ -51,12 +51,23 @@ export function getDayOfWeek(dateStr) {
       // Determinar el año actual y crear la fecha
       const currentYear = new Date().getFullYear();
       const date = new Date(currentYear, month, day);
-      
-      // Ajustar al próximo año si la fecha ya pasó
-      if (date < new Date() && month < 6) {
+
+      // Ajustar el año con una ventana móvil (1 mes atrás / 11 meses adelante),
+      // igual que normalizeDateToISO en flightUtils.js. Un corte fijo como
+      // "month < 6" rompe fechas del segundo semestre (ej. 15JUL cargado en
+      // septiembre quedaba anclado al pasado en vez de saltar al año próximo).
+      const now = new Date();
+      const oneMonthAgo = new Date(now);
+      oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+      const elevenMonthsAhead = new Date(now);
+      elevenMonthsAhead.setMonth(elevenMonthsAhead.getMonth() + 11);
+
+      if (date < oneMonthAgo) {
         date.setFullYear(currentYear + 1);
+      } else if (date > elevenMonthsAhead) {
+        date.setFullYear(currentYear - 1);
       }
-      
+
       const dayOfWeek = date.getDay();
       return String(dayOfWeek === 0 ? 7 : dayOfWeek); // 1 = Lunes, 7 = Domingo
     }

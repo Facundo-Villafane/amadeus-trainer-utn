@@ -1,6 +1,6 @@
 // src/components/admin/BulkUpdateFlights.jsx
 import { useState } from 'react';
-import { collection, query, where, getDocs, updateDoc, doc, writeBatch } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, writeBatch } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { FiRefreshCw, FiCheck } from 'react-icons/fi';
 import toast from 'react-hot-toast';

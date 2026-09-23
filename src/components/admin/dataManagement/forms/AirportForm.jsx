@@ -1,5 +1,5 @@
 // src/components/admin/dataManagement/forms/AirportForm.jsx
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { FiX, FiSave, FiPlus, FiTrash } from 'react-icons/fi';
 import PropTypes from 'prop-types';
 

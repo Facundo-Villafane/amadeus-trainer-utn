@@ -30,13 +30,20 @@ function Toast({ event, onDismiss }) {
 
     const DURATION = event.type === 'level_up' ? 5000 : 3000;
 
+    // Guardamos el último onDismiss en un ref: el padre pasa una arrow function
+    // nueva en cada render, y no queremos que eso reinicie el timer de auto-cierre.
+    const onDismissRef = useRef(onDismiss);
+    useEffect(() => {
+        onDismissRef.current = onDismiss;
+    }, [onDismiss]);
+
     useEffect(() => {
         timerRef.current = setTimeout(() => {
             setVisible(false);
-            setTimeout(onDismiss, 300);
+            setTimeout(() => onDismissRef.current(), 300);
         }, DURATION);
         return () => clearTimeout(timerRef.current);
-    }, []);
+    }, [DURATION]);
 
     const styles = {
         xp_gain: { bg: 'bg-green-900/90', border: 'border-green-500', text: 'text-green-300' },
@@ -148,10 +155,17 @@ export function AchievementToast({ achievement, onDismiss }) {
     const border = rarityBorder[achievement.rarity] || rarityBorder.COMMON;
     const glow = rarityGlow[achievement.rarity] || '';
 
+    // Mismo patrón que en Toast: ref para no reiniciar el timer cuando el padre
+    // re-renderiza y pasa una nueva identidad de onDismiss.
+    const onDismissRef = useRef(onDismiss);
+    useEffect(() => {
+        onDismissRef.current = onDismiss;
+    }, [onDismiss]);
+
     useEffect(() => {
         const t = setTimeout(() => {
             setVisible(false);
-            setTimeout(onDismiss, 300);
+            setTimeout(() => onDismissRef.current(), 300);
         }, 5000);
         return () => clearTimeout(t);
     }, []);

@@ -32,7 +32,7 @@ export default function StudentChallenges() {
                 setLoading(true);
                 // Obtener la comisión del usuario para filtrar
                 const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
-                const commission = userDoc.exists() ? userDoc.data().commission : null;
+                const commission = userDoc.exists() ? userDoc.data().commissionCode : null;
                 setUserCommissions([commission, 'ALL'].filter(Boolean));
 
                 // 1. Cargar todas las entregas/submissions históricas de este usuario

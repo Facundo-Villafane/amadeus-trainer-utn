@@ -1,8 +1,7 @@
 // src/utils/commandParser/commands/city.js
 import { collection, query, where, getDocs, limit } from 'firebase/firestore';
 import { db } from '../../../services/firebase';
-import paginationState from '../paginationState';
-import { mockCities, mockAirports } from '../../../data/mockData';
+import { mockCities } from '../../../data/mockData';
 import openFlightsDataService from '../../../services/openFlightsDataService';
 import airportAliases from '../../../data/airportAliases.json';
 
@@ -26,23 +25,6 @@ async function initializeOpenFlightsData() {
       dataInitialized = true; // Mark as initialized to avoid repeated attempts
     }
   }
-}
-
-// Función para buscar códigos de aeropuerto por nombre alternativo
-function findAirportCodesByAlias(cityName, searchTerm) {
-  const cityAliases = airportAliases[cityName];
-  if (!cityAliases) return null;
-
-  const matchingCodes = new Set();
-
-  // Buscar coincidencias en los alias
-  Object.entries(cityAliases).forEach(([alias, code]) => {
-    if (alias.toUpperCase().includes(searchTerm.toUpperCase())) {
-      matchingCodes.add(code);
-    }
-  });
-
-  return Array.from(matchingCodes);
 }
 
 // Función para manejar codificación de ciudad (DAN)
@@ -235,7 +217,7 @@ LON  - London Bus Terminal                                      `;
       // Buscar en todas las ciudades que tienen alias
       for (const [cityName, aliases] of Object.entries(airportAliases)) {
         // Primero verificar si el término de búsqueda coincide con algún alias
-        const matchingAlias = Object.entries(aliases).find(([alias, code]) =>
+        const matchingAlias = Object.entries(aliases).find(([alias]) =>
           alias.toUpperCase() === searchTerm
         );
 

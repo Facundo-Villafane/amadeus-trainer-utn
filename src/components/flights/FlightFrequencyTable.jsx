@@ -1,7 +1,74 @@
 // src/components/flights/FlightFrequencyTable.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { collection, getDocs, query } from 'firebase/firestore';
 import { db } from '../../services/firebase';
+
+// Función helper para parsear fechas en formato DD/MM/YYYY
+// (función pura, sin dependencias de props/estado — vive fuera del componente
+// para no tener que recrearla ni memoizarla en cada render)
+function parseDate(dateString) {
+  if (!dateString || typeof dateString !== 'string') {
+    console.warn('Fecha inválida:', dateString);
+    return null;
+  }
+
+  try {
+    // Verificar si la fecha está en formato DD/MM/YYYY
+    if (dateString.includes('/')) {
+      const parts = dateString.split('/');
+      if (parts.length === 3) {
+        const [day, month, year] = parts;
+        // Crear fecha con año, mes (0-indexado), día
+        const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+
+        // Verificar que la fecha es válida
+        if (isNaN(date.getTime())) {
+          console.warn('Fecha inválida después del parseo:', dateString);
+          return null;
+        }
+
+        return date;
+      }
+    }
+
+    // Si no está en formato DD/MM/YYYY, intentar parseo directo
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) {
+      console.warn('No se pudo parsear la fecha:', dateString);
+      return null;
+    }
+
+    return date;
+  } catch (error) {
+    console.error('Error parseando fecha:', dateString, error);
+    return null;
+  }
+}
+
+// Función para obtener el rango de fechas de un vuelo (también pura)
+function getFlightRange(flight) {
+  try {
+    const departureDate = parseDate(flight.departure_date);
+    const arrivalDate = parseDate(flight.arrival_date);
+
+    if (!departureDate) {
+      console.warn('Fecha de salida inválida para vuelo:', flight.id, flight.departure_date);
+      return null;
+    }
+
+    // Si no hay fecha de llegada, usar la fecha de salida
+    const endDate = arrivalDate || departureDate;
+
+    return {
+      start: departureDate,
+      end: endDate,
+      flight: flight
+    };
+  } catch (error) {
+    console.error('Error obteniendo rango de vuelo:', flight.id, error);
+    return null;
+  }
+}
 
 export default function FlightFrequencyTable() {
   const [flights, setFlights] = useState([]);
@@ -10,74 +77,9 @@ export default function FlightFrequencyTable() {
 
   useEffect(() => {
     fetchFlights();
-  }, []);
+  }, [fetchFlights]);
 
-  // Función helper para parsear fechas en formato DD/MM/YYYY
-  const parseDate = (dateString) => {
-    if (!dateString || typeof dateString !== 'string') {
-      console.warn('Fecha inválida:', dateString);
-      return null;
-    }
-
-    try {
-      // Verificar si la fecha está en formato DD/MM/YYYY
-      if (dateString.includes('/')) {
-        const parts = dateString.split('/');
-        if (parts.length === 3) {
-          const [day, month, year] = parts;
-          // Crear fecha con año, mes (0-indexado), día
-          const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-          
-          // Verificar que la fecha es válida
-          if (isNaN(date.getTime())) {
-            console.warn('Fecha inválida después del parseo:', dateString);
-            return null;
-          }
-          
-          return date;
-        }
-      }
-      
-      // Si no está en formato DD/MM/YYYY, intentar parseo directo
-      const date = new Date(dateString);
-      if (isNaN(date.getTime())) {
-        console.warn('No se pudo parsear la fecha:', dateString);
-        return null;
-      }
-      
-      return date;
-    } catch (error) {
-      console.error('Error parseando fecha:', dateString, error);
-      return null;
-    }
-  };
-
-  // Función para obtener el rango de fechas de un vuelo
-  const getFlightRange = (flight) => {
-    try {
-      const departureDate = parseDate(flight.departure_date);
-      const arrivalDate = parseDate(flight.arrival_date);
-
-      if (!departureDate) {
-        console.warn('Fecha de salida inválida para vuelo:', flight.id, flight.departure_date);
-        return null;
-      }
-
-      // Si no hay fecha de llegada, usar la fecha de salida
-      const endDate = arrivalDate || departureDate;
-
-      return {
-        start: departureDate,
-        end: endDate,
-        flight: flight
-      };
-    } catch (error) {
-      console.error('Error obteniendo rango de vuelo:', flight.id, error);
-      return null;
-    }
-  };
-
-  const fetchFlights = async () => {
+  const fetchFlights = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -131,7 +133,7 @@ export default function FlightFrequencyTable() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   if (loading) {
     return (

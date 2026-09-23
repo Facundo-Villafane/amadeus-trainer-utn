@@ -1,5 +1,5 @@
 // src/utils/__tests__/parserUtils.test.js
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 
 // paginationState usa import de módulo, necesitamos mockearlo para aislar el test
 import { vi } from 'vitest';

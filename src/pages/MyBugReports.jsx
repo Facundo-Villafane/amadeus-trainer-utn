@@ -1,5 +1,5 @@
 // src/pages/MyBugReports.jsx
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../hooks/useAuth';
 import { FiAlertCircle, FiClock, FiCheckCircle, FiLoader } from 'react-icons/fi';
@@ -16,13 +16,7 @@ export default function MyBugReports() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
 
-  useEffect(() => {
-    if (currentUser) {
-      loadReports();
-    }
-  }, [currentUser]);
-
-  const loadReports = async () => {
+  const loadReports = useCallback(async () => {
     try {
       setLoading(true);
       const data = await bugReportsService.getUserBugReports(currentUser.uid);
@@ -33,7 +27,13 @@ export default function MyBugReports() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentUser]);
+
+  useEffect(() => {
+    if (currentUser) {
+      loadReports();
+    }
+  }, [currentUser, loadReports]);
 
   const handleLogout = async () => {
     try {

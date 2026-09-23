@@ -1,5 +1,5 @@
 // src/components/student/FlightExplorer.jsx
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { collection, query, getDocs, where, orderBy, limit } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { 
@@ -18,13 +18,15 @@ export default function FlightExplorer() {
     // Estado para paginación y límites de búsqueda
     const [currentPage, setCurrentPage] = useState(1);
     const [flightsPerPage] = useState(20);  // Aumentado de 10 a 20
-    const [maxResultsLimit, setMaxResultsLimit] = useState(1000);  // Aumentado de 500 a 1000
+    const [maxResultsLimit] = useState(1000);  // Aumentado de 500 a 1000
     
-    // Obtener la fecha actual en formato YYYY-MM-DD para los filtros de fecha
-    const today = new Date().toISOString().split('T')[0];
+    // Obtener la fecha actual en formato YYYY-MM-DD para los filtros de fecha.
+    // Memoizado: si se recalculara en cada render, cualquier callback que
+    // dependa de "hoy" perdería su identidad estable en cada render.
+    const today = useMemo(() => new Date().toISOString().split('T')[0], []);
     // Crear un objeto Date para operaciones con fechas
-    const todayDate = new Date();
-    
+    const todayDate = useMemo(() => new Date(), []);
+
     // Estados para filtros
     const [filters, setFilters] = useState({
       origin: '',
@@ -47,19 +49,8 @@ export default function FlightExplorer() {
     const currentFlights = flights.slice(indexOfFirstFlight, indexOfLastFlight);
     const totalPages = Math.ceil(flights.length / flightsPerPage);
     
-    // Cargar los vuelos al iniciar
-    useEffect(() => {
-      fetchFlights();
-      fetchFilterOptions();
-    }, []);
-    
-    // Cargar vuelos cuando cambian los filtros
-    useEffect(() => {
-      fetchFlights();
-    }, [filters]);
-    
     // Función para cargar las opciones de filtros
-    const fetchFilterOptions = async () => {
+    const fetchFilterOptions = useCallback(async () => {
       try {
         // Obtener aeropuertos para origen y destino
         const airportsRef = collection(db, 'airports');
@@ -110,25 +101,59 @@ export default function FlightExplorer() {
       } catch (error) {
         console.error('Error al cargar opciones de filtros:', error);
       }
-    };
-    
+    }, []);
+
+    // Cargar las opciones de filtros al iniciar
+    useEffect(() => {
+      fetchFilterOptions();
+    }, [fetchFilterOptions]);
+
+    // Modificar el filtrado de los vuelos para incluir solo los disponibles desde hoy
+    const filterFlightsFromToday = useCallback((flightsToFilter) => {
+        return flightsToFilter.filter(flight => {
+            // Si tiene fecha específica, verificar que sea hoy o posterior
+            if (flight.departure_date) {
+                const [day, month, year] = flight.departure_date.split('/').map(part => parseInt(part, 10));
+                const flightDate = new Date(year, month - 1, day); // Meses en JS son 0-indexed
+
+                if (flightDate < todayDate) {
+                    return false; // Excluir vuelos antiguos
+                }
+            }
+
+            // Si tiene días de operación, verificar que opere en algún día desde hoy
+            if (flight.days_of_operation) {
+                // Si es diario, siempre incluirlo
+                if (flight.days_of_operation === 'D') {
+                    return true;
+                }
+
+                // Si tiene un rango de validez, verificar que el rango incluya fechas desde hoy
+                if (flight.valid_from && flight.valid_to) {
+                    const [toDay, toMonth, toYear] = flight.valid_to.split('/').map(part => parseInt(part, 10));
+                    const validToDate = new Date(toYear, toMonth - 1, toDay);
+
+                    // Si todo el rango es anterior a hoy, excluir
+                    if (validToDate < todayDate) {
+                        return false;
+                    }
+                }
+
+                // Incluir el vuelo si tiene algún día de operación válido
+                return true;
+            }
+
+            // Si no hay suficiente información, incluir el vuelo de todos modos
+            return true;
+        });
+    }, [todayDate]);
+
     // Función para cargar vuelos
-    const fetchFlights = async () => {
+    const fetchFlights = useCallback(async () => {
       try {
         setLoading(true);
         setCurrentPage(1); // Restablecer a primera página cuando cambian los filtros
-        
-        // Verificar si hay filtros aplicados
-        const hasFilters = 
-          filters.origin || 
-          filters.destination || 
-          filters.airline || 
-          filters.dateFrom || 
-          filters.dateTo || 
-          filters.hasStops !== 'all';
-        
-        
-        
+
         let flightsQuery = query(collection(db, 'flights'));
 
         
@@ -221,8 +246,13 @@ export default function FlightExplorer() {
       } finally {
         setLoading(false);
       }
-    };
-    
+    }, [filters, maxResultsLimit, filterFlightsFromToday]);
+
+    // Cargar vuelos al iniciar y cada vez que cambian los filtros
+    useEffect(() => {
+      fetchFlights();
+    }, [fetchFlights]);
+
     // Manejar cambio en los filtros
     const handleFilterChange = (e) => {
       const { name, value } = e.target;
@@ -245,44 +275,13 @@ export default function FlightExplorer() {
       if (!dateStr) return '';
       
       const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-      const [day, month, year] = dateStr.split('/');
+      const [day, month] = dateStr.split('/');
       return `${day} ${months[parseInt(month, 10) - 1]}`;
     };
-    
+
     // Cambiar de página
     const paginate = (pageNumber) => setCurrentPage(pageNumber);
-    
-    // Obtener días de operación (lunes a domingo) basado en el campo days_of_operation
-    const getOperationDays = (daysString) => {
-      if (!daysString) return 'No disponible';
-      
-      // Si el formato es "1234567", lo convierte a "Lun, Mar, Mié, Jue, Vie, Sáb, Dom"
-      if (/^[1-7]+$/.test(daysString)) {
-        const dayMap = {
-          '1': 'Lun', '2': 'Mar', '3': 'Mié', 
-          '4': 'Jue', '5': 'Vie', '6': 'Sáb', '7': 'Dom'
-        };
-        
-        return daysString.split('').map(d => dayMap[d]).join(', ');
-      }
-      
-      // Si el formato es "LMXJVSD" o similar
-      if (/^[LMXJVSD]+$/i.test(daysString)) {
-        const dayMap = {
-          'L': 'Lun', 'M': 'Mar', 'X': 'Mié', 
-          'J': 'Jue', 'V': 'Vie', 'S': 'Sáb', 'D': 'Dom'
-        };
-        
-        return daysString.toUpperCase().split('').map(d => dayMap[d]).join(', ');
-      }
-      
-      // Si es "D" (diario)
-      if (daysString === 'D') return 'Diario';
-      
-      // En cualquier otro caso, devolver tal cual
-      return daysString;
-    };
-    
+
     // Resetear filtros
     const resetFilters = () => {
       setFilters({
@@ -393,55 +392,6 @@ export default function FlightExplorer() {
         const dayNames = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
         return dayNames[nextDay - 1];
     };
-    
-    // Modificar el filtrado de los vuelos para incluir solo los disponibles desde hoy
-    const filterFlightsFromToday = (flights) => {
-        return flights.filter(flight => {
-            // Si tiene fecha específica, verificar que sea hoy o posterior
-            if (flight.departure_date) {
-                const [day, month, year] = flight.departure_date.split('/').map(part => parseInt(part, 10));
-                const flightDate = new Date(year, month - 1, day); // Meses en JS son 0-indexed
-                
-                if (flightDate < todayDate) {
-                    return false; // Excluir vuelos antiguos
-                }
-            }
-            
-            // Si tiene días de operación, verificar que opere en algún día desde hoy
-            if (flight.days_of_operation) {
-                // Si es diario, siempre incluirlo
-                if (flight.days_of_operation === 'D') {
-                    return true;
-                }
-                
-                // Si tiene un rango de validez, verificar que el rango incluya fechas desde hoy
-                if (flight.valid_from && flight.valid_to) {
-                    const [fromDay, fromMonth, fromYear] = flight.valid_from.split('/').map(part => parseInt(part, 10));
-                    const validFromDate = new Date(fromYear, fromMonth - 1, fromDay);
-                    
-                    const [toDay, toMonth, toYear] = flight.valid_to.split('/').map(part => parseInt(part, 10));
-                    const validToDate = new Date(toYear, toMonth - 1, toDay);
-                    
-                    // Si todo el rango es anterior a hoy, excluir
-                    if (validToDate < todayDate) {
-                        return false;
-                    }
-                }
-                
-                // Incluir el vuelo si tiene algún día de operación válido
-                return true;
-            }
-            
-            // Si no hay suficiente información, incluir el vuelo de todos modos
-            return true;
-        });
-    };
-    
-    // En la parte donde cargas los vuelos, aplica el filtrado
-    useEffect(() => {
-        fetchFlights();
-    }, [filters]);
-    
 
     return (
         <div className="bg-white shadow rounded-lg">
@@ -680,7 +630,7 @@ export default function FlightExplorer() {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex flex-wrap gap-1">
                             {flight.class_availability && Object.entries(flight.class_availability)
-                              .filter(([_, seats]) => seats > 0)
+                              .filter(([, seats]) => seats > 0)
                               .map(([classCode, seats]) => (
                                 <span 
                                   key={`${classCode}-${seats}`}

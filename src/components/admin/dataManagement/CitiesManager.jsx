@@ -2,7 +2,7 @@
 
 // src/components/admin/dataManagement/CitiesManager.jsx
 import { useState, useEffect } from 'react';
-import { collection, addDoc, query, getDocs, updateDoc, doc, deleteDoc } from 'firebase/firestore';
+import { collection, addDoc, getDocs, updateDoc, doc, deleteDoc } from 'firebase/firestore';
 import { db } from '../../../services/firebase';
 import { FiUpload, FiPlus, FiEdit, FiTrash, FiSearch, FiMapPin } from 'react-icons/fi';
 import toast from 'react-hot-toast';

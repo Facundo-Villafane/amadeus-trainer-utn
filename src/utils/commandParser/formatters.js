@@ -2,7 +2,7 @@
 import { calculateDaysLeft, getDestinationInfoFromDB } from './helpers';
 
 // Función para generar la cabecera correcta del comando AN
-export async function generateANHeader(destination, origin, dateStr) {
+export async function generateANHeader(destination) {
   // Obtener información del destino desde la base de datos
   const destinationInfo = await getDestinationInfoFromDB(destination);
   // Generar la cabecera SOLO con el título y ciudad/país
@@ -40,20 +40,15 @@ export async function generateSNHeader(destination, origin, dateStr) {
 }
 
 // Función para generar la cabecera del comando TN
-export async function generateTNHeader(destination, origin, dateStr) {
+export async function generateTNHeader(destination) {
   // Obtener la fecha actual
   const now = new Date();
-  
-  // Formatear el día de la semana en inglés y obtener las dos primeras letras
-  const weekdays = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
-  const dayOfWeek = weekdays[now.getDay()];
-  
+
   // Formatear la fecha actual (DDMMM)
   const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
   const day = String(now.getDate()).padStart(2, '0');
   const month = months[now.getMonth()];
-  const formattedDate = `${day}${month}`;
-  
+
   // Obtener la fecha una semana después para el encabezado
   const nextWeek = new Date(now);
   nextWeek.setDate(now.getDate() + 7);

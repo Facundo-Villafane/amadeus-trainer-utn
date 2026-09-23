@@ -1,5 +1,5 @@
 // src/pages/admin/BugReportsManagement.jsx
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../../hooks/useAuth';
 import {
@@ -26,12 +26,7 @@ export default function BugReportsManagement() {
   const [selectedReport, setSelectedReport] = useState(null);
   const [responseText, setResponseText] = useState('');
 
-  useEffect(() => {
-    loadReports();
-    loadStats();
-  }, [filterStatus]);
-
-  const loadReports = async () => {
+  const loadReports = useCallback(async () => {
     try {
       setLoading(true);
       const statusFilter = filterStatus === 'all' ? null : filterStatus;
@@ -43,16 +38,21 @@ export default function BugReportsManagement() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filterStatus]);
 
-  const loadStats = async () => {
+  const loadStats = useCallback(async () => {
     try {
       const data = await bugReportsService.getStats();
       setStats(data);
     } catch (error) {
       console.error('Error loading stats:', error);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadReports();
+    loadStats();
+  }, [loadReports, loadStats]);
 
   const handleLogout = async () => {
     try {

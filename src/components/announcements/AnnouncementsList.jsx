@@ -1,5 +1,5 @@
 // src/components/announcements/AnnouncementsList.jsx
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { FiAlertCircle } from 'react-icons/fi';
 import announcementsService from '../../services/announcementsService';
 import AnnouncementCard from './AnnouncementCard';
@@ -12,11 +12,7 @@ export default function AnnouncementsList({ limitCount = 5 }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    loadAnnouncements();
-  }, [limitCount]);
-
-  const loadAnnouncements = async () => {
+  const loadAnnouncements = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -28,7 +24,11 @@ export default function AnnouncementsList({ limitCount = 5 }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [limitCount]);
+
+  useEffect(() => {
+    loadAnnouncements();
+  }, [loadAnnouncements]);
 
   if (loading) {
     return (
