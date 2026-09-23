@@ -79,22 +79,24 @@ function buildCommandSuggestion(entry) {
         }
         case 'passenger_has_document': {
             const pax = rule.passengerNumber ? `/P${rule.passengerNumber}` : '/P1';
-            return `Cargá FOID con SRFOID YY HK1-${rule.docType || 'PP'}NUMERO${pax}.`;
+            return `Cargá FOID con SRFOID${rule.airlineCode || 'YY'} HK1-${rule.docType || 'PP'}NUMERO${pax}.`;
         }
         case 'has_contact_phone': {
             const pax = rule.passengerNumber ? `/P${rule.passengerNumber}` : '';
-            return `Agregá teléfono con AP BUE 1133334444-O${pax}.`;
+            return `Agregá teléfono con AP${rule.city || 'BUE'}1133334444-M${pax}.`;
         }
         case 'has_contact_email': {
             const pax = rule.passengerNumber ? `/P${rule.passengerNumber}` : '';
-            return `Agregá email con APE-alumno//mail.com${pax}.`;
+            return `Agregá email con APE-alumno@mail.com${pax}.`;
         }
         case 'has_ticketing':
-            return `Agregá ticketing con TK${rule.ticketingType || 'TL'}${rule.ticketingType === 'TL' ? '15NOV' : ''}.`;
+            return rule.ticketingType === 'OK'
+                ? 'Agregá ticketing con TKOK.'
+                : `Agregá ticketing con TK${rule.ticketingType || 'TL'}15NOV/1800.`;
         case 'has_remark':
             return 'Agregá una observación con RM TEXTO, RC TEXTO o RIR TEXTO.';
         case 'osi_exists':
-            return `Agregá OSI con OS ${rule.airlineCode || 'YY'} ${rule.contains || 'TEXTO'}.`;
+            return `Agregá OSI con OS${rule.airlineCode || 'YY'} ${rule.contains || 'TEXTO'}.`;
         default:
             return '';
     }

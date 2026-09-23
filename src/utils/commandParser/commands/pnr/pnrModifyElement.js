@@ -63,7 +63,8 @@ function parseContactChange(change) {
     city: city.toUpperCase(),
     phone,
     type: type.toUpperCase(),
-    passengerNumber: passengerNumber ? parseInt(passengerNumber, 10) : undefined,
+    // Firestore rechaza "undefined" en updateDoc/setDoc; usar null cuando no se especifica pasajero
+    passengerNumber: passengerNumber ? parseInt(passengerNumber, 10) : null,
     addedAt: new Date()
   };
 }
@@ -80,7 +81,8 @@ function parseEmailChange(change) {
   return {
     email: email.toLowerCase(),
     type: 'E',
-    passengerNumber: passengerNumber ? parseInt(passengerNumber, 10) : undefined,
+    // Firestore rechaza "undefined" en updateDoc/setDoc; usar null cuando no se especifica pasajero
+    passengerNumber: passengerNumber ? parseInt(passengerNumber, 10) : null,
     addedAt: new Date()
   };
 }

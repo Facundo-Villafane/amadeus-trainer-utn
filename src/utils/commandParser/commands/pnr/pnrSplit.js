@@ -143,7 +143,9 @@ export async function handleCloseAssociate() {
         receivedFrom: null, // Parent needs RF again
         splitState: 'PARENT',
         splitAssociateData: {
-            associatePNR: { ...currentPNR, splitParentData: undefined, splitState: undefined } // The pending associate
+            // Firestore rechaza "undefined" en addDoc/updateDoc (este objeto se guarda
+            // tal cual en handleFinalizeSplit), así que se limpian los campos con null
+            associatePNR: { ...currentPNR, splitParentData: null, splitState: null } // The pending associate
         }
     };
 

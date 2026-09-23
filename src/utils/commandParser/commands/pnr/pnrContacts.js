@@ -44,7 +44,8 @@ export async function handleAddContact(cmd, userId) {
       city: city.toUpperCase(),
       phone: phone,
       type: type.toUpperCase(),
-      passengerNumber: passengerNumber ? parseInt(passengerNumber, 10) : undefined,
+      // Firestore rechaza "undefined" en updateDoc/setDoc; usar null cuando no se especifica pasajero
+      passengerNumber: passengerNumber ? parseInt(passengerNumber, 10) : null,
       addedAt: new Date()
     };
     
@@ -217,7 +218,8 @@ export async function handleAddEmailContact(cmd, userId) {
     const emailContact = {
       email: email.toLowerCase(),
       type: 'E', // E para Email
-      passengerNumber: passengerNumber ? parseInt(passengerNumber, 10) : undefined,
+      // Firestore rechaza "undefined" en updateDoc/setDoc; usar null cuando no se especifica pasajero
+      passengerNumber: passengerNumber ? parseInt(passengerNumber, 10) : null,
       addedAt: new Date()
     };
     
