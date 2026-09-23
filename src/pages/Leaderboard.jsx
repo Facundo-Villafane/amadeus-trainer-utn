@@ -6,6 +6,7 @@ import DashboardSidebar from '../components/dashboard/DashboardSidebar';
 import DashboardHeader from '../components/dashboard/DashboardHeader';
 import experienceService from '../services/experienceService';
 import { getProfilePhotoUrl } from '../utils/profileUtils';
+import AnimatedAvatar from '../components/common/AnimatedAvatar';
 import {
   FiAward, FiEye, FiUser, FiBook, FiList,
   FiClock, FiEyeOff,
@@ -45,10 +46,12 @@ function PodiumSlot({ user, position, onProfileClick }) {
         onClick={() => onProfileClick(user)}
         title={name}
       >
-        <img
-          src={getProfilePhotoUrl(user, 72)}
+        <AnimatedAvatar
+          user={user}
+          size={72}
           alt={name}
-          className={`w-16 h-16 rounded-full border-4 ${MEDAL_BORDER[position]} ${user.isLegacy ? 'grayscale' : ''}`}
+          trackEyes
+          className={`w-16 h-16 rounded-full border-4 ${MEDAL_BORDER[position]} ${user.isLegacy ? 'grayscale' : ''} overflow-hidden`}
         />
         <div className={`absolute -bottom-1 -right-1 w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold ${MEDAL_BG[position]}`}>
           {position}
@@ -124,7 +127,7 @@ function UserProfileModal({ user, onClose, userRole, isSpectator, navigate }) {
             </div>
 
             <div className="mt-4 flex flex-col sm:flex-row sm:space-x-6 items-start">
-              <img src={getProfilePhotoUrl(user, 128)} alt={displayName(user)} className={`h-24 w-24 rounded-full border-2 border-amadeus-primary mb-4 sm:mb-0 ${user.isLegacy ? 'grayscale' : ''}`} />
+              <AnimatedAvatar user={user} size={128} alt={displayName(user)} trackEyes className={`h-24 w-24 rounded-full border-2 border-amadeus-primary mb-4 sm:mb-0 ${user.isLegacy ? 'grayscale' : ''} overflow-hidden`} />
               <div className="flex-1">
                 <div className="grid grid-cols-2 gap-3 mb-4 text-sm">
                   <div>

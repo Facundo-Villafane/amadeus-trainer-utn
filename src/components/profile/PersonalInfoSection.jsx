@@ -9,7 +9,8 @@ import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { FiUser, FiMail, FiLock, FiSave, FiAlertCircle, FiInfo } from 'react-icons/fi';
 import toast from 'react-hot-toast';
-import { getProfilePhotoUrl, isGoogleUser } from '../../utils/profileUtils';
+import { isGoogleUser } from '../../utils/profileUtils';
+import AnimatedAvatar from '../common/AnimatedAvatar';
 
 export default function PersonalInfoSection({ currentUser, userData, userRole, stats, loading }) {
   const [localUserData, setLocalUserData] = useState({
@@ -188,15 +189,16 @@ export default function PersonalInfoSection({ currentUser, userData, userRole, s
           ) : (
             <>
               <div className="flex justify-center mb-6">
-                <img
-                  src={getProfilePhotoUrl({
+                <AnimatedAvatar
+                  user={{
                     uid: currentUser?.uid,
                     email: currentUser?.email,
                     photoURL: currentUser?.photoURL,
                     useGravatar: userData?.useGravatar,
-                  }, 128)}
-                  alt="Avatar"
-                  className="h-24 w-24 rounded-full border-2 border-amadeus-primary shadow"
+                  }}
+                  size={128}
+                  trackEyes
+                  className="h-24 w-24 rounded-full border-2 border-amadeus-primary shadow overflow-hidden"
                 />
               </div>
 
