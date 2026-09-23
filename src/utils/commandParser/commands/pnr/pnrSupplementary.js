@@ -28,12 +28,14 @@ export async function handleAddOSI(cmd) {
     }
 
     // Extraer información del comando OS
-    // Formato: OS [AIRLINE] [MESSAGE] /P[PASSENGER_NUMBER]
-    const osiPattern = /^OS\s+([A-Z0-9]{2})\s+(.+?)(?:\s*\/P(\d+))?$/i;
+    // Se ingresa todo junto: OSUXPAX VIP WAGNER/P1. Los espacios entre partes
+    // también se aceptan (opcionales) por compatibilidad.
+    // Formato: OS[AIRLINE][MENSAJE]/P[PASAJERO]
+    const osiPattern = /^OS\s*([A-Z0-9]{2})\s*(.+?)(?:\s*\/P(\d+))?$/i;
     const match = cmd.match(osiPattern);
 
     if (!match) {
-      return "Formato incorrecto. Ejemplo: OS UX PAX VIP WAGNER /P1";
+      return "Formato incorrecto. Ejemplo: OSUX PAX VIP WAGNER/P1";
     }
 
     let [, airlineCode, message, passengerNumber] = match;
@@ -227,10 +229,12 @@ export async function handleAddSSR(cmd) {
     if (!currentPNR.passengers?.length) return 'Debe agregar al menos un pasajero (NM) antes de usar el comando SR.';
     if (!currentPNR.segments?.length) return 'Debe agregar al menos un segmento (SS) antes de usar el comando SR.';
 
-    // ── SR CTCE / SR CTCM ────────────────────────────────────────────────────
-    // Format: SR CTCE AIRLINE HK1-ENCODED_VALUE/Pn
-    // Format: SR CTCM AIRLINE HK1-PHONE/Pn
-    const ctcPattern = /^SR\s+(CTC[EM])\s+([A-Z0-9]{2})\s+HK1-(.+?)\/P(\d+)$/i;
+    // ── SRCTCE / SRCTCM ──────────────────────────────────────────────────────
+    // Se ingresa todo junto, sin espacios: SRCTCEIBHK1-.../P1. Los espacios
+    // entre partes también se aceptan (opcionales) para no romper lo ya enseñado.
+    // Format: SRCTCEAIRLINEHK1-ENCODED_VALUE/Pn
+    // Format: SRCTCMAIRLINEHK1-PHONE/Pn
+    const ctcPattern = /^SR\s*(CTC[EM])\s*([A-Z0-9]{2})\s*HK1-(.+?)\/P(\d+)$/i;
     const ctcMatch = cmd.match(ctcPattern);
 
     if (ctcMatch) {
@@ -295,8 +299,8 @@ export async function handleAddSSR(cmd) {
       return [
         'Formato incorrecto. Formatos disponibles:',
         '  SRVGML/P2                                  Código SSR estándar',
-        '  SR CTCE IB HK1-user//gmail.com/P1          Email de contacto',
-        '  SR CTCM IB HK1-541155550000/P1            Teléfono de contacto',
+        '  SRCTCE IB HK1-user//gmail.com/P1           Email de contacto',
+        '  SRCTCM IB HK1-541155550000/P1              Teléfono de contacto',
       ].join('\n');
     }
 
@@ -434,13 +438,14 @@ export async function handleAddFOID(cmd) {
     }
 
     // Extraer información del comando SRFOID
-    // Formato: SRFOID [CODIGO_AEROLINEA] HK1-[TIPO][NUMERO]/P[PASAJERO]
-    // Ejemplo: SRFOID YY HK1-PP12345678/P1 o SRFOID YY HK1-PPAB12345XY/P1
-    const foidPattern = /^SRFOID\s+([A-Z0-9]{2})\s+HK1-([A-Z]{2})([A-Z0-9-]+)\/P(\d+)$/i;
+    // Formato: SRFOID[CODIGO_AEROLINEA]HK1-[TIPO][NUMERO]/P[PASAJERO] — los espacios
+    // son opcionales, también se acepta con espacios por compatibilidad
+    // Ejemplo: SRFOIDYYHK1-PP12345678/P1 o SRFOID YY HK1-PPAB12345XY/P1
+    const foidPattern = /^SRFOID\s*([A-Z0-9]{2})\s*HK1-([A-Z]{2})([A-Z0-9-]+)\/P(\d+)$/i;
     const match = cmd.match(foidPattern);
 
     if (!match) {
-      return "Formato incorrecto. Ejemplo: SRFOID YY HK1-PP12345678/P1 (PP para pasaporte, NI para DNI)";
+      return "Formato incorrecto. Ejemplo: SRFOIDYYHK1-PP12345678/P1 (PP para pasaporte, NI para DNI)";
     }
 
     let [, airlineCode, docType, docNumber, passengerNumber] = match;

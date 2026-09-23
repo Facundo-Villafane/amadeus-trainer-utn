@@ -270,8 +270,8 @@ export async function confirmCancelPNR(cmd, userId, previousCommandWasXI) {
       return "No hay un PNR en progreso que cancelar.";
     }
     
-    // Formato: RF NOMBRE
-    const rfPattern = /RF\s+(.+)/i;
+    // Formato: RFNOMBRE (sin espacio, igual que el RF normal — también acepta con espacio)
+    const rfPattern = /RF(.+)/i;
     const match = cmd.match(rfPattern);
     
     if (!match || !match[1]) {

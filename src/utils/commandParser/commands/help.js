@@ -26,9 +26,9 @@ export function generateHelpText() {
   PNR:
   SS[CANT][CLASE][LÍNEA]             Seleccionar segmento de vuelo
   NM[CANT][APELLIDO]/[NOMBRE]        Agregar nombre de pasajero
-  AP [TELÉFONO]                      Agregar teléfono de contacto
+  AP[CIUDAD][TELÉFONO]-[TIPO]        Agregar teléfono de contacto
   APE-[CORREO]                       Agregar correo electrónico de contacto
-  OS [AEROLÍNEA] [MENSAJE]           Agregar información especial (OSI)
+  OS[AEROLÍNEA] [MENSAJE]            Agregar información especial (OSI)
   SR[CÓDIGO]/P[#]                    Solicitud de servicio especial (SSR)
   SRFOID[AERO]HK1-[TIPO][#]/P[#]    Agregar documento de identidad (FOID)
   SM                                 Mapa de asientos gráfico (modal)
@@ -220,11 +220,11 @@ export function handleHelpCommand(cmd) {
       return `
   OS - Other Special Information (Información Especial Adicional)
   
-  Formato: OS [AEROLÍNEA] [MENSAJE] /P[NÚMERO_PASAJERO]
-  
+  Formato: OS[AEROLÍNEA] [MENSAJE]/P[NÚMERO_PASAJERO]
+
   Ejemplos:
-  OS UX PAX VIP WAGNER /P1     Información especial para la aerolínea UX, referente al pasajero 1
-  OS YY FREQUENT FLYER         Información especial para todas las aerolíneas del itinerario
+  OSUX PAX VIP WAGNER/P1       Información especial para la aerolínea UX, referente al pasajero 1
+  OSYY FREQUENT FLYER          Información especial para todas las aerolíneas del itinerario
   
   Notas:
   - El mensaje no puede exceder los 68 caracteres
@@ -383,12 +383,12 @@ export function handleHelpCommand(cmd) {
     Ejemplo: SRVGML/P2    Comida vegetariana para pax 2
 
   Formato 2 (Contacto del pasajero):
-    SR CTCE [AERO] HK1-[EMAIL_CODIFICADO]/P[PASAJERO]
-    SR CTCM [AERO] HK1-[TELÉFONO]/P[PASAJERO]
+    SRCTCE[AERO]HK1-[EMAIL_CODIFICADO]/P[PASAJERO]
+    SRCTCM[AERO]HK1-[TELÉFONO]/P[PASAJERO]
 
   Ejemplos CTCE/CTCM:
-    SR CTCE IB HK1-BELEN./PAZ//GMAIL.COM/P2
-    SR CTCM IB HK1-541155550000/P1
+    SRCTCEIBHK1-BELEN./PAZ//GMAIL.COM/P2
+    SRCTCMIBHK1-541155550000/P1
 
   Notas:
   - El segmento S[N] es opcional en el formato simple, obligatorio en CTCE/CTCM
@@ -398,9 +398,9 @@ export function handleHelpCommand(cmd) {
 
     case 'CTCE':
       return `
-  SR CTCE - Email de contacto del pasajero
+  SRCTCE - Email de contacto del pasajero
 
-  Formato: SR CTCE [AEROLINEA] HK1-[EMAIL_CODIFICADO]/P[N]
+  Formato: SRCTCE[AEROLINEA]HK1-[EMAIL_CODIFICADO]/P[N]
 
   Encoding del email (se escribe tal cual en la terminal):
     @  se codifica como  //
@@ -408,9 +408,9 @@ export function handleHelpCommand(cmd) {
     -  se codifica como  ./
 
   Ejemplos:
-    belen.paz@gmail.com    →  SR CTCE IB HK1-BELEN./PAZ//GMAIL.COM/P1
-    john_doe@yahoo.com     →  SR CTCE IB HK1-JOHN..DOE//YAHOO.COM/P2
-    maria-garcia@iberia.es →  SR CTCE IB HK1-MARIA./GARCIA//IBERIA.ES/P1
+    belen.paz@gmail.com    →  SRCTCEIBHK1-BELEN./PAZ//GMAIL.COM/P1
+    john_doe@yahoo.com     →  SRCTCEIBHK1-JOHN..DOE//YAHOO.COM/P2
+    maria-garcia@iberia.es →  SRCTCEIBHK1-MARIA./GARCIA//IBERIA.ES/P1
 
   Usar YY como aerolínea si son varias aerolíneas en el itinerario.
   Solo un CTCE por pasajero (el nuevo reemplaza al anterior).
@@ -418,16 +418,16 @@ export function handleHelpCommand(cmd) {
 
     case 'CTCM':
       return `
-  SR CTCM - Teléfono de contacto del pasajero
+  SRCTCM - Teléfono de contacto del pasajero
 
-  Formato: SR CTCM [AEROLINEA] HK1-[TELEFONO]/P[N]
+  Formato: SRCTCM[AEROLINEA]HK1-[TELEFONO]/P[N]
 
   El teléfono es solo dígitos, sin + ni espacios.
   Se usa el código de país seguido del número.
 
   Ejemplos:
-    SR CTCM IB HK1-541155550000/P1   (Argentina: 54 + 11 + número)
-    SR CTCM YY HK1-3411234567/P2     (España: 34 + número)
+    SRCTCMIBHK1-541155550000/P1   (Argentina: 54 + 11 + número)
+    SRCTCMYYHK1-3411234567/P2     (España: 34 + número)
 
   Usar YY como aerolínea si son varias aerolíneas en el itinerario.
   Solo un CTCM por pasajero (el nuevo reemplaza al anterior).
@@ -515,12 +515,12 @@ export function handleHelpCommand(cmd) {
       return `
   SRFOID - Form of Identification (Documento de Identidad)
   
-  Formato: SRFOID [AEROLÍNEA] HK1-[TIPO][NÚMERO]/P[PASAJERO]
-  
+  Formato: SRFOID[AEROLÍNEA]HK1-[TIPO][NÚMERO]/P[PASAJERO]
+
   Ejemplos:
-  SRFOID YY HK1-PP12345678/P1      Pasaporte con número 12345678 para el pasajero 1
-  SRFOID IB HK1-NI30123456/P2      DNI con número 30123456 para el pasajero 2
-  SRFOID BA HK1-PPA1B2C3D4/P3      Pasaporte alfanumérico A1B2C3D4 para el pasajero 3
+  SRFOIDYYHK1-PP12345678/P1        Pasaporte con número 12345678 para el pasajero 1
+  SRFOIDIBHK1-NI30123456/P2        DNI con número 30123456 para el pasajero 2
+  SRFOIDBAHK1-PPA1B2C3D4/P3        Pasaporte alfanumérico A1B2C3D4 para el pasajero 3
   
   Tipos de documentos:
   PP - Pasaporte

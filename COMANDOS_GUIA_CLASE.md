@@ -115,24 +115,24 @@ RTABC123    → Recupera el PNR con localizador ABC123
 ### `SR` — Special Service Request (SSR)
 ```
 SRVGML/P2                                      → Comida vegetariana, pasajero 2
-SR CTCE IB HK1-BELEN./PAZ//GMAIL.COM/P2        → Email de contacto
-SR CTCM IB HK1-541155550000/P1                 → Teléfono de contacto
+SRCTCE IB HK1-BELEN./PAZ//GMAIL.COM/P2         → Email de contacto
+SRCTCM IB HK1-541155550000/P1                  → Teléfono de contacto
 ```
 
 > Nota: en emails `@` se escribe `//`, `_` se escribe `..`, `-` se escribe `./`
 
 ### `SRFOID` — Documento de identidad
 ```
-SRFOID YY HK1-PP12345678/P1    → Pasaporte, pasajero 1
-SRFOID IB HK1-NI30123456/P2   → DNI, pasajero 2
+SRFOIDYYHK1-PP12345678/P1      → Pasaporte, pasajero 1
+SRFOIDIBHK1-NI30123456/P2      → DNI, pasajero 2
 ```
 
 Tipos: `PP` = Pasaporte, `NI` = DNI
 
 ### `OS` — Other Special Information (OSI)
 ```
-OS UX PAX VIP WAGNER /P1       → Info VIP para aerolínea UX, pax 1
-OS YY FREQUENT FLYER           → Para todas las aerolíneas del itinerario
+OSUX PAX VIP WAGNER/P1         → Info VIP para aerolínea UX, pax 1
+OSYY FREQUENT FLYER            → Para todas las aerolíneas del itinerario
 ```
 
 ---
