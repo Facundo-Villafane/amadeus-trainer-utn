@@ -69,7 +69,7 @@ function getPaxInfoBlocks(pnr, paxIndex) {
     const nameLine = `${pax.lastName}/${pax.firstName} ${pax.title || ''}`.trim();
 
     // Contact phones
-    const phones = pnr.contacts
+    const phones = (pnr.contacts || [])
         .filter(c => !c.passengerNumber || c.passengerNumber === (paxIndex + 1))
         .map(c => `TELEFONO:   ${c.phone}`);
 
