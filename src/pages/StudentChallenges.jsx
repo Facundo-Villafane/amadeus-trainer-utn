@@ -18,6 +18,7 @@ export default function StudentChallenges() {
     const [userSubmissions, setUserSubmissions] = useState({});
     const [loading, setLoading] = useState(true);
     const [userCommissions, setUserCommissions] = useState([]);
+    const [seesAllCommissions, setSeesAllCommissions] = useState(false);
 
     // Modal states
     const [selectedChallenge, setSelectedChallenge] = useState(null);
@@ -34,6 +35,7 @@ export default function StudentChallenges() {
                 const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
                 const commission = userDoc.exists() ? userDoc.data().commissionCode : null;
                 setUserCommissions([commission, 'ALL'].filter(Boolean));
+                setSeesAllCommissions(Boolean(userDoc.exists() && userDoc.data().seesAllCommissions));
 
                 // 1. Cargar todas las entregas/submissions históricas de este usuario
                 const subsQuery = query(collection(db, 'challenge_submissions'), where('userId', '==', currentUser.uid));
@@ -70,10 +72,12 @@ export default function StudentChallenges() {
     // Filtrar desafíos según la pestaña actual y la comisión del alumno
     const getFilteredChallenges = () => {
         return challenges.filter(c => {
-            // 1. Verificar si aplica a su comisión
-            const isForUser = Array.isArray(c.commissionCodes)
+            // 1. Verificar si aplica a su comisión. El admin, y cualquier cuenta marcada
+            // como "ve todas las comisiones" (ej. la cuenta de demo del docente), ven
+            // todos los desafíos sin importar la comisión.
+            const isForUser = userRole === 'admin' || seesAllCommissions || (Array.isArray(c.commissionCodes)
                 ? c.commissionCodes.some(code => userCommissions.includes(code))
-                : userCommissions.includes(c.commissionCodes);
+                : userCommissions.includes(c.commissionCodes));
 
             if (!isForUser) return false;
 

@@ -45,9 +45,11 @@ export default function UserProfile({ initialTab = 'personal' }) {
         const userDocRef = doc(db, 'users', currentUser.uid);
         const userDoc = await getDoc(userDocRef);
         
+        let useGravatar = false;
         if (userDoc.exists()) {
           const userDocData = userDoc.data();
-          
+          useGravatar = Boolean(userDocData.useGravatar);
+
           // Cargar estadísticas
           setStats({
             commandsExecuted: userDocData.commandsExecuted || 0,
@@ -55,12 +57,13 @@ export default function UserProfile({ initialTab = 'personal' }) {
             lastActivity: userDocData.lastActivity ? new Date(userDocData.lastActivity) : null
           });
         }
-        
+
         // Cargar datos de Auth
         setUserData({
           displayName: currentUser.displayName || '',
           email: currentUser.email || '',
-          provider: isGoogleUser ? 'google.com' : 'password'
+          provider: isGoogleUser ? 'google.com' : 'password',
+          useGravatar
         });
       } catch (error) {
         console.error('Error al cargar datos del usuario:', error);

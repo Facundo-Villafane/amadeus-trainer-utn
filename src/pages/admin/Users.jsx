@@ -1,8 +1,8 @@
 // src/pages/admin/Users.jsx
 import React, { useState, useEffect } from 'react';
-import { 
-  FiList, FiFileText, FiEdit2, FiUserCheck, FiUserX, FiSearch, 
-  FiFilter, FiAward, FiUserPlus, FiPlus 
+import {
+  FiList, FiFileText, FiEdit2, FiUserCheck, FiUserX, FiSearch,
+  FiFilter, FiAward, FiUserPlus, FiPlus, FiEye, FiEyeOff
 } from 'react-icons/fi';
 import { useNavigate } from 'react-router';
 import DashboardSidebar from '../../components/dashboard/DashboardSidebar';
@@ -63,6 +63,32 @@ const Users = () => {
     } catch (error) {
       console.error('Error al actualizar estado:', error);
       toast.error('Error al actualizar el estado del usuario');
+    }
+  };
+
+  // Cuenta de demo/tutorial (ej. la que usa el docente para compartir pantalla):
+  // ve los desafíos de todas las comisiones, queda oculta del ranking, y usa su
+  // Gravatar en vez del avatar generado (para tener un avatar propio y reconocible).
+  const handleToggleDemoAccount = async (id) => {
+    const user = users.find(u => u.id === id);
+    if (!user) return;
+    const nextValue = !user.seesAllCommissions;
+    try {
+      await updateDoc(doc(db, 'users', id), {
+        seesAllCommissions: nextValue,
+        hideFromLeaderboard: nextValue,
+        useGravatar: nextValue,
+      });
+      setUsers(users => users.map(u => u.id === id ? {
+        ...u,
+        seesAllCommissions: nextValue,
+        hideFromLeaderboard: nextValue,
+        useGravatar: nextValue,
+      } : u));
+      toast.success(nextValue ? 'Marcada como cuenta de demo/tutorial' : 'Ya no es cuenta de demo/tutorial');
+    } catch (error) {
+      console.error('Error al actualizar cuenta de demo:', error);
+      toast.error('Error al actualizar la cuenta');
     }
   };
 
@@ -371,6 +397,17 @@ const Users = () => {
                           title={user.active !== false ? 'Desactivar usuario' : 'Activar usuario'}
                         >
                           {user.active !== false ? <FiUserX className="h-5 w-5" /> : <FiUserCheck className="h-5 w-5" />}
+                        </button>
+                        <button
+                          onClick={() => handleToggleDemoAccount(user.id)}
+                          className={`p-2 rounded ${
+                            user.seesAllCommissions ? 'bg-indigo-100 hover:bg-indigo-200 text-indigo-700' : 'hover:bg-indigo-100 text-indigo-600'
+                          }`}
+                          title={user.seesAllCommissions
+                            ? 'Cuenta de demo/tutorial: ve todas las comisiones, está oculta del ranking y usa su Gravatar. Clic para desmarcar.'
+                            : 'Marcar como cuenta de demo/tutorial (ve todas las comisiones, oculta del ranking, usa Gravatar)'}
+                        >
+                          {user.seesAllCommissions ? <FiEyeOff className="h-5 w-5" /> : <FiEye className="h-5 w-5" />}
                         </button>
                       </div>
                     </td>

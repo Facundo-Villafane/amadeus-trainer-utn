@@ -25,20 +25,30 @@ const MEDAL_BG = { 1: 'bg-yellow-400', 2: 'bg-gray-300', 3: 'bg-amber-600', 4: '
 const MEDAL_BORDER = { 1: 'border-yellow-400', 2: 'border-gray-300', 3: 'border-amber-600', 4: 'border-gray-300', 5: 'border-gray-300' };
 const MEDAL_H = { 1: 'h-44', 2: 'h-36', 3: 'h-28', 4: 'h-20', 5: 'h-16' };
 
+// ── Privacy: alumnos de comisiones anteriores se muestran con nombre parcial.
+// El blur de CSS no alcanza (el texto sigue completo en el DOM); esto redacta
+// el nombre real antes de renderizarlo.
+function displayName(user) {
+  if (!user.isLegacy || !user.name) return user.name;
+  const firstWord = user.name.trim().split(/\s+/)[0];
+  return `${firstWord} ...`;
+}
+
 // ── Podium ────────────────────────────────────────────────────────────────────
 function PodiumSlot({ user, position, onProfileClick }) {
   if (!user) return null;
+  const name = displayName(user);
   return (
     <div className="flex flex-col items-center">
       <div
         className="relative mb-2 cursor-pointer"
         onClick={() => onProfileClick(user)}
-        title={user.name}
+        title={name}
       >
         <img
           src={getProfilePhotoUrl(user, 72)}
-          alt={user.name}
-          className={`w-16 h-16 rounded-full border-4 ${MEDAL_BORDER[position]}`}
+          alt={name}
+          className={`w-16 h-16 rounded-full border-4 ${MEDAL_BORDER[position]} ${user.isLegacy ? 'grayscale' : ''}`}
         />
         <div className={`absolute -bottom-1 -right-1 w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold ${MEDAL_BG[position]}`}>
           {position}
@@ -48,7 +58,7 @@ function PodiumSlot({ user, position, onProfileClick }) {
         className="text-xs font-semibold text-gray-900 text-center mb-0.5 cursor-pointer hover:underline max-w-[80px] truncate"
         onClick={() => onProfileClick(user)}
       >
-        {user.name}
+        {name}
       </p>
       <p className="text-xs text-gray-500">{user.xp.toLocaleString()} XP</p>
       <div className={`mt-1 ${MEDAL_H[position]} w-16 ${MEDAL_BG[position]} rounded-t-lg flex items-center justify-center`}>
@@ -103,9 +113,9 @@ function UserProfileModal({ user, onClose, userRole, isSpectator, navigate }) {
                 <h3 className="text-lg leading-6 font-medium text-gray-900">
                   {user.isLegacy ? (
                     <span className="flex items-center gap-2">
-                      {user.name}
+                      {displayName(user)}
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">
-                        <FiClock size={10} /> Camada anterior
+                        <FiClock size={10} /> Comisión anterior
                       </span>
                     </span>
                   ) : user.name}
@@ -114,7 +124,7 @@ function UserProfileModal({ user, onClose, userRole, isSpectator, navigate }) {
             </div>
 
             <div className="mt-4 flex flex-col sm:flex-row sm:space-x-6 items-start">
-              <img src={getProfilePhotoUrl(user, 128)} alt={user.name} className="h-24 w-24 rounded-full border-2 border-amadeus-primary mb-4 sm:mb-0" />
+              <img src={getProfilePhotoUrl(user, 128)} alt={displayName(user)} className={`h-24 w-24 rounded-full border-2 border-amadeus-primary mb-4 sm:mb-0 ${user.isLegacy ? 'grayscale' : ''}`} />
               <div className="flex-1">
                 <div className="grid grid-cols-2 gap-3 mb-4 text-sm">
                   <div>
@@ -239,7 +249,7 @@ export default function Leaderboard() {
                   className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md border border-gray-300 text-sm text-gray-600 bg-white hover:bg-gray-50 transition-colors"
                 >
                   {showLegacy ? <FiEyeOff size={14} /> : <FiEye size={14} />}
-                  {showLegacy ? 'Ocultar camadas anteriores' : 'Mostrar camadas anteriores'}
+                  {showLegacy ? 'Ocultar comisiones anteriores' : 'Mostrar comisiones anteriores'}
                 </button>
               )}
             </div>
@@ -308,21 +318,16 @@ export default function Leaderboard() {
                             {/* Name */}
                             <td className="px-4 py-3 whitespace-nowrap">
                               <div className="flex items-center gap-2">
-                                <img src={getProfilePhotoUrl(user, 28)} alt={user.name}
+                                <img src={getProfilePhotoUrl(user, 28)} alt={displayName(user)}
                                   className={`w-7 h-7 rounded-full flex-shrink-0 ${isLegacy ? 'grayscale' : ''}`} />
 
-                                {/* Blurred name for legacy users */}
+                                {/* Nombre parcial para alumnos de comisiones anteriores */}
                                 <div className="flex items-center gap-1">
                                   <span
-                                    className={`
-                                      text-sm font-medium
-                                      ${isLegacy
-                                        ? 'text-gray-400 blur-sm hover:blur-none transition-all duration-200 select-none cursor-default'
-                                        : 'text-gray-900'}
-                                    `}
-                                    title={isLegacy ? 'Alumno/a de camada anterior' : user.name}
+                                    className={`text-sm font-medium ${isLegacy ? 'text-gray-400' : 'text-gray-900'}`}
+                                    title={isLegacy ? 'Alumno/a de comisión anterior' : user.name}
                                   >
-                                    {user.name}
+                                    {displayName(user)}
                                   </span>
 
                                   {isLegacy && (
@@ -372,7 +377,7 @@ export default function Leaderboard() {
                 {showLegacy && legacyUsers.length > 0 && (
                   <p className="text-xs text-gray-400 mt-3 text-right flex items-center justify-end gap-1">
                     <FiClock size={11} />
-                    Las filas marcadas como &quot;anterior&quot; corresponden a camadas anteriores. El nombre se oculta por privacidad — hacé hover para verlo.
+                    Las filas marcadas como &quot;anterior&quot; corresponden a comisiones anteriores. El nombre se muestra parcialmente por privacidad.
                   </p>
                 )}
               </>

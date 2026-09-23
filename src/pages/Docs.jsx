@@ -273,7 +273,7 @@ ROW  A  B  C    D  E  F
                             ['Exploration', 'El/La Explorador/a (20 destinos), La Vuelta al Mundo'],
                             ['Time-based', 'Night Owl, Early Bird, Marathon, Coffee Break'],
                             ['Secret / Easter eggs', 'The Answer (42 comandos), Lucky Seven, Binary Master, ...'],
-                            ['Honorary', 'Pionero/a (camadas anteriores — auto-awarded)'],
+                            ['Honorary', 'Pionero/a (comisiones anteriores — auto-awarded)'],
                         ].map(([cat, ex]) => (
                             <tr key={cat}><td className="font-medium">{cat}</td><td className="text-gray-500 text-sm">{ex}</td></tr>
                         ))}

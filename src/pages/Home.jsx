@@ -42,7 +42,7 @@ const T = {
     gamItems: [
       { color: 'bg-yellow-500', icon: 'FiAward', title: 'Logros', body: 'Más de 40 logros por desbloquear, de rareza Común a Legendario, con pistas sobre cómo conseguirlos.' },
       { color: 'bg-blue-500', icon: 'FiTrendingUp', title: '20 Niveles', body: 'Desde Cadete hasta Leyenda — cada nivel tiene título propio y se muestra en tu perfil y en el ranking.' },
-      { color: 'bg-purple-500', icon: 'FiLayers', title: 'Ranking', body: 'Leaderboard en tiempo real con tu comisión. Las camadas anteriores aparecen visualmente diferenciadas por privacidad.' },
+      { color: 'bg-purple-500', icon: 'FiLayers', title: 'Ranking', body: 'Leaderboard en tiempo real con tu comisión. Las comisiones anteriores aparecen visualmente diferenciadas por privacidad.' },
       { color: 'bg-green-500', icon: 'FiZap', title: 'Rachas diarias', body: '+10 XP por día de uso consecutivo (hasta 7). Penalizaciones anti-farming para que solo cuente la práctica real.' },
     ],
     docsLabel: 'Documentación',
