@@ -51,7 +51,7 @@ function buildElementMap(pnr) {
 }
 
 function parseContactChange(change) {
-  const contactPattern = /^([A-Z]{3})\s*([0-9-]+)-([A-Z])(?:\/P(\d+))?$/i;
+  const contactPattern = /^([A-Z]{3})\s*([0-9]+)-([A-Z])(?:\/P(\d+))?$/i;
   const match = change.match(contactPattern);
 
   if (!match) {
@@ -201,7 +201,9 @@ export async function handleModifyElement(cmd) {
         return 'Los nombres de pasajeros no son modificables. Solo se admite agregar INF. Ejemplo: 2/(INF/DIEGO/20JAN22)';
       }
 
-      passenger.type = 'INF';
+      // No tocar passenger.type: el pasajero sigue siendo adulto, solo se le
+      // asocia un infante. formatPNRResponse ya usa passenger.infant (no
+      // passenger.type) para mostrar el sufijo (INF/...) en su línea NM.
       passenger.infant = infantData;
 
       currentPNR.ssrElements = (currentPNR.ssrElements || []).filter(ssr =>

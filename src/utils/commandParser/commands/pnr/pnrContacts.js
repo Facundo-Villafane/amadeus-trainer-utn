@@ -20,7 +20,7 @@ export async function handleAddContact(cmd, userId) {
 
     // Analizar el comando AP
     // Formato: APCIUDADTELEFONO-TIPO/PNUMERO (el /PNUMERO es opcional)
-    const contactPattern = /AP+([A-Z]{3})+([0-9-]+)(?:-([A-Z]))?(?:\/P(\d+))?/i;
+    const contactPattern = /AP+([A-Z]{3})+([0-9]+)(?:-([A-Z]))?(?:\/P(\d+))?/i;
     const match = cmd.match(contactPattern);
 
     if (!match) {
