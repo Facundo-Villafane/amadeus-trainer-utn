@@ -1,5 +1,12 @@
 // src/utils/commandParser/commands/pnr/pnrUtils.js
 import { convertToAmadeusDate } from './dateUtils';
+import { getSegmentAirlineLocator } from '../../../pnrGenerator';
+
+// Localizador de la aerolínea al final del segmento (solo PNRs grabados, segmento HK)
+function airlineLocatorSuffix(pnr, segment) {
+  const locator = getSegmentAirlineLocator(pnr, segment);
+  return locator ? ` ${locator}` : '';
+}
 
 /**
  * Formatea un PNR para mostrar como respuesta en el terminal
@@ -53,7 +60,7 @@ export function formatPNRResponse(pnr) {
 
       response += `${formattedDate} ${segment.dayOfWeek} ${segment.origin}${segment.destination} `;
       response += `${segment.status}${segment.quantity} ${segment.departureTime} ${segment.arrivalTime} `;
-      response += `${formattedDate} E ${segment.equipment}\n`;
+      response += `${formattedDate} E ${segment.equipment}${airlineLocatorSuffix(pnr, segment)}\n`;
 
       elementNumber++;
     });
@@ -282,7 +289,7 @@ export function formatERResponse(pnr) {
 
       response += `${formattedDate} ${segment.dayOfWeek} ${segment.origin}${segment.destination} `;
       response += `${segment.status}${segment.quantity} ${segment.departureTime} ${segment.arrivalTime} `;
-      response += `${formattedDate} E ${segment.equipment}\n`;
+      response += `${formattedDate} E ${segment.equipment}${airlineLocatorSuffix(pnr, segment)}\n`;
 
       segmentIndex++;
     });

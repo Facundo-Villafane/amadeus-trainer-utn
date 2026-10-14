@@ -5,6 +5,7 @@ import { db } from '../../services/firebase';
 import { useAuth } from '../../hooks/useAuth';
 import { FiSearch, FiCalendar, FiMap, FiTag, FiClock } from 'react-icons/fi';
 import toast from 'react-hot-toast';
+import { getSegmentAirlineLocator } from '../../utils/pnrGenerator';
 
 export default function MyPNRsSection() {
   const { currentUser } = useAuth();
@@ -317,12 +318,15 @@ function PNRDetailModal({ selectedPNR, onClose, onCancel }) {
                             </div>
                           </div>
                         </div>
-                        <div className="mt-1 text-xs text-gray-500 flex justify-between">
+                        <div className="mt-1 text-xs text-gray-500 flex flex-wrap justify-between gap-x-3">
                           <span>
                             Estado: {segment.status}{segment.quantity} 
                             {segment.status === 'HK' ? ' (Confirmado)' : 
                              segment.status === 'DK' ? ' (Pendiente)' : ''}
                           </span>
+                          {getSegmentAirlineLocator(selectedPNR, segment) && (
+                            <span>Loc. aerolínea: {getSegmentAirlineLocator(selectedPNR, segment)}</span>
+                          )}
                           <span>Equipo: {segment.equipment}</span>
                         </div>
                       </li>

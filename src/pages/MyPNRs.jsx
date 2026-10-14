@@ -8,6 +8,7 @@ import DashboardSidebar from '../components/dashboard/DashboardSidebar';
 import DashboardHeader from '../components/dashboard/DashboardHeader';
 import { FiSearch, FiCalendar, FiClock, FiAirplay, FiExternalLink, FiTag, FiFileText } from 'react-icons/fi';
 import toast from 'react-hot-toast';
+import { getSegmentAirlineLocator } from '../utils/pnrGenerator';
 
 export default function MyPNRs() {
   const [pnrs, setPnrs] = useState([]);
@@ -346,12 +347,15 @@ const cancelPNR = async (pnrId) => {
                                 </div>
                               </div>
                             </div>
-                            <div className="mt-1 text-xs text-gray-500 flex justify-between">
+                            <div className="mt-1 text-xs text-gray-500 flex flex-wrap justify-between gap-x-3">
                               <span>
                                 Estado: {segment.status}{segment.quantity} 
                                 {segment.status === 'HK' ? ' (Confirmado)' : 
                                  segment.status === 'DK' ? ' (Pendiente)' : ''}
                               </span>
+                              {getSegmentAirlineLocator(selectedPNR, segment) && (
+                                <span>Loc. aerolínea: {getSegmentAirlineLocator(selectedPNR, segment)}</span>
+                              )}
                               <span>Equipo: {segment.equipment}</span>
                             </div>
                           </li>
