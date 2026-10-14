@@ -213,7 +213,7 @@ export async function handleFinalizeSplit(cmd, userId) {
         });
 
         if (userId) {
-            await experienceService.recordSuccessfulCommand(userId, 'SP', 'SPLIT');
+            experienceService.track(() => experienceService.recordSuccessfulCommand(userId, 'SP', 'SPLIT'));
         }
 
         if (cmd === 'ET') {

@@ -551,6 +551,33 @@ class ExperienceService {
     this.hadPNRError = false;
     this.sessionCommandErrors = 0;  // For ERROR_FREE_SESSION
     this.consecutiveSuccesses = 0;  // For PRECISION_MASTER
+    this._queue = Promise.resolve(); // Background XP writes (see track)
+    this._ownedUserId = null;        // Achievements already unlocked, so
+    this._owned = new Set();         // checkAndUnlockAchievement can skip them
+  }
+
+  // Records achievements the user already has (cache is per user).
+  _rememberOwned(userId, achievementIds = []) {
+    if (this._ownedUserId !== userId) {
+      this._ownedUserId = userId;
+      this._owned = new Set();
+    }
+    achievementIds.forEach(id => this._owned.add(id));
+  }
+
+  // ── Background tracking ──────────────────────────────────────────────────────
+  // Runs XP bookkeeping without blocking the terminal response. Tasks are
+  // chained so one command's writes never race with the next one's.
+  track(task) {
+    this._queue = this._queue
+      .then(task)
+      .catch(e => console.error('Background XP tracking error:', e));
+    return this._queue;
+  }
+
+  // Waits for every queued XP write (e.g. before completePNR reads hadPNRError).
+  flush() {
+    return this._queue;
   }
 
   // ── Session start ────────────────────────────────────────────────────────────
@@ -564,6 +591,7 @@ class ExperienceService {
       const userRef = doc(db, 'users', userId);
       const userDoc = await getDoc(userRef);
       const userData = userDoc.data() || {};
+      this._rememberOwned(userId, userData.achievements);
 
       // Restore anti-farming state from Firestore
       this._lastPNRCompletedAt = userData.lastPNRCompletedAt || null;
@@ -765,6 +793,8 @@ class ExperienceService {
       const userRef = doc(db, 'users', userId);
       const userDoc = await getDoc(userRef);
       const userData = userDoc.data() || {};
+
+      this._rememberOwned(userId, userData.achievements);
 
       // First command ever
       if (!userData.commandsExecuted || userData.commandsExecuted === 0) {
@@ -980,6 +1010,9 @@ class ExperienceService {
   async completePNR(userId, pnrId, recordLocator) {
     if (!userId || !pnrId) return null;
 
+    // Let pending background writes (recordPNRError, etc.) land first
+    await this.flush();
+
     try {
       const userRef = doc(db, 'users', userId);
       const userDoc = await getDoc(userRef);
@@ -1161,13 +1194,16 @@ class ExperienceService {
       const achievement = this.ACHIEVEMENTS[achievementId];
       if (!achievement) return false;
 
+      // Already unlocked: skip the transaction (one Firestore round-trip less)
+      if (this._ownedUserId === userId && this._owned.has(achievementId)) return false;
+
       const result = await runTransaction(db, async (transaction) => {
         const userDoc = await transaction.get(userRef);
         const userData = userDoc.data() || {};
         const achieved = userData.achievements || [];
 
         if (achieved.includes(achievementId)) {
-          return { unlocked: false };
+          return { unlocked: false, alreadyOwned: true };
         }
 
         const currentXP = userData.xp || 0;
@@ -1197,6 +1233,7 @@ class ExperienceService {
         };
       });
 
+      if (result.unlocked || result.alreadyOwned) this._rememberOwned(userId, [achievementId]);
       if (!result.unlocked) return false;
 
       if (result.xpDelta > 0) {

@@ -85,7 +85,7 @@ export async function commandParser(command, userId) {
 
     // Si es el primer comando de creación de PNR, iniciar timer
     if (cmd.startsWith('SS') && !getCurrentPNR() && userId) {
-      await experienceService.startPNRCreation(userId);
+      experienceService.track(() => experienceService.startPNRCreation(userId));
     }
 
     // Comandos de paginación
@@ -94,7 +94,7 @@ export async function commandParser(command, userId) {
 
       // Registrar comando exitoso si hay userId
       if (userId && result && !result.startsWith('Error') && !result.includes('No hay resultados')) {
-        await experienceService.recordSuccessfulCommand(userId, cmd, commandType);
+        experienceService.track(() => experienceService.recordSuccessfulCommand(userId, cmd, commandType));
       }
 
       return result;
@@ -105,7 +105,7 @@ export async function commandParser(command, userId) {
 
       // Registrar comando exitoso si hay userId
       if (userId && result && !result.startsWith('Error') && !result.includes('No hay páginas previas')) {
-        await experienceService.recordSuccessfulCommand(userId, cmd, commandType);
+        experienceService.track(() => experienceService.recordSuccessfulCommand(userId, cmd, commandType));
       }
 
       return result;
@@ -117,7 +117,7 @@ export async function commandParser(command, userId) {
 
       // Registrar uso de comando HELP para logro "Helping Hand"
       if (userId) {
-        await experienceService.recordSuccessfulCommand(userId, cmd, 'HELP');
+        experienceService.track(() => experienceService.recordSuccessfulCommand(userId, cmd, 'HELP'));
       }
 
       return result;
@@ -129,7 +129,7 @@ export async function commandParser(command, userId) {
 
       // Registrar uso de comando HE para logro "Helping Hand"
       if (userId) {
-        await experienceService.recordSuccessfulCommand(userId, cmd, 'HELP');
+        experienceService.track(() => experienceService.recordSuccessfulCommand(userId, cmd, 'HELP'));
       }
 
       return result;
@@ -142,9 +142,9 @@ export async function commandParser(command, userId) {
       // Registrar resultado
       if (userId) {
         if (!result.startsWith('Error') && !result.includes('No se encontraron')) {
-          await experienceService.recordSuccessfulCommand(userId, cmd, commandType);
+          experienceService.track(() => experienceService.recordSuccessfulCommand(userId, cmd, commandType));
         } else {
-          await experienceService.recordCommandError(userId, cmd, result);
+          experienceService.track(() => experienceService.recordCommandError(userId, cmd, result));
         }
       }
 
@@ -158,9 +158,9 @@ export async function commandParser(command, userId) {
       // Registrar resultado
       if (userId) {
         if (!result.startsWith('Error') && !result.includes('No se encontraron')) {
-          await experienceService.recordSuccessfulCommand(userId, cmd, commandType);
+          experienceService.track(() => experienceService.recordSuccessfulCommand(userId, cmd, commandType));
         } else {
-          await experienceService.recordCommandError(userId, cmd, result);
+          experienceService.track(() => experienceService.recordCommandError(userId, cmd, result));
         }
       }
 
@@ -174,9 +174,9 @@ export async function commandParser(command, userId) {
       // Registrar resultado
       if (userId) {
         if (!result.startsWith('Error') && !result.includes('No se encontraron')) {
-          await experienceService.recordSuccessfulCommand(userId, cmd, commandType);
+          experienceService.track(() => experienceService.recordSuccessfulCommand(userId, cmd, commandType));
         } else {
-          await experienceService.recordCommandError(userId, cmd, result);
+          experienceService.track(() => experienceService.recordCommandError(userId, cmd, result));
         }
       }
 
@@ -190,9 +190,9 @@ export async function commandParser(command, userId) {
       // Registrar resultado
       if (userId) {
         if (!result.startsWith('Error') && !result.includes('No se encontró')) {
-          await experienceService.recordSuccessfulCommand(userId, cmd, 'DECODE_ENCODE');
+          experienceService.track(() => experienceService.recordSuccessfulCommand(userId, cmd, 'DECODE_ENCODE'));
         } else {
-          await experienceService.recordCommandError(userId, cmd, result);
+          experienceService.track(() => experienceService.recordCommandError(userId, cmd, result));
         }
       }
 
@@ -205,9 +205,9 @@ export async function commandParser(command, userId) {
       // Registrar resultado
       if (userId) {
         if (!result.startsWith('Error') && !result.includes('No se encontró')) {
-          await experienceService.recordSuccessfulCommand(userId, cmd, 'DECODE_ENCODE');
+          experienceService.track(() => experienceService.recordSuccessfulCommand(userId, cmd, 'DECODE_ENCODE'));
         } else {
-          await experienceService.recordCommandError(userId, cmd, result);
+          experienceService.track(() => experienceService.recordCommandError(userId, cmd, result));
         }
       }
 
@@ -220,9 +220,9 @@ export async function commandParser(command, userId) {
       // Registrar resultado
       if (userId) {
         if (!result.startsWith('Error') && !result.includes('No se encontr')) {
-          await experienceService.recordSuccessfulCommand(userId, cmd, 'DECODE_ENCODE');
+          experienceService.track(() => experienceService.recordSuccessfulCommand(userId, cmd, 'DECODE_ENCODE'));
         } else {
-          await experienceService.recordCommandError(userId, cmd, result);
+          experienceService.track(() => experienceService.recordCommandError(userId, cmd, result));
         }
       }
 
@@ -238,9 +238,9 @@ export async function commandParser(command, userId) {
       // Registrar resultado
       if (userId) {
         if (!result.startsWith('Error') && !result.includes('No se encontró')) {
-          await experienceService.recordSuccessfulCommand(userId, cmd, 'DECODE_ENCODE');
+          experienceService.track(() => experienceService.recordSuccessfulCommand(userId, cmd, 'DECODE_ENCODE'));
         } else {
-          await experienceService.recordCommandError(userId, cmd, result);
+          experienceService.track(() => experienceService.recordCommandError(userId, cmd, result));
         }
       }
 
@@ -253,9 +253,9 @@ export async function commandParser(command, userId) {
       // Registrar resultado
       if (userId) {
         if (!result.startsWith('Error') && !result.includes('NOT FOUND') && !result.includes('FORMAT ERROR')) {
-          await experienceService.recordSuccessfulCommand(userId, cmd, 'DECODE_EQP');
+          experienceService.track(() => experienceService.recordSuccessfulCommand(userId, cmd, 'DECODE_EQP'));
         } else {
-          await experienceService.recordCommandError(userId, cmd, result);
+          experienceService.track(() => experienceService.recordCommandError(userId, cmd, result));
         }
       }
 
@@ -270,9 +270,9 @@ export async function commandParser(command, userId) {
       // Registrar resultado
       if (userId) {
         if (!result.startsWith('Error')) {
-          await experienceService.recordSuccessfulCommand(userId, cmd, commandType);
+          experienceService.track(() => experienceService.recordSuccessfulCommand(userId, cmd, commandType));
         } else {
-          await experienceService.recordCommandError(userId, cmd, result);
+          experienceService.track(() => experienceService.recordCommandError(userId, cmd, result));
         }
       }
 
@@ -286,13 +286,13 @@ export async function commandParser(command, userId) {
       // Registrar resultado
       if (userId) {
         if (!result.startsWith('Error')) {
-          await experienceService.recordSuccessfulCommand(userId, cmd, commandType);
+          experienceService.track(() => experienceService.recordSuccessfulCommand(userId, cmd, commandType));
         } else {
-          await experienceService.recordCommandError(userId, cmd, result);
+          experienceService.track(() => experienceService.recordCommandError(userId, cmd, result));
 
           // Si es un error durante creación de PNR
           if (getCurrentPNR()) {
-            await experienceService.recordPNRError(userId);
+            experienceService.track(() => experienceService.recordPNRError(userId));
           }
         }
       }
@@ -307,13 +307,13 @@ export async function commandParser(command, userId) {
       // Registrar resultado
       if (userId) {
         if (!result.startsWith('Error')) {
-          await experienceService.recordSuccessfulCommand(userId, cmd, commandType);
+          experienceService.track(() => experienceService.recordSuccessfulCommand(userId, cmd, commandType));
         } else {
-          await experienceService.recordCommandError(userId, cmd, result);
+          experienceService.track(() => experienceService.recordCommandError(userId, cmd, result));
 
           // Si es un error durante creación de PNR
           if (getCurrentPNR()) {
-            await experienceService.recordPNRError(userId);
+            experienceService.track(() => experienceService.recordPNRError(userId));
           }
         }
       }
@@ -328,13 +328,13 @@ export async function commandParser(command, userId) {
       // Registrar resultado
       if (userId) {
         if (!result.startsWith('Error')) {
-          await experienceService.recordSuccessfulCommand(userId, cmd, commandType);
+          experienceService.track(() => experienceService.recordSuccessfulCommand(userId, cmd, commandType));
         } else {
-          await experienceService.recordCommandError(userId, cmd, result);
+          experienceService.track(() => experienceService.recordCommandError(userId, cmd, result));
 
           // Si es un error durante creación de PNR
           if (getCurrentPNR()) {
-            await experienceService.recordPNRError(userId);
+            experienceService.track(() => experienceService.recordPNRError(userId));
           }
         }
       }
@@ -350,13 +350,13 @@ export async function commandParser(command, userId) {
       // Registrar resultado
       if (userId) {
         if (!result.startsWith('Error')) {
-          await experienceService.recordSuccessfulCommand(userId, cmd, commandType);
+          experienceService.track(() => experienceService.recordSuccessfulCommand(userId, cmd, commandType));
         } else {
-          await experienceService.recordCommandError(userId, cmd, result);
+          experienceService.track(() => experienceService.recordCommandError(userId, cmd, result));
 
           // Si es un error durante creación de PNR
           if (getCurrentPNR()) {
-            await experienceService.recordPNRError(userId);
+            experienceService.track(() => experienceService.recordPNRError(userId));
           }
         }
       }
@@ -375,9 +375,9 @@ export async function commandParser(command, userId) {
           // Registrar resultado
           if (userId) {
             if (!result.startsWith('Error')) {
-              await experienceService.recordSuccessfulCommand(userId, cmd, 'PNR_CANCEL');
+              experienceService.track(() => experienceService.recordSuccessfulCommand(userId, cmd, 'PNR_CANCEL'));
             } else {
-              await experienceService.recordCommandError(userId, cmd, result);
+              experienceService.track(() => experienceService.recordCommandError(userId, cmd, result));
             }
           }
 
@@ -392,13 +392,13 @@ export async function commandParser(command, userId) {
       // Registrar resultado
       if (userId) {
         if (!result.startsWith('Error')) {
-          await experienceService.recordSuccessfulCommand(userId, cmd, commandType);
+          experienceService.track(() => experienceService.recordSuccessfulCommand(userId, cmd, commandType));
         } else {
-          await experienceService.recordCommandError(userId, cmd, result);
+          experienceService.track(() => experienceService.recordCommandError(userId, cmd, result));
 
           // Si es un error durante creación de PNR
           if (getCurrentPNR()) {
-            await experienceService.recordPNRError(userId);
+            experienceService.track(() => experienceService.recordPNRError(userId));
           }
         }
       }
@@ -423,9 +423,9 @@ export async function commandParser(command, userId) {
       // Registrar resultado
       if (userId) {
         if (!result.startsWith('Error') && !result.startsWith('Formato') && !result.includes('no admite')) {
-          await experienceService.recordSuccessfulCommand(userId, cmd, commandType);
+          experienceService.track(() => experienceService.recordSuccessfulCommand(userId, cmd, commandType));
         } else {
-          await experienceService.recordCommandError(userId, cmd, result);
+          experienceService.track(() => experienceService.recordCommandError(userId, cmd, result));
         }
       }
 
@@ -439,9 +439,9 @@ export async function commandParser(command, userId) {
       // Registrar resultado
       if (userId) {
         if (!result.startsWith('Error') && !result.includes('No se encontró el PNR')) {
-          await experienceService.recordSuccessfulCommand(userId, cmd, commandType);
+          experienceService.track(() => experienceService.recordSuccessfulCommand(userId, cmd, commandType));
         } else {
-          await experienceService.recordCommandError(userId, cmd, result);
+          experienceService.track(() => experienceService.recordCommandError(userId, cmd, result));
         }
       }
 
@@ -456,9 +456,9 @@ export async function commandParser(command, userId) {
       // Registrar resultado
       if (userId) {
         if (!result.startsWith('Error')) {
-          await experienceService.recordSuccessfulCommand(userId, cmd, commandType);
+          experienceService.track(() => experienceService.recordSuccessfulCommand(userId, cmd, commandType));
         } else {
-          await experienceService.recordCommandError(userId, cmd, result);
+          experienceService.track(() => experienceService.recordCommandError(userId, cmd, result));
         }
       }
 
@@ -472,9 +472,9 @@ export async function commandParser(command, userId) {
       // Registrar resultado
       if (userId) {
         if (!result.startsWith('Error')) {
-          await experienceService.recordSuccessfulCommand(userId, cmd, commandType);
+          experienceService.track(() => experienceService.recordSuccessfulCommand(userId, cmd, commandType));
         } else {
-          await experienceService.recordCommandError(userId, cmd, result);
+          experienceService.track(() => experienceService.recordCommandError(userId, cmd, result));
         }
       }
 
@@ -489,13 +489,13 @@ export async function commandParser(command, userId) {
       // Registrar resultado
       if (userId) {
         if (!result.startsWith('Error')) {
-          await experienceService.recordSuccessfulCommand(userId, cmd, commandType);
+          experienceService.track(() => experienceService.recordSuccessfulCommand(userId, cmd, commandType));
         } else {
-          await experienceService.recordCommandError(userId, cmd, result);
+          experienceService.track(() => experienceService.recordCommandError(userId, cmd, result));
 
           // Si es un error durante creación de PNR
           if (getCurrentPNR()) {
-            await experienceService.recordPNRError(userId);
+            experienceService.track(() => experienceService.recordPNRError(userId));
           }
         }
       }
@@ -508,9 +508,9 @@ export async function commandParser(command, userId) {
       previousCommandWasXI = false;
       if (userId) {
         if (!result.startsWith('Error') && !result.startsWith('No hay') && !result.startsWith('El PNR') && !result.startsWith('Formato')) {
-          await experienceService.recordSuccessfulCommand(userId, cmd, commandType);
+          experienceService.track(() => experienceService.recordSuccessfulCommand(userId, cmd, commandType));
         } else {
-          await experienceService.recordCommandError(userId, cmd, result);
+          experienceService.track(() => experienceService.recordCommandError(userId, cmd, result));
         }
       }
       return result;
@@ -521,9 +521,9 @@ export async function commandParser(command, userId) {
       previousCommandWasXI = false;
       if (userId) {
         if (!result.startsWith('Error') && !result.startsWith('No hay') && !result.startsWith('Debe')) {
-          await experienceService.recordSuccessfulCommand(userId, 'SP', commandType);
+          experienceService.track(() => experienceService.recordSuccessfulCommand(userId, 'SP', commandType));
         } else {
-          await experienceService.recordCommandError(userId, cmd, result);
+          experienceService.track(() => experienceService.recordCommandError(userId, cmd, result));
         }
       }
       return result;
@@ -534,9 +534,9 @@ export async function commandParser(command, userId) {
       previousCommandWasXI = false;
       if (userId) {
         if (!result.startsWith('Error') && result.indexOf('solo se puede') === -1) {
-          await experienceService.recordSuccessfulCommand(userId, cmd, commandType);
+          experienceService.track(() => experienceService.recordSuccessfulCommand(userId, cmd, commandType));
         } else {
-          await experienceService.recordCommandError(userId, cmd, result);
+          experienceService.track(() => experienceService.recordCommandError(userId, cmd, result));
         }
       }
       return result;
@@ -547,9 +547,9 @@ export async function commandParser(command, userId) {
       previousCommandWasXI = false;
       if (userId) {
         if (!result.startsWith('Error') && !result.startsWith('No hay') && !result.startsWith('El PNR') && !result.startsWith('Comando')) {
-          await experienceService.recordSuccessfulCommand(userId, cmd.substring(0, 2), commandType);
+          experienceService.track(() => experienceService.recordSuccessfulCommand(userId, cmd.substring(0, 2), commandType));
         } else {
-          await experienceService.recordCommandError(userId, cmd, result);
+          experienceService.track(() => experienceService.recordCommandError(userId, cmd, result));
         }
       }
       return result;
@@ -562,13 +562,13 @@ export async function commandParser(command, userId) {
       // Registrar resultado
       if (userId) {
         if (!result.startsWith('Error')) {
-          await experienceService.recordSuccessfulCommand(userId, cmd, commandType);
+          experienceService.track(() => experienceService.recordSuccessfulCommand(userId, cmd, commandType));
         } else {
-          await experienceService.recordCommandError(userId, cmd, result);
+          experienceService.track(() => experienceService.recordCommandError(userId, cmd, result));
 
           // Si es un error durante creación de PNR
           if (getCurrentPNR()) {
-            await experienceService.recordPNRError(userId);
+            experienceService.track(() => experienceService.recordPNRError(userId));
           }
         }
       }
@@ -583,13 +583,13 @@ export async function commandParser(command, userId) {
       // Registrar resultado
       if (userId) {
         if (!result.startsWith('Error')) {
-          await experienceService.recordSuccessfulCommand(userId, cmd, commandType);
+          experienceService.track(() => experienceService.recordSuccessfulCommand(userId, cmd, commandType));
         } else {
-          await experienceService.recordCommandError(userId, cmd, result);
+          experienceService.track(() => experienceService.recordCommandError(userId, cmd, result));
 
           // Si es un error durante creación de PNR
           if (getCurrentPNR()) {
-            await experienceService.recordPNRError(userId);
+            experienceService.track(() => experienceService.recordPNRError(userId));
           }
         }
       }
@@ -617,9 +617,9 @@ export async function commandParser(command, userId) {
       // Registrar resultado
       if (userId) {
         if (!result.startsWith('Error')) {
-          await experienceService.recordSuccessfulCommand(userId, cmd, 'REMARK');
+          experienceService.track(() => experienceService.recordSuccessfulCommand(userId, cmd, 'REMARK'));
         } else {
-          await experienceService.recordCommandError(userId, cmd, result);
+          experienceService.track(() => experienceService.recordCommandError(userId, cmd, result));
         }
       }
 
@@ -633,9 +633,9 @@ export async function commandParser(command, userId) {
       // Registrar resultado
       if (userId) {
         if (!result.startsWith('Error')) {
-          await experienceService.recordSuccessfulCommand(userId, cmd, 'REMARK');
+          experienceService.track(() => experienceService.recordSuccessfulCommand(userId, cmd, 'REMARK'));
         } else {
-          await experienceService.recordCommandError(userId, cmd, result);
+          experienceService.track(() => experienceService.recordCommandError(userId, cmd, result));
         }
       }
 
@@ -649,9 +649,9 @@ export async function commandParser(command, userId) {
       // Registrar resultado
       if (userId) {
         if (!result.startsWith('Error')) {
-          await experienceService.recordSuccessfulCommand(userId, cmd, 'REMARK');
+          experienceService.track(() => experienceService.recordSuccessfulCommand(userId, cmd, 'REMARK'));
         } else {
-          await experienceService.recordCommandError(userId, cmd, result);
+          experienceService.track(() => experienceService.recordCommandError(userId, cmd, result));
         }
       }
 
@@ -664,7 +664,7 @@ export async function commandParser(command, userId) {
 
     // Registrar comando no reconocido como error
     if (userId) {
-      await experienceService.recordCommandError(userId, cmd, result);
+      experienceService.track(() => experienceService.recordCommandError(userId, cmd, result));
     }
 
     return result;
@@ -672,7 +672,7 @@ export async function commandParser(command, userId) {
     console.error('Error en commandParser:', error);
 
     if (userId) {
-      await experienceService.recordCommandError(userId, cmd, error.message);
+      experienceService.track(() => experienceService.recordCommandError(userId, cmd, error.message));
     }
 
     previousCommandWasXI = false; // Reiniciar el estado en caso de error

@@ -33,7 +33,7 @@ export async function handleEndTransaction(cmd, userId) {
     if (validationErrors.length > 0) {
       // Registrar error en experiencia
       if (userId) {
-        await experienceService.recordPNRError(userId);
+        experienceService.track(() => experienceService.recordPNRError(userId));
       }
       return `No se puede finalizar el PNR: ${validationErrors.join(" ")}`;
     }
