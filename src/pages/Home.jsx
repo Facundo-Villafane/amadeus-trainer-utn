@@ -24,7 +24,7 @@ const T = {
     aboutTitle: 'Formación académica especializada',
     about1Title: 'Universidad Tecnológica Nacional',
     about1:
-      'Mozart Trainer fue diseñado específicamente para los estudiantes de Billetaje y Reservas de la UTN-FRRo, como herramienta complementaria para practicar los sistemas GDS utilizados en la industria de viajes.',
+      'Mozart Trainer fue diseñado específicamente para los estudiantes de Billetaje y Reservas de la UTN, como herramienta complementaria para practicar los sistemas GDS utilizados en la industria de viajes.',
     about2Title: 'Aprendizaje autodirigido',
     about2:
       'Practicá a tu propio ritmo en un entorno seguro que simula el sistema real. Los docentes tienen acceso al panel de administración para hacer seguimiento detallado del progreso de cada alumno.',
